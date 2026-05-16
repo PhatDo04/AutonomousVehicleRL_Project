@@ -23,6 +23,16 @@ def _configure_windows_cli_io() -> None:
                 pass
 from gymnasium.spaces import Box, Discrete, MultiBinary, MultiDiscrete, Text
 
+from rl.config import MARL_AGENTS
+
+# GAMA 2025.6.x headless: `pz_action_spaces` đôi khi trả None qua socket (Discrete map).
+_DEFAULT_DISCRETE_ACTION_SPACE: dict[str, Any] = {"type": "Discrete", "n": 5}
+
+
+def _default_marl_action_spaces(agent_ids: list[str] | tuple[str, ...] | None = None) -> dict[str, dict[str, Any]]:
+    ids = list(agent_ids) if agent_ids else list(MARL_AGENTS)
+    return {str(aid): dict(_DEFAULT_DISCRETE_ACTION_SPACE) for aid in ids}
+
 
 def _patch_gama_parallel_env_space_cache() -> None:
     """Tránh gọi GAMA lặp cho mỗi step: GAMA 2025.6.x có thể lỗi
@@ -80,7 +90,14 @@ def patch_gama_pettingzoo_bridge_species() -> None:
         return self._execute_expression(experiment_id, "pz_observation_spaces")
 
     def get_action_spaces(self: Any, experiment_id: str) -> Any:
-        return self._execute_expression(experiment_id, "pz_action_spaces")
+        result = self._execute_expression(experiment_id, "pz_action_spaces")
+        if result is not None:
+            return result
+        try:
+            agents = self.get_possible_agents(experiment_id)
+        except Exception:
+            agents = list(MARL_AGENTS)
+        return _default_marl_action_spaces(agents)
 
     def get_observations(self: Any, experiment_id: str) -> dict[str, Any]:
         return self._execute_expression(experiment_id, "pz_observations")

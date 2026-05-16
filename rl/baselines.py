@@ -1,4 +1,4 @@
-"""Evaluate non-learning baselines for the highway merging task."""
+"""Evaluate non-learning baselines on the MARL GAMA socket (cùng Main_Traffic.gaml)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -13,9 +14,28 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from rl.config import LOG_DIR, SCENARIO_CLI_METADATA_ONLY_HINT, SCENARIO_PRESETS, SingleAgentGamaConfig
-from rl.legacy.env_single import GamaMergingEnv
-from rl.metrics import EpisodeMetric, build_episode_metric, write_episode_metrics
+from rl.config import (
+    LOG_DIR,
+    MARL_AGENTS,
+    MARL_EXPERIMENT,
+    MODEL_PATH,
+    SCENARIO_CLI_METADATA_ONLY_HINT,
+    SCENARIO_PRESETS,
+    GamaConnectionConfig,
+)
+from rl.gama_compat import patch_gama_gymnasium
+from rl.marl_env import AgentIndicatorParallelWrapper
+from rl.metrics import (
+    EpisodeMetric,
+    build_episode_metric,
+    classify_episode,
+    finalize_merging_info_on_step_limit,
+    write_episode_metrics,
+)
+
+patch_gama_gymnasium()
+
+from gama_pettingzoo.gama_parallel_env import GamaParallelEnv  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -49,121 +69,153 @@ def parse_args() -> argparse.Namespace:
 
 
 def heuristic_action(obs: np.ndarray) -> int:
-    """Rule-based Greedy policy dùng 15D merging observation từ Main_Traffic.gaml.
-
-    Vector đủ 15 chiều — khớp README (bảng *merging_0*) và ``get_merging_state()`` trong GAML.
-    Hàm này chỉ **đọc** các chiều sau (các chiều khác có thể dùng để mở rộng heuristic sau này):
-
-    | Index | Trường GAML / README |
-    |---|---|
-    | 0 | norm_speed |
-    | 1–3 | norm_progress, norm_dist_to_merge, norm_lateral_error — *chưa dùng trong rule hiện tại* |
-    | 4 | in_accel_zone (binary) |
-    | 5–6 | norm_gap_front, norm_speed_front — *chưa dùng* |
-    | 7–8 | norm_gap_rear, norm_speed_rear |
-    | 9 | norm_gap_safe |
-    | 10–11 | norm_ramp_front_gap, norm_ramp_front_speed — chỉ dùng gap |
-    | 12 | norm_urgency |
-    | 13–14 | norm_last_action, norm_patience — *chưa dùng* |
-    """
-    speed          = float(obs[0])
-    in_accel_zone  = float(obs[4]) >= 0.5
-    gap_rear       = float(obs[7])
-    speed_rear     = float(obs[8])
-    gap_safe       = float(obs[9]) >= 0.5
+    """Rule-based Greedy policy dùng 15D merging observation từ Main_Traffic.gaml."""
+    speed = float(obs[0])
+    in_accel_zone = float(obs[4]) >= 0.5
+    gap_rear = float(obs[7])
+    speed_rear = float(obs[8])
+    gap_safe = float(obs[9]) >= 0.5
     ramp_front_gap = float(obs[10])
-    urgency        = float(obs[12])
+    urgency = float(obs[12])
 
-    # Ngưỡng dưới đây là heuristic “mềm” trên [0,1]; có thể tinh chỉnh theo ablation (ghi trong luận văn).
-    # Ưu tiên 1: merge ngay nếu điều kiện an toàn
     if in_accel_zone and gap_safe:
-        return 3  # merge
+        return 3
 
-    # Ưu tiên 2: xe phía sau cao tốc áp sát + đang chạy nhanh → giảm tốc nhường gap
-    # (gap_rear nhỏ = nguy hiểm, speed_rear cao = xe sau đang lao tới)
-    if gap_rear < 0.1 and speed_rear > 0.5:  # 0.1 ≈ khoảng cách chuẩn hóa “rất sát” trong [0,1]
-        return 0  # decelerate — tránh bị đâm từ sau khi merge
+    if gap_rear < 0.1 and speed_rear > 0.5:
+        return 0
 
-    # Ưu tiên 3: có xe ramp phía trước đang chặn → giảm tốc
-    if ramp_front_gap < 0.08:  # ngưỡng “quá gần” trên thang chuẩn hóa ramp_front_gap
-        return 0  # decelerate behind a ramp vehicle
+    if ramp_front_gap < 0.08:
+        return 0
 
-    # Ưu tiên 4: urgency cực cao (≈ cuối làn tăng tốc) → cố merge hoặc phanh gấp
-    # Khi urgency = 1.0 mà tiếp tục wait sẽ chắc chắn failed_merge.
-    # Greedy tối ưu: nếu còn thời gian (urgency 0.75–0.9) → chờ; nếu gần hết (>0.9) → cố merge.
-    if urgency > 0.9 and not gap_safe:  # gần hết làn tăng tốc (chuẩn hóa urgency)
-        return 3  # desperate merge attempt — đánh cược còn hơn chắc chắn failed_merge
+    if urgency > 0.9 and not gap_safe:
+        return 3
     if urgency > 0.75 and not gap_safe:
-        return 4  # wait — vẫn còn ít thời gian để chờ gap tốt hơn
+        return 4
 
-    # Ưu tiên 5: tăng tốc để bắt kịp tốc độ dòng chính
-    if speed < 0.7:  # dưới ~70% tốc độ chuẩn hóa
-        return 2  # accelerate toward traffic flow speed
+    if speed < 0.7:
+        return 2
 
-    return 1  # keep speed
+    return 1
 
 
-def choose_action(policy: str, env: GamaMergingEnv, obs: np.ndarray) -> int:
-    """Return one discrete action for the selected baseline policy.
-
-    'greedy' là alias của 'heuristic' để khớp thuật ngữ đề cương
-    ('chính sách dựa trên quy tắc tĩnh Greedy').
-    """
+def _choose_merging_action(policy: str, obs: np.ndarray, rng: np.random.Generator) -> int:
     if policy == "random":
-        return int(env.action_space.sample())
-    if policy in ("heuristic", "greedy"):
-        return heuristic_action(obs)
-    raise ValueError(f"Unsupported baseline policy: {policy}")
+        return int(rng.integers(0, 5))
+    return heuristic_action(obs)
+
+
+def _choose_highway_action(policy: str, rng: np.random.Generator) -> int:
+    if policy == "random":
+        return int(rng.integers(0, 5))
+    return 1
 
 
 async def async_main(args: argparse.Namespace) -> None:
-    """Run baseline episodes and write one metrics CSV."""
+    """Run baseline episodes on MARL socket and write metrics for merging_0."""
     scenario = SCENARIO_PRESETS.get(args.scenario)
     if scenario:
         print(f"Scenario: {scenario.name} (nb_cars_max={scenario.nb_cars_max})")
         print(SCENARIO_CLI_METADATA_ONLY_HINT)
-    config = SingleAgentGamaConfig(
+
+    config = GamaConnectionConfig(
         host=args.host,
         port=args.port,
         max_episode_steps=args.max_episode_steps,
         simulation_seed=args.seed,
     )
-    env = GamaMergingEnv(config)
+    parallel_env = GamaParallelEnv(
+        gaml_experiment_path=str(MODEL_PATH),
+        gaml_experiment_name=MARL_EXPERIMENT,
+        gama_ip_address=config.host,
+        gama_port=config.port,
+    )
+    env_ss = AgentIndicatorParallelWrapper(parallel_env, type_only=False)
+    rng = np.random.default_rng(args.seed)
     rows: list[EpisodeMetric] = []
 
     try:
+        obs_dict, _ = parallel_env.reset(seed=args.seed)
+        missing = [a for a in MARL_AGENTS if a not in obs_dict]
+        if missing:
+            raise RuntimeError(f"Thiếu agent MARL: {missing}. Kiểm tra GAML / GAMA headless.")
+
         for episode in range(1, args.episodes + 1):
-            obs, _info = env.reset(seed=args.seed + episode)
-            total_reward = 0.0
+            ep_seed = args.seed + episode
+            if args.policy == "random":
+                rng = np.random.default_rng(ep_seed)
+
+            obs_dict, _ = env_ss.reset(seed=ep_seed)
+            ep_reward = 0.0
             length = 0
-            terminated = False
-            truncated = False
-            info = {}
+            done_agents: set[str] = set()
+            final_info: dict[str, dict[str, Any]] = {}
+            last_infos: dict[str, dict[str, Any]] = {}
+            step = 0
+            hit_step_limit = False
 
-            while not (terminated or truncated):
-                action = choose_action(args.policy, env, obs)
-                obs, reward, terminated, truncated, info = env.step(action)
-                total_reward += reward
-                length += 1
+            while len(done_agents) < len(MARL_AGENTS) and step < args.max_episode_steps:
+                actions: dict[str, int] = {}
+                for agent_id in MARL_AGENTS:
+                    if agent_id in done_agents:
+                        continue
+                    obs = obs_dict.get(agent_id)
+                    if obs is None:
+                        done_agents.add(agent_id)
+                        final_info[agent_id] = {"outcome": "missing_agent"}
+                        continue
+                    if agent_id == "merging_0":
+                        arr = np.asarray(obs, dtype=np.float32)[:15]
+                        actions[agent_id] = _choose_merging_action(args.policy, arr, rng)
+                    else:
+                        actions[agent_id] = _choose_highway_action(args.policy, rng)
 
+                if not actions:
+                    break
+
+                next_obs, rewards, terminations, truncations, infos = env_ss.step(actions)
+                step += 1
+                for agent_id, info in (infos or {}).items():
+                    if info:
+                        last_infos[agent_id] = dict(info)
+                if "merging_0" in actions:
+                    ep_reward += float(rewards.get("merging_0", 0.0))
+                    length += 1
+
+                for agent_id in list(actions.keys()):
+                    if terminations.get(agent_id, False) or truncations.get(agent_id, False):
+                        if agent_id not in done_agents:
+                            done_agents.add(agent_id)
+                            final_info[agent_id] = dict(infos.get(agent_id) or {})
+
+                obs_dict = next_obs
+
+            hit_step_limit = step >= args.max_episode_steps
+            if "merging_0" not in final_info and last_infos.get("merging_0"):
+                final_info["merging_0"] = last_infos["merging_0"]
+            m0_info = finalize_merging_info_on_step_limit(
+                final_info.get("merging_0", {}),
+                hit_step_limit=hit_step_limit,
+            )
+            outcome = str(m0_info.get("outcome", "timeout"))
+            is_term, is_trunc = classify_episode(outcome)
             rows.append(
                 build_episode_metric(
                     algorithm=args.policy,
                     seed=args.seed,
                     episode=episode,
-                    reward=total_reward,
+                    reward=ep_reward,
                     length=length,
-                    terminated=terminated,
-                    truncated=truncated,
-                    info=info,
+                    terminated=is_term,
+                    truncated=is_trunc,
+                    info=m0_info,
                 )
             )
             print(
-                f"episode={episode} reward={total_reward:.2f} length={length} "
+                f"episode={episode} reward={ep_reward:.2f} length={length} "
                 f"outcome={rows[-1].outcome}"
             )
     finally:
-        env.close()
+        parallel_env.close()
 
     output_path = Path(args.out) if args.out else LOG_DIR / f"{args.policy}_baseline_seed{args.seed}.csv"
     write_episode_metrics(output_path, rows)

@@ -361,6 +361,15 @@ def parse_args() -> argparse.Namespace:
             "Mặc định sẽ reject để ưu tiên safety mainline."
         ),
     )
+    parser.add_argument(
+        "--mode",
+        choices=("both", "train", "eval", "full"),
+        default="both",
+        help=(
+            "both/full: baseline + train + eval + plots (mặc định). "
+            "train: chỉ huấn luyện. eval: chỉ đánh giá model có sẵn."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -422,7 +431,11 @@ def _run_all_experiments(
     """Thân thực nghiệm — tách riêng để main() có thể bọc trong try/finally."""
     all_csv: list[Path] = []
 
-    if not args.skip_baselines:
+    run_train = args.mode in ("both", "full", "train")
+    run_eval_step = args.mode in ("both", "full", "eval")
+    run_baselines_step = args.mode in ("both", "full") and not args.skip_baselines
+
+    if run_baselines_step:
         baseline_csvs = run_baselines(
             episodes=eval_episodes,
             seed=seeds[0],
@@ -433,57 +446,70 @@ def _run_all_experiments(
             dry_run=args.dry_run,
         )
         all_csv.extend(baseline_csvs)
-    else:
+    elif args.mode in ("both", "full"):
         print("\n  [SKIP] Bỏ qua bước baseline theo --skip-baselines.")
 
-    print(f"\n{'='*60}")
-    print("  Bắt đầu huấn luyện MARL (merging_0 + highway_0/1/2, shared policy)...")
-    print(f"  Thuật toán: {args.algos}")
+    if not run_train and not run_eval_step:
+        print("\n  [SKIP] Không train/eval theo --mode.")
+        return
+
+    if run_train or run_eval_step:
+        print(f"\n{'='*60}")
+        if run_train:
+            print("  Bắt đầu huấn luyện MARL (merging_0 + highway_0/1/2, shared policy)...")
+        else:
+            print("  Chỉ đánh giá model MARL có sẵn (--mode eval)...")
+        print(f"  Thuật toán: {args.algos}")
+
     for algo in args.algos:
         for seed in seeds:
             marl_prefix = f"marl_{algo}_seed{seed}_{timesteps // 1000}k"
             if args.scenario != "medium":
                 marl_prefix = f"{marl_prefix}_{args.scenario}"
-            checkpoint_interval = 0
-            if args.select_best_checkpoint:
-                checkpoint_interval = args.checkpoint_interval or _default_checkpoint_interval(timesteps)
-            csv_path = run_training(
-                algo=algo,
-                timesteps=timesteps,
-                seed=seed,
-                host=args.host,
-                port=args.port,
-                max_episode_steps=max_episode_steps,
-                scenario=args.scenario,
-                dry_run=args.dry_run,
-                checkpoint_interval=checkpoint_interval,
-            )
-            all_csv.append(csv_path)
             marl_model_path = MODEL_DIR / f"{marl_prefix}.zip"
-            if args.select_best_checkpoint:
-                select_best_checkpoint(
+
+            if run_train:
+                checkpoint_interval = 0
+                if args.select_best_checkpoint:
+                    checkpoint_interval = args.checkpoint_interval or _default_checkpoint_interval(timesteps)
+                csv_path = run_training(
                     algo=algo,
-                    run_name=marl_prefix,
+                    timesteps=timesteps,
+                    seed=seed,
+                    host=args.host,
+                    port=args.port,
+                    max_episode_steps=max_episode_steps,
+                    scenario=args.scenario,
+                    dry_run=args.dry_run,
+                    checkpoint_interval=checkpoint_interval,
+                )
+                all_csv.append(csv_path)
+                if args.select_best_checkpoint:
+                    select_best_checkpoint(
+                        algo=algo,
+                        run_name=marl_prefix,
+                        model_path=marl_model_path,
+                        episodes=args.checkpoint_eval_episodes,
+                        seed=seed,
+                        host=args.host,
+                        port=args.port,
+                        max_episode_steps=max_episode_steps,
+                        dry_run=args.dry_run,
+                        reject_unsafe_highway=not args.allow_highway_collision_checkpoints,
+                    )
+
+            if run_eval_step:
+                eval_csv = run_evaluate(
+                    algo=algo,
                     model_path=marl_model_path,
-                    episodes=args.checkpoint_eval_episodes,
+                    episodes=eval_episodes,
                     seed=seed,
                     host=args.host,
                     port=args.port,
                     max_episode_steps=max_episode_steps,
                     dry_run=args.dry_run,
-                    reject_unsafe_highway=not args.allow_highway_collision_checkpoints,
                 )
-            eval_csv = run_evaluate(
-                algo=algo,
-                model_path=marl_model_path,
-                episodes=eval_episodes,
-                seed=seed,
-                host=args.host,
-                port=args.port,
-                max_episode_steps=max_episode_steps,
-                dry_run=args.dry_run,
-            )
-            all_csv.append(eval_csv)
+                all_csv.append(eval_csv)
 
     # --- Bước 3: Sinh biểu đồ + phân tích thống kê ---
     print(f"\n{'='*60}")

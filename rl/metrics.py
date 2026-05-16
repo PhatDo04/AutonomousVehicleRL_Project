@@ -46,6 +46,22 @@ _TERMINAL_OUTCOMES: frozenset[str] = frozenset({"success", "collision", "failed_
 _warned_classify_unknown_outcomes: set[str] = set()
 
 
+def finalize_merging_info_on_step_limit(
+    info: dict[str, Any] | None,
+    *,
+    hit_step_limit: bool,
+) -> dict[str, Any]:
+    """Giữ metrics GAMA khi vòng lặp Python dừng vì max_episode_steps (agent vẫn 'running')."""
+    out = dict(info or {})
+    if not hit_step_limit:
+        return out
+    outcome = str(out.get("outcome") or "")
+    if outcome in ("", "running", "unknown"):
+        out["outcome"] = "timeout"
+        out["timeout"] = True
+    return out
+
+
 def classify_episode(outcome: str, wrapper_truncated: bool = False) -> tuple[bool, bool]:
     """Phân loại episode thành (terminated, truncated) một cách nhất quán.
 

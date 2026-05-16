@@ -30,6 +30,9 @@ global {
     list<geometry> ramp_center_geoms <- [];
     list<geometry> accel_center_dash_geoms <- [];
     list<geometry> accel_outer_dash_geoms <- [];
+    // Nen lane tang toc + vung gore (chi UI; khong doi ramp_waypoints / behave xe).
+    list<geometry> ui_road_fill_geoms <- [];
+    list<geometry> ui_accel_bottom_edge_geoms <- [];
 
     // Chi so waypoint dang huong toi diem ket thuc doan lane tang toc ngang (tru diem merge cuoi).
     // Tranh hard-code `4` vi length ramp_waypoints co the doi; invariant: 2 diem cuoi = {accel_end} -> {merge}.
@@ -147,49 +150,53 @@ global {
     }
 
     reflex purge_safe_cars when: purge_due {
-        purge_new_cars <- [];
-        if (safe_cars != nil) {
-            loop c over: safe_cars {
-                if (c != nil) {
-                    car c_car <- c as car;
-                    if (c_car != nil) {
-                        if (not dead(c_car)) {
-                            purge_new_cars << c_car;
+        try {
+            purge_new_cars <- [];
+            if (safe_cars != nil) {
+                loop c over: safe_cars {
+                    if (c != nil) {
+                        car c_car <- c as car;
+                        if (c_car != nil) {
+                            if (not dead(c_car)) {
+                                purge_new_cars << c_car;
+                            }
                         }
                     }
                 }
             }
-        }
-        safe_cars <- purge_new_cars;
+            safe_cars <- purge_new_cars;
+        } catch {}
     }
 
     // PettingZoo: nap `pz_actions` -> `action_rl`. Chi dung reflex + field global `pz_action_target` — KHONG `do action(...)`
     // (GAMA 2025.6.4: DoStatement.getContext NPE khi getAgent() null trong reflex architecture).
     reflex apply_pz_python_each_cycle when: every(1 #cycles) {
-        if (recent_merge_coop_ticks > 0) {
-            recent_merge_coop_ticks <- recent_merge_coop_ticks - 1;
-        }
-        if (pz_actions != nil) {
-            loop c over: safe_cars {
-                pz_action_target <- nil;
-                pz_apply_aid <- "";
-                if (c != nil) {
-                    pz_action_target <- c as car;
-                    if (pz_action_target != nil) {
-                        if (not dead(pz_action_target)) {
-                            pz_apply_aid <- pz_action_target.rl_agent_id;
-                            if (pz_apply_aid != "") {
-                                if (pz_actions contains_key pz_apply_aid) {
-                                    pz_action_target.action_rl <- int(pz_actions at pz_apply_aid);
+        try {
+            if (recent_merge_coop_ticks > 0) {
+                recent_merge_coop_ticks <- recent_merge_coop_ticks - 1;
+            }
+            if (pz_actions != nil) {
+                loop c over: safe_cars {
+                    pz_action_target <- nil;
+                    pz_apply_aid <- "";
+                    if (c != nil) {
+                        pz_action_target <- c as car;
+                        if (pz_action_target != nil) {
+                            if (not dead(pz_action_target)) {
+                                pz_apply_aid <- pz_action_target.rl_agent_id;
+                                if (pz_apply_aid != "") {
+                                    if (pz_actions contains_key pz_apply_aid) {
+                                        pz_action_target.action_rl <- int(pz_actions at pz_apply_aid);
+                                    }
                                 }
                             }
                         }
                     }
+                    pz_action_target <- nil;
+                    pz_apply_aid <- "";
                 }
-                pz_action_target <- nil;
-                pz_apply_aid <- "";
             }
-        }
+        } catch {}
     }
 
     action pz_default_info(string outcome) type: map {
@@ -201,12 +208,15 @@ global {
         if (safe_cars = nil) { return nil; }
         loop c over: safe_cars {
             if (c != nil) {
-                if ((c as car) != nil) {
-                    if (not dead(c as agent)) {
-                        if ((c as car).rl_agent_id = aid) {
-                            return c as car;
+                car c_car <- c as car;
+                if (c_car != nil) {
+                    try {
+                        if (not dead(c_car)) {
+                            if (c_car.rl_agent_id = aid) {
+                                return c_car;
+                            }
                         }
-                    }
+                    } catch {}
                 }
             }
         }
@@ -351,25 +361,24 @@ global {
         bottom_lane_y <- offset_y + (number_of_lanes - 1) * lane_width + lane_width / 2.0;
         accel_lane_y  <- offset_y + number_of_lanes * lane_width + lane_width / 2.0;
 
-        // Quy dao ramp: bat dau sat phia duoi lane tang toc (cung he toa do voi mainline),
-        // khong dung diem "xa" y=78 (gay UI nhu xe chay tren co tach khoi cao toc).
+        // Quy dao ramp: x tang dan (khong lui x), cong vao tam lane tang toc -> thang -> cheo nhap lane (nhu line do).
         float ramp_dy_drop <- accel_lane_y - bottom_lane_y;
-        // Them 2 diem noi suon giua accel_end va merge de giam goc dot ngot (it hon "vuong goc" nhap lan).
+        float ramp_outer_y <- offset_y + number_of_lanes * lane_width + lane_width;
         ramp_waypoints <- [
-            {12.0, accel_lane_y + 12.0},
-            {22.0, accel_lane_y + 7.0},
-            {34.0, accel_lane_y + 3.5},
+            {12.0, ramp_outer_y - 0.15},
+            {28.0, accel_lane_y + lane_width * 0.38},
+            {40.0, accel_lane_y + lane_width * 0.10},
             {accel_start_x, accel_lane_y},
             {accel_end_x,   accel_lane_y},
-            {accel_end_x + 8.0, accel_lane_y - ramp_dy_drop * 0.30},
-            {merge_x - 12.0, bottom_lane_y + ramp_dy_drop * 0.18},
+            {merge_x - 5.0, accel_lane_y - ramp_dy_drop * 0.28},
             {merge_x, bottom_lane_y}
         ];
 
         ramp_accel_waypoint_ix <- 0;
+        // Chi danh dau waypoint DAU lane tang toc (khong phai cuoi) — RL merge theo in_accel_zone, khong theo 1 diem cuoi.
         loop wi from: 0 to: length(ramp_waypoints) - 1 {
             if (ramp_waypoints[wi] != nil) {
-                if (abs(ramp_waypoints[wi].x - accel_end_x) < 0.02) {
+                if (abs(ramp_waypoints[wi].x - accel_start_x) < 0.02) {
                     if (abs(ramp_waypoints[wi].y - accel_lane_y) < 0.02) {
                         ramp_accel_waypoint_ix <- wi;
                     }
@@ -386,7 +395,13 @@ global {
 
         // M4: cache scalar wp0 cho reflex spawn_ramp_cars (tranh `ramp_waypoints[0].x` -> TempVariable trong hot path).
         ramp_wp0_x <- 12.0;
-        ramp_wp0_y <- accel_lane_y + 12.0;
+        ramp_wp0_y <- ramp_outer_y - 0.15;
+        if (length(ramp_waypoints) > 0) {
+            if (ramp_waypoints[0] != nil) {
+                ramp_wp0_x <- ramp_waypoints[0].x;
+                ramp_wp0_y <- ramp_waypoints[0].y;
+            }
+        }
         ramp_wp0_ready <- true;
 
         // Khong dung polyline(ramp_waypoints) de tranh NPE getX/getY trong GAMA 2025.06.4.
@@ -399,6 +414,8 @@ global {
         ramp_center_geoms <- [];
         accel_center_dash_geoms <- [];
         accel_outer_dash_geoms <- [];
+        ui_road_fill_geoms <- [];
+        ui_accel_bottom_edge_geoms <- [];
         float gore_y_init <- offset_y + number_of_lanes * lane_width;
 
         // Nen ramp + bien + joint + vach giua: tinh mot lan o day (hinh hoc tinh sau init), giong y tuong road_segment.
@@ -412,22 +429,34 @@ global {
                             float dy <- p1.y - p0.y;
                             float seg_len <- sqrt(dx * dx + dy * dy);
                             if (seg_len > 0.0001) {
+                                // Chi coi la taper khi doan BAT DAU tu accel_end tro di (doan 48->162 van ve mesh).
+                                bool seg_in_taper <- false;
+                                if (p0.x >= accel_end_x - 0.5) {
+                                    seg_in_taper <- true;
+                                }
                                 float half_w <- lane_width / 2.0;
+                                if (seg_in_taper) {
+                                    // Ribbon hep doc tam duong taper — tranh lem xam ra ngoai duong cheo trang.
+                                    half_w <- lane_width * 0.30;
+                                }
                                 float nx <- -dy / seg_len;
                                 float ny <- dx / seg_len;
                                 point a <- {p0.x + nx * half_w, p0.y + ny * half_w, 0.01};
                                 point b <- {p1.x + nx * half_w, p1.y + ny * half_w, 0.01};
                                 point c <- {p1.x - nx * half_w, p1.y - ny * half_w, 0.01};
                                 point d <- {p0.x - nx * half_w, p0.y - ny * half_w, 0.01};
-                                if (polygon([a, b, c, d]) != nil) {
-                                    ramp_surface_geoms << polygon([a, b, c, d]);
-                                }
                                 float e1y_mid <- (a.y + b.y) / 2.0;
                                 float e2y_mid <- (d.y + c.y) / 2.0;
                                 float e1x_mid <- (a.x + b.x) / 2.0;
                                 float e2x_mid <- (d.x + c.x) / 2.0;
+                                // Vung taper: chi nen tam giac gore (ui_road_fill), khong mesh rong — tranh lem xam ngoai duong cheo.
+                                if (not seg_in_taper) {
+                                    if (polygon([a, b, c, d]) != nil) {
+                                        ramp_surface_geoms << polygon([a, b, c, d]);
+                                    }
+                                }
                                 // Chan cac edge "loi" len lane cao toc o doan taper (gay net cheo khong hop ly).
-                                // Tranh bien bool tam trong loop phuc tap (co the gay TempVariableExpression NPE o GAMA 2025.06.4).
+                                if (not seg_in_taper) {
                                 if (not (
                                         (abs(e1y_mid - gore_y_init) < 0.25)
                                         and (e1x_mid >= accel_start_x - 1.0)
@@ -454,6 +483,23 @@ global {
                                     if (line([{d.x, d.y, 0.04}, {c.x, c.y, 0.04}]) != nil) {
                                         ramp_edge_geoms << line([{d.x, d.y, 0.04}, {c.x, c.y, 0.04}]);
                                     }
+                                    }
+                                }
+                                }
+                                // Vien duoi ramp cong (truoc lane tang toc ngang); taper chi dung net cheo display.
+                                if (p1.x <= accel_start_x + 0.01) {
+                                    if (e1y_mid >= e2y_mid) {
+                                        if (e1y_mid > gore_y_init + 0.15) {
+                                            if (line([{a.x, a.y, 0.05}, {b.x, b.y, 0.05}]) != nil) {
+                                                ui_accel_bottom_edge_geoms << line([{a.x, a.y, 0.05}, {b.x, b.y, 0.05}]);
+                                            }
+                                        }
+                                    } else {
+                                        if (e2y_mid > gore_y_init + 0.15) {
+                                            if (line([{d.x, d.y, 0.05}, {c.x, c.y, 0.05}]) != nil) {
+                                                ui_accel_bottom_edge_geoms << line([{d.x, d.y, 0.05}, {c.x, c.y, 0.05}]);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -486,30 +532,37 @@ global {
                                             point L1 <- {pj.x + n1x * hwj, pj.y + n1y * hwj, 0.01};
                                             point R0 <- {pj.x - n0x * hwj, pj.y - n0y * hwj, 0.01};
                                             point R1 <- {pj.x - n1x * hwj, pj.y - n1y * hwj, 0.01};
-                                            // Dung 2 tam giac de tranh tu-cat quad tai khuc ngoat manh (gay den/nhap nhay).
-                                            if (polygon([L0, L1, pj3]) != nil) {
-                                                ramp_joint_geoms << polygon([L0, L1, pj3]);
+                                            bool pj_in_taper <- false;
+                                            if (pj.x >= accel_end_x - 0.5) {
+                                                pj_in_taper <- true;
                                             }
-                                            if (polygon([R0, R1, pj3]) != nil) {
-                                                ramp_joint_geoms << polygon([R0, R1, pj3]);
+                                            // Dung 2 tam giac de tranh tu-cat quad tai khuc ngoat manh (gay den/nhap nhay).
+                                            if (not pj_in_taper) {
+                                                if (polygon([L0, L1, pj3]) != nil) {
+                                                    ramp_joint_geoms << polygon([L0, L1, pj3]);
+                                                }
+                                                if (polygon([R0, R1, pj3]) != nil) {
+                                                    ramp_joint_geoms << polygon([R0, R1, pj3]);
+                                                }
                                             }
                                             float lenL <- sqrt((L1.x - L0.x) * (L1.x - L0.x) + (L1.y - L0.y) * (L1.y - L0.y));
                                             float lenR <- sqrt((R1.x - R0.x) * (R1.x - R0.x) + (R1.y - R0.y) * (R1.y - R0.y));
-                                            // Bien tren: uu tien noi lien de khong bi dut.
-                                            if (lenL < lane_width * 1.25) {
-                                                if (line([{L0.x, L0.y, 0.04}, {L1.x, L1.y, 0.04}]) != nil) {
-                                                    ramp_joint_edge_geoms << line([{L0.x, L0.y, 0.04}, {L1.x, L1.y, 0.04}]);
+                                            // Khong ve joint-edge o taper/cuoi accel (x>=accel_end): gay net trang cheo "chi len" o giao gore.
+                                            if (not pj_in_taper) {
+                                                if (lenL < lane_width * 1.25) {
+                                                    if (line([{L0.x, L0.y, 0.04}, {L1.x, L1.y, 0.04}]) != nil) {
+                                                        ramp_joint_edge_geoms << line([{L0.x, L0.y, 0.04}, {L1.x, L1.y, 0.04}]);
+                                                    }
                                                 }
-                                            }
-                                            // Bien duoi: loc chat hon o vung taper de tranh net thua.
-                                            if (lenR < lane_width * 1.05) {
-                                                if (line([{R0.x, R0.y, 0.04}, {R1.x, R1.y, 0.04}]) != nil) {
-                                                    ramp_joint_edge_geoms << line([{R0.x, R0.y, 0.04}, {R1.x, R1.y, 0.04}]);
-                                                }
-                                            } else {
-                                                if (pj.x < accel_start_x - 1.0) {
+                                                if (lenR < lane_width * 1.05) {
                                                     if (line([{R0.x, R0.y, 0.04}, {R1.x, R1.y, 0.04}]) != nil) {
                                                         ramp_joint_edge_geoms << line([{R0.x, R0.y, 0.04}, {R1.x, R1.y, 0.04}]);
+                                                    }
+                                                } else {
+                                                    if (pj.x < accel_start_x - 1.0) {
+                                                        if (line([{R0.x, R0.y, 0.04}, {R1.x, R1.y, 0.04}]) != nil) {
+                                                            ramp_joint_edge_geoms << line([{R0.x, R0.y, 0.04}, {R1.x, R1.y, 0.04}]);
+                                                        }
                                                     }
                                                 }
                                             }
@@ -568,6 +621,36 @@ global {
         int accel_k_max <- int(road_length / accel_period_init) + 2;
         float outer_y_init <- offset_y + number_of_lanes * lane_width + lane_width;
         float accel_center_y_init <- gore_y_init + lane_width / 2.0;
+
+        // Nen lane tang toc ngang (48..162) + tam giac gore (tren duong cheo, khong dung hinh thang lon).
+        if (polygon([
+            {accel_start_x, gore_y_init, 0.008},
+            {accel_end_x, gore_y_init, 0.008},
+            {accel_end_x, outer_y_init, 0.008},
+            {accel_start_x, outer_y_init, 0.008}
+        ]) != nil) {
+            ui_road_fill_geoms << polygon([
+                {accel_start_x, gore_y_init, 0.008},
+                {accel_end_x, gore_y_init, 0.008},
+                {accel_end_x, outer_y_init, 0.008},
+                {accel_start_x, outer_y_init, 0.008}
+            ]);
+        }
+        // Tam giac gore: 3 dinh trung khop net cheo; goc merge lui nhe de khong lem xam ra ngoai.
+        float gore_tri_mx <- merge_x - 0.40;
+        float gore_tri_my <- gore_y_init;
+        if (polygon([
+            {accel_end_x, gore_y_init, 0.008},
+            {gore_tri_mx, gore_tri_my, 0.008},
+            {accel_end_x, outer_y_init, 0.008}
+        ]) != nil) {
+            ui_road_fill_geoms << polygon([
+                {accel_end_x, gore_y_init, 0.008},
+                {gore_tri_mx, gore_tri_my, 0.008},
+                {accel_end_x, outer_y_init, 0.008}
+            ]);
+        }
+
         // Tam tat net dut precompute de tranh loi geometry runtime; se co cac net co so ve truc tiep o display.
 
         loop i from: 0 to: number_of_lanes - 1 {
@@ -652,6 +735,13 @@ global {
         }
         create petz_apply_tick number: 1 {}
         create petz_collect_tick number: 1 {}
+        // Dong bo global maps cho socket (Discrete map doi khi None qua bridge neu chi gan trong species init).
+        pz_action_spaces <- [
+            "merging_0"::["type"::"Discrete", "n"::5],
+            "highway_0"::["type"::"Discrete", "n"::5],
+            "highway_1"::["type"::"Discrete", "n"::5],
+            "highway_2"::["type"::"Discrete", "n"::5]
+        ];
         // Khong sync bridge trong init de tranh context local chua on dinh (NPE this.local).
     }
 
@@ -684,39 +774,33 @@ global {
             }
         }
 
-        // --- 2. KHỞI TẠO XE TRÊN NHÁNH NHẬP LÀN ---
-        int nb_ramp_cars_boot <- 3;
+        // --- 2. KHỞI TẠO merging_0 TRÊN NHÁNH NHẬP LÀN (đầu ramp_waypoints, 1 xe RL) ---
         if (length(ramp_waypoints) >= 2) {
             point wp0_boot <- ramp_waypoints[0];
             point wp1_boot <- ramp_waypoints[1];
             if (wp0_boot != nil) {
                 if (wp1_boot != nil) {
-                    loop k from: 0 to: nb_ramp_cars_boot - 1 {
-                        create car number: 1 {
-                            is_merging         <- true;
-                            merge_mode         <- 1;
-                            in_accel_zone      <- false;
-                            waypoint_index     <- 1;
-                            float ratio <- (k * 1.0) / nb_ramp_cars_boot;
-                            float lx <- wp0_boot.x + ratio * (wp1_boot.x - wp0_boot.x);
-                            float ly <- wp0_boot.y + ratio * (wp1_boot.y - wp0_boot.y);
-                            location <- {lx, ly};
-                            move_next_x <- lx;
-                            move_next_y <- ly;
-                            heading            <- atan2(wp1_boot.y - ly, wp1_boot.x - lx);
-                            speed              <- rnd(0.2, 0.4);
-                            color              <- #orange;
-                            direction          <- 1;
-                            current_lane_index <- number_of_lanes - 1;
-                            target_lane_index  <- number_of_lanes - 1;
-                            is_rl_agent        <- false;
-                            rl_agent_id        <- "";
-                            if (k = 0) {
-                                color       <- #magenta;
-                                is_rl_agent <- true;
-                                rl_agent_id <- "merging_0";
-                            }
-                        }
+                    create car number: 1 {
+                        is_merging         <- true;
+                        merge_mode         <- 1;
+                        in_accel_zone      <- false;
+                        waypoint_index     <- 1;
+                        terminal_reason    <- "running";
+                        is_done            <- false;
+                        merge_success      <- false;
+                        failed_merge       <- false;
+                        collision_event    <- false;
+                        location           <- {wp0_boot.x, wp0_boot.y};
+                        move_next_x        <- wp0_boot.x;
+                        move_next_y        <- wp0_boot.y;
+                        heading            <- atan2(wp1_boot.y - wp0_boot.y, wp1_boot.x - wp0_boot.x);
+                        speed              <- rnd(0.35, 0.55);
+                        color              <- #magenta;
+                        direction          <- 1;
+                        current_lane_index <- number_of_lanes - 1;
+                        target_lane_index  <- number_of_lanes - 1;
+                        is_rl_agent        <- true;
+                        rl_agent_id        <- "merging_0";
                     }
                 }
             }
@@ -780,22 +864,24 @@ global {
     // Reflex 2: spawn khi `spawn_ramp_due`, co cho an toan quanh wp0, va chua het cap.
     // Phase 6.2: them count `spawn_ramp_count` trong cung loop -> khong cost O(N) them.
     reflex spawn_ramp_cars when: spawn_ramp_due {
-        spawn_ramp_count <- 0;
-        spawn_ramp_safe <- true;
-        if (safe_cars != nil) {
-            loop c over: safe_cars {
-                if (c != nil) {
-                    car c_car <- c as car;
-                    if (c_car != nil) {
-                        if (not dead(c_car)) {
-                            if (c_car.merge_mode = 1) {
-                                spawn_ramp_count <- spawn_ramp_count + 1;
-                                if (c_car.move_next_x > 0.0) {
-                                    spawn_ramp_dx <- c_car.move_next_x - ramp_wp0_x;
-                                    spawn_ramp_dy <- c_car.move_next_y - ramp_wp0_y;
-                                    spawn_ramp_dist_sq <- spawn_ramp_dx * spawn_ramp_dx + spawn_ramp_dy * spawn_ramp_dy;
-                                    if (spawn_ramp_dist_sq < 225.0) {
-                                        spawn_ramp_safe <- false;
+        try {
+            spawn_ramp_count <- 0;
+            spawn_ramp_safe <- true;
+            if (safe_cars != nil) {
+                loop c over: safe_cars {
+                    if (c != nil) {
+                        car c_car <- c as car;
+                        if (c_car != nil) {
+                            if (not dead(c_car)) {
+                                if (c_car.merge_mode = 1) {
+                                    spawn_ramp_count <- spawn_ramp_count + 1;
+                                    if (c_car.move_next_x > 0.0) {
+                                        spawn_ramp_dx <- c_car.move_next_x - ramp_wp0_x;
+                                        spawn_ramp_dy <- c_car.move_next_y - ramp_wp0_y;
+                                        spawn_ramp_dist_sq <- spawn_ramp_dx * spawn_ramp_dx + spawn_ramp_dy * spawn_ramp_dy;
+                                        if (spawn_ramp_dist_sq < 225.0) {
+                                            spawn_ramp_safe <- false;
+                                        }
                                     }
                                 }
                             }
@@ -803,64 +889,157 @@ global {
                     }
                 }
             }
-        }
-        if (spawn_ramp_safe) {
-            if (spawn_ramp_count < spawn_ramp_cap) {
-                create car number: 1 {
-                    is_merging         <- true;
-                    merge_mode         <- 1;
-                    in_accel_zone      <- false;
-                    waypoint_index     <- 1;
-                    location           <- {ramp_wp0_x, ramp_wp0_y};
-                    move_next_x        <- ramp_wp0_x;
-                    move_next_y        <- ramp_wp0_y;
-                    heading            <- 0.0;
-                    speed              <- rnd(0.30, 0.55);
-                    color              <- #orange;
-                    direction          <- 1;
-                    current_lane_index <- number_of_lanes - 1;
-                    target_lane_index  <- number_of_lanes - 1;
-                    is_rl_agent        <- false;
-                    rl_agent_id        <- "";
+            if (spawn_ramp_safe) {
+                if (spawn_ramp_count < spawn_ramp_cap) {
+                    create car number: 1 {
+                        is_merging         <- true;
+                        merge_mode         <- 1;
+                        in_accel_zone      <- false;
+                        waypoint_index     <- 1;
+                        location           <- {ramp_wp0_x, ramp_wp0_y};
+                        move_next_x        <- ramp_wp0_x;
+                        move_next_y        <- ramp_wp0_y;
+                        heading            <- 0.0;
+                        speed              <- rnd(0.30, 0.55);
+                        color              <- #orange;
+                        direction          <- 1;
+                        current_lane_index <- number_of_lanes - 1;
+                        target_lane_index  <- number_of_lanes - 1;
+                        is_rl_agent        <- false;
+                        rl_agent_id        <- "";
+                    }
                 }
             }
-        }
+        } catch {}
     }
 
     // Tránh empty(car where ...) và empty(nil): một số bản GAMA trả nil / không rút gọn or → UnaryOperator.empty NPE.
     reflex respawn_rl_merging_agent when: enable_rl_respawn {
-        if (not initial_cars_created) { return; }
-        // Dùng safe_cars thay vì loop trực tiếp lên population car để tránh CME
-        bool merging_slot_taken <- false;
-        if (safe_cars != nil) {
-            loop c over: safe_cars {
-                if (c != nil) {
-                    car c_car <- c as car;
-                    if (c_car != nil) {
-                        if (not dead(c_car)) {
-                            if (c_car.rl_agent_id = "merging_0") {
-                                merging_slot_taken <- true;
+        try {
+            if (not initial_cars_created) { return; }
+            // Sinh merging_0 moi ngay khi khong con xe RL ramp song (highway RL chay lap rieng).
+            // Dùng safe_cars thay vì loop trực tiếp lên population car để tránh CME
+            bool merging_slot_taken <- false;
+            if (safe_cars != nil) {
+                loop c over: safe_cars {
+                    if (c != nil) {
+                        car c_car <- c as car;
+                        if (c_car != nil) {
+                            if (not dead(c_car)) {
+                                if (c_car.rl_agent_id = "merging_0") {
+                                    merging_slot_taken <- true;
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        if (ramp_waypoints != nil) {
-            if (length(ramp_waypoints) > 0) {
-                if (not merging_slot_taken) {
-                    point wp0 <- ramp_waypoints[0];
-                    if (wp0 != nil) {
-                        bool is_safe <- true;
-                        if (safe_cars != nil) {
-                            loop c over: safe_cars {
-                                if (c != nil) {
-                                    car c_car <- c as car;
-                                    if (c_car != nil) {
-                                        if (not dead(c_car)) {
-                                            if (c_car.location != nil) {
-                                                if (c_car.is_merging) {
-                                                    if (sqrt((c_car.location.x - wp0.x) * (c_car.location.x - wp0.x) + (c_car.location.y - wp0.y) * (c_car.location.y - wp0.y)) < 15.0) {
+            if (ramp_waypoints != nil) {
+                if (length(ramp_waypoints) > 0) {
+                    if (not merging_slot_taken) {
+                        point wp0 <- ramp_waypoints[0];
+                        if (wp0 != nil) {
+                            bool is_safe <- true;
+                            if (safe_cars != nil) {
+                                loop c over: safe_cars {
+                                    if (c != nil) {
+                                        car c_car <- c as car;
+                                        if (c_car != nil) {
+                                            if (not dead(c_car)) {
+                                                if (c_car.location != nil) {
+                                                    if (c_car.is_merging) {
+                                                        if (sqrt((c_car.location.x - wp0.x) * (c_car.location.x - wp0.x) + (c_car.location.y - wp0.y) * (c_car.location.y - wp0.y)) < 15.0) {
+                                                            is_safe <- false;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (is_safe) {
+                                // Reset metric tích lũy toàn simulation → throughput / shockwave trong info phản ánh đúng "cửa sổ" episode merging_0.
+                                total_ramp_attempts      <- 0;
+                                total_merge_success      <- 0;
+                                sw_n                     <- 0;
+                                sw_mean                  <- 0.0;
+                                sw_M2                    <- 0.0;
+                                recent_merge_coop_ticks  <- 0;
+                                recent_merge_x           <- -1.0;
+                                create car number: 1 {
+                                    is_merging         <- true;
+                                    merge_mode         <- 1;
+                                    in_accel_zone      <- false;
+                                    waypoint_index     <- 1;
+                                    terminal_reason    <- "running";
+                                    is_done            <- false;
+                                    merge_success      <- false;
+                                    failed_merge       <- false;
+                                    collision_event    <- false;
+                                    location           <- {wp0.x, wp0.y};
+                                    move_next_x        <- wp0.x;
+                                    move_next_y        <- wp0.y;
+                                    heading            <- 0.0;
+                                    if (length(ramp_waypoints) > 1) {
+                                        if (ramp_waypoints[1] != nil) {
+                                            point w1r <- ramp_waypoints[1];
+                                            heading   <- atan2(w1r.y - wp0.y, w1r.x - wp0.x);
+                                        }
+                                    }
+                                    speed              <- rnd(0.35, 0.55);
+                                    color              <- #magenta;
+                                    direction          <- 1;
+                                    current_lane_index <- number_of_lanes - 1;
+                                    target_lane_index  <- number_of_lanes - 1;
+                                    is_rl_agent        <- true;
+                                    rl_agent_id        <- "merging_0";
+                                }
+                                // Khong goi sync bridge o day de tranh local context null.
+                            }
+                        }
+                    }
+                }
+            }
+        } catch {}
+    }
+
+    // MARL: Tái tạo xe highway RL. every(3) thay vì every(1) giảm overhead mỗi cycle.
+    // 3 cycles trễ tái tạo là không đáng kể so với episode dài 300 steps.
+    reflex respawn_highway_rl_agents when: enable_highway_rl_respawn {
+        try {
+            if (not initial_cars_created) { return; }
+            list<string> hw_ids <- ["highway_0", "highway_1", "highway_2"];
+            float bottom_y <- offset_y + (number_of_lanes - 1) * lane_width + lane_width / 2.0;
+            // Dùng safe_cars thay vì loop trực tiếp lên population car để tránh CME
+            loop hid over: hw_ids {
+                bool hw_alive <- false;
+                if (safe_cars != nil) {
+                    loop c over: safe_cars {
+                        if (c != nil) {
+                            car c_car <- c as car;
+                            if (c_car != nil) {
+                                if (not dead(c_car)) {
+                                    if (c_car.rl_agent_id = hid) {
+                                        hw_alive <- true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (not hw_alive) {
+                    bool is_safe <- true;
+                    if (safe_cars != nil) {
+                        loop c over: safe_cars {
+                            if (c != nil) {
+                                car c_car <- c as car;
+                                if (c_car != nil) {
+                                    if (not dead(c_car)) {
+                                        if (c_car.location != nil) {
+                                            if (c_car.current_lane_index = number_of_lanes - 1) {
+                                                if (not c_car.is_merging) {
+                                                    if (c_car.location.x < 8.0) {
                                                         is_safe <- false;
                                                     }
                                                 }
@@ -870,111 +1049,28 @@ global {
                                 }
                             }
                         }
-                        if (is_safe) {
-                            // Reset metric tích lũy toàn simulation → throughput / shockwave trong info phản ánh đúng "cửa sổ" episode merging_0.
-                            total_ramp_attempts      <- 0;
-                            total_merge_success      <- 0;
-                            sw_n                     <- 0;
-                            sw_mean                  <- 0.0;
-                            sw_M2                    <- 0.0;
-                            recent_merge_coop_ticks  <- 0;
-                            recent_merge_x           <- -1.0;
-                            create car number: 1 {
-                                is_merging         <- true;
-                                merge_mode         <- 1;
-                                in_accel_zone      <- false;
-                                waypoint_index     <- 1;
-                                location           <- {wp0.x, wp0.y};
-                                move_next_x        <- wp0.x;
-                                move_next_y        <- wp0.y;
-                                heading            <- 0.0;
-                                if (length(ramp_waypoints) > 1) {
-                                    if (ramp_waypoints[1] != nil) {
-                                        point w1r <- ramp_waypoints[1];
-                                        heading   <- atan2(w1r.y - wp0.y, w1r.x - wp0.x);
-                                    }
-                                }
-                                speed              <- rnd(0.2, 0.4);
-                                color              <- #magenta;
-                                direction          <- 1;
-                                current_lane_index <- number_of_lanes - 1;
-                                target_lane_index  <- number_of_lanes - 1;
-                                is_rl_agent        <- true;
-                                rl_agent_id        <- "merging_0";
-                            }
-                            // Khong goi sync bridge o day de tranh local context null.
+                    }
+                    if (is_safe) {
+                        create car number: 1 {
+                            is_merging         <- false;
+                            in_accel_zone      <- false;
+                            current_lane_index <- number_of_lanes - 1;
+                            target_lane_index  <- number_of_lanes - 1;
+                            location           <- {0.0, bottom_y};
+                            move_next_x        <- 0.0;
+                            move_next_y        <- bottom_y;
+                            direction          <- 1;
+                            heading            <- 0.0;
+                            speed              <- 0.58;
+                            color              <- #cyan;
+                            is_rl_agent        <- true;
+                            rl_agent_id        <- hid;
                         }
+                        // Khong goi sync bridge o day de tranh local context null.
                     }
                 }
             }
-        }
-    }
-
-    // MARL: Tái tạo xe highway RL. every(3) thay vì every(1) giảm overhead mỗi cycle.
-    // 3 cycles trễ tái tạo là không đáng kể so với episode dài 300 steps.
-    reflex respawn_highway_rl_agents when: enable_highway_rl_respawn {
-        if (not initial_cars_created) { return; }
-        list<string> hw_ids <- ["highway_0", "highway_1", "highway_2"];
-        float bottom_y <- offset_y + (number_of_lanes - 1) * lane_width + lane_width / 2.0;
-        // Dùng safe_cars thay vì loop trực tiếp lên population car để tránh CME
-        loop hid over: hw_ids {
-            bool hw_alive <- false;
-            if (safe_cars != nil) {
-                loop c over: safe_cars {
-                    if (c != nil) {
-                        car c_car <- c as car;
-                        if (c_car != nil) {
-                            if (not dead(c_car)) {
-                                if (c_car.rl_agent_id = hid) {
-                                    hw_alive <- true;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if (not hw_alive) {
-                bool is_safe <- true;
-                if (safe_cars != nil) {
-                    loop c over: safe_cars {
-                        if (c != nil) {
-                            car c_car <- c as car;
-                            if (c_car != nil) {
-                                if (not dead(c_car)) {
-                                    if (c_car.location != nil) {
-                                        if (c_car.current_lane_index = number_of_lanes - 1) {
-                                            if (not c_car.is_merging) {
-                                                if (c_car.location.x < 8.0) {
-                                                    is_safe <- false;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if (is_safe) {
-                    create car number: 1 {
-                        is_merging         <- false;
-                        in_accel_zone      <- false;
-                        current_lane_index <- number_of_lanes - 1;
-                        target_lane_index  <- number_of_lanes - 1;
-                        location           <- {0.0, bottom_y};
-                        move_next_x        <- 0.0;
-                        move_next_y        <- bottom_y;
-                        direction          <- 1;
-                        heading            <- 0.0;
-                        speed              <- 0.58;
-                        color              <- #cyan;
-                        is_rl_agent        <- true;
-                        rl_agent_id        <- hid;
-                    }
-                    // Khong goi sync bridge o day de tranh local context null.
-                }
-            }
-        }
+        } catch {}
     }
 
     // Shockwave: thu thap toc do xe MAINLINE o lan duoi (bottom lane vat ly) trong vung merge.
@@ -998,22 +1094,24 @@ global {
     }
 
     reflex sample_shockwave when: sw_due {
-        if (safe_cars != nil) {
-            loop c over: safe_cars {
-                if (c != nil) {
-                    car c_car <- c as car;
-                    if (c_car != nil) {
-                        if (not dead(c_car)) {
-                            if (c_car.merge_mode != 1) {
-                                if (not c_car.is_merging_transition) {
-                                    if (c_car.current_lane_index = number_of_lanes - 1) {
-                                        if (c_car.move_next_x >= accel_start_x - 20.0) {
-                                            if (c_car.move_next_x <= merge_x + 30.0) {
-                                                sw_n <- sw_n + 1;
-                                                sw_delta_cache <- c_car.speed - sw_mean;
-                                                sw_mean <- sw_mean + sw_delta_cache / sw_n;
-                                                sw_delta2_cache <- c_car.speed - sw_mean;
-                                                sw_M2 <- sw_M2 + sw_delta_cache * sw_delta2_cache;
+        try {
+            if (safe_cars != nil) {
+                loop c over: safe_cars {
+                    if (c != nil) {
+                        car c_car <- c as car;
+                        if (c_car != nil) {
+                            if (not dead(c_car)) {
+                                if (c_car.merge_mode != 1) {
+                                    if (not c_car.is_merging_transition) {
+                                        if (c_car.current_lane_index = number_of_lanes - 1) {
+                                            if (c_car.move_next_x >= accel_start_x - 20.0) {
+                                                if (c_car.move_next_x <= merge_x + 30.0) {
+                                                    sw_n <- sw_n + 1;
+                                                    sw_delta_cache <- c_car.speed - sw_mean;
+                                                    sw_mean <- sw_mean + sw_delta_cache / sw_n;
+                                                    sw_delta2_cache <- c_car.speed - sw_mean;
+                                                    sw_M2 <- sw_M2 + sw_delta_cache * sw_delta2_cache;
+                                                }
                                             }
                                         }
                                     }
@@ -1023,7 +1121,7 @@ global {
                     }
                 }
             }
-        }
+        } catch {}
     }
 
     // slow_down_demo: GAMA không có API pause(ms). Để làm chậm demo GUI,
@@ -1287,12 +1385,15 @@ species PzBridgeAgent {
         if (safe_cars = nil) { return nil; }
         loop c over: safe_cars {
             if (c != nil) {
-                if ((c as car) != nil) {
-                    if (not dead(c as agent)) {
-                        if ((c as car).rl_agent_id = aid) {
-                            return c as car;
+                car c_car <- c as car;
+                if (c_car != nil) {
+                    try {
+                        if (not dead(c_car)) {
+                            if (c_car.rl_agent_id = aid) {
+                                return c_car;
+                            }
                         }
-                    }
+                    } catch {}
                 }
             }
         }
@@ -1392,12 +1493,15 @@ species petz_collect_tick {
         if (safe_cars = nil) { return nil; }
         loop c over: safe_cars {
             if (c != nil) {
-                if ((c as car) != nil) {
-                    if (not dead(c as agent)) {
-                        if ((c as car).rl_agent_id = aid) {
-                            return c as car;
+                car c_car <- c as car;
+                if (c_car != nil) {
+                    try {
+                        if (not dead(c_car)) {
+                            if (c_car.rl_agent_id = aid) {
+                                return c_car;
+                            }
                         }
-                    }
+                    } catch {}
                 }
             }
         }
@@ -1514,6 +1618,14 @@ species car {
             }
         } else {
             if (move_next_x > road_mainline_exit_x) {
+                if (rl_agent_id = "merging_0") {
+                    if (merge_success) {
+                        if (terminal_reason = "running") {
+                            terminal_reason <- "success";
+                            is_done <- true;
+                        }
+                    }
+                }
                 do die;
             }
             if (move_next_y > 0.0) {
@@ -1701,10 +1813,8 @@ species car {
         if (terminal_reason != "running") {
             speed <- 0.0;
             dead_timer <- dead_timer + 1;
-            // Sau episode terminal, xe van ton tai trong population -> respawn_rl_merging_agent
-            // khong bao gio tao merging_0 moi (slot luon "bi chiem"). Huy agent sau vai tick de
-            // Python/doc GUI doc reward/termination roi respawn (purge chi loai dead).
-            if (dead_timer > 48) {
+            // Vai tick de Python/MARL doc termination + reward, roi huy xe de respawn_rl_merging_agent mo slot.
+            if (dead_timer > 12) {
                 do die;
             }
             return;
@@ -1898,28 +2008,71 @@ species car {
                 move_next_x <- min(road_move_clip_x, max(0.0, location.x));
                 move_next_y <- location.y;
             } else {
-                if (waypoint_index = ramp_accel_waypoint_ix) {
-                    merge_rl_accel_gate <- true;
-                }
-                list<float> merging_obs_tmp <- get_merging_state();
-                if (ramp_waypoints != nil) {
-                    if (waypoint_index < length(ramp_waypoints)) {
-                        point tp_rl <- ramp_waypoints[waypoint_index];
-                        if (tp_rl != nil) {
-                            float rh <- atan2(tp_rl.y - move_next_y, tp_rl.x - move_next_x);
-                            float nmx <- move_next_x + speed * cos(rh);
-                            float nmy <- move_next_y + speed * sin(rh);
-                            move_next_x <- min(road_move_clip_x, max(0.0, nmx));
-                            move_next_y <- nmy;
-                            heading <- rh;
-                            point here_rl <- {move_next_x, move_next_y};
-                            if (euclid_point_dist(here_rl, tp_rl) < max(speed * 2.0, 1.0)) {
-                                waypoint_index <- waypoint_index + 1;
+                // Doan lane tang toc ngang: di thang theo X, giu Y ~ tam lane (tranh bam vien + goc Z tu polyline cu).
+                if (move_next_x >= accel_start_x - 0.5) {
+                    if (move_next_x < accel_end_x - 0.5) {
+                        if (waypoint_index < ramp_accel_waypoint_ix + 1) {
+                            waypoint_index <- ramp_accel_waypoint_ix + 1;
+                        }
+                        move_next_x <- min(road_move_clip_x, max(0.0, move_next_x + speed));
+                        move_next_y <- move_next_y + (accel_lane_y - move_next_y) * 0.78;
+                        heading <- 0.0;
+                    } else if (move_next_x < merge_x - 0.5) {
+                        float merge_len <- max(1.0, merge_x - accel_end_x);
+                        float merge_t <- min(1.0, max(0.0, (move_next_x - accel_end_x) / merge_len));
+                        float merge_y_tgt <- accel_lane_y + (bottom_lane_y - accel_lane_y) * merge_t;
+                        move_next_x <- min(road_move_clip_x, max(0.0, move_next_x + speed * 0.98));
+                        move_next_y <- move_next_y + (merge_y_tgt - move_next_y) * 0.52;
+                        heading <- atan2(merge_y_tgt - move_next_y, speed);
+                        if (waypoint_index < length(ramp_waypoints) - 1) {
+                            waypoint_index <- length(ramp_waypoints) - 1;
+                        }
+                    } else {
+                        if (ramp_waypoints != nil) {
+                            if (waypoint_index < length(ramp_waypoints)) {
+                                point tp_rl <- ramp_waypoints[waypoint_index];
+                                if (tp_rl != nil) {
+                                    float rh <- atan2(tp_rl.y - move_next_y, tp_rl.x - move_next_x);
+                                    float nmx <- move_next_x + speed * cos(rh);
+                                    float nmy <- move_next_y + speed * sin(rh);
+                                    move_next_x <- min(road_move_clip_x, max(0.0, nmx));
+                                    move_next_y <- nmy;
+                                    heading <- rh;
+                                    point here_rl <- {move_next_x, move_next_y};
+                                    if (euclid_point_dist(here_rl, tp_rl) < max(speed * 2.0, 1.0)) {
+                                        waypoint_index <- waypoint_index + 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if (ramp_waypoints != nil) {
+                        if (waypoint_index < length(ramp_waypoints)) {
+                            point tp_rl <- ramp_waypoints[waypoint_index];
+                            if (tp_rl != nil) {
+                                float rh <- atan2(tp_rl.y - move_next_y, tp_rl.x - move_next_x);
+                                float nmx <- move_next_x + speed * cos(rh);
+                                float nmy <- move_next_y + speed * sin(rh);
+                                move_next_x <- min(road_move_clip_x, max(0.0, nmx));
+                                move_next_y <- nmy;
+                                heading <- rh;
+                                point here_rl <- {move_next_x, move_next_y};
+                                if (euclid_point_dist(here_rl, tp_rl) < max(speed * 2.0, 1.0)) {
+                                    waypoint_index <- waypoint_index + 1;
+                                }
                             }
                         }
                     }
                 }
-                in_accel_zone <- (waypoint_index = ramp_accel_waypoint_ix);
+                in_accel_zone <- false;
+                if (move_next_x >= accel_start_x) {
+                    if (move_next_x < accel_end_x) {
+                        in_accel_zone <- true;
+                    }
+                }
+                merge_rl_accel_gate <- in_accel_zone;
+                list<float> merging_obs_tmp <- get_merging_state();
             }
         } else {
             move_next_x <- min(road_mainline_clip_x, max(0.0, move_next_x + speed));
@@ -2091,12 +2244,11 @@ species car {
             return;
         }
 
-        // Terminal merge toi thieu: dung field scalar da on dinh, khong doc location.x/y.
-        // RL: action 3 chi xet khi merge_rl_accel_gate (waypoint truoc buoc di chuyen) + obs_gap_safe tu get_merging_state.
+        // Terminal merge: RL action 3 + dang trong lane tang toc (48..162) + gap an toan — khong bat buoc toi cuoi accel.
         // RB: ramp_behavior da xu ly merge theo luat; khong dung nhanh action_rl o day.
         if (merge_mode = 1) {
             if (rl_agent_id != "") {
-                if (merge_rl_accel_gate) {
+                if (in_accel_zone) {
                     if (action_rl = 3) {
                         if (obs_gap_safe >= 1.0) {
                             is_merging <- false;
@@ -2108,16 +2260,14 @@ species car {
                             move_next_y <- bottom_lane_y;
                             location <- {move_next_x, move_next_y};
                             reward_val <- 100.0;
-                            terminal_reason <- "success";
                             merge_success <- true;
                             merge_step <- episode_step;
-                            is_done <- true;
                             total_merge_success <- total_merge_success + 1;
                             recent_merge_coop_ticks <- 3;
                             recent_merge_x <- move_next_x;
                             cumulative_reward <- cumulative_reward + reward_val;
                             speed_sum <- speed_sum + speed;
-                            return;
+                            // Tiep tuc chay mainline; ket thuc episode khi ra khoi cao toc (duoi).
                         } else {
                             action_penalty <- action_penalty - 0.25;
                         }
@@ -2133,6 +2283,22 @@ species car {
                 cumulative_reward <- cumulative_reward + reward_val;
                 speed_sum <- speed_sum + speed;
                 return;
+            }
+        }
+
+        // merging_0: sau nhap lan thanh cong, episode ket thuc khi gan cuoi mainline (truoc die_if_out_of_road).
+        if (rl_agent_id = "merging_0") {
+            if (merge_success) {
+                if (merge_mode != 1) {
+                    if (move_next_x >= road_mainline_exit_x - 3.0) {
+                        reward_val <- 50.0;
+                        terminal_reason <- "success";
+                        is_done <- true;
+                        cumulative_reward <- cumulative_reward + reward_val;
+                        speed_sum <- speed_sum + speed;
+                        return;
+                    }
+                }
             }
         }
 
@@ -2233,9 +2399,16 @@ species car {
         }
 
         float max_allowed_speed <- speed_max;
-        
-        // 1. VÁ LỖI RADAR: Phải nhìn cả xe đang chờ nhập làn VÀ xe đang trượt vào cao tốc
-        // Snapshot car trước loop để tránh CME; kiểm tra nil trước truy cập .x.
+        float rb_ramp_creep_min <- 0.12;
+        bool rb_on_curve_approach <- false;
+        if (location != nil) {
+            if (location.x < accel_start_x - 2.0) {
+                rb_on_curve_approach <- true;
+            }
+        }
+
+        // 1. Radar ramp: chi chan theo quang duong doc ramp (khong phai moi xe co x lon hon).
+        // Xe RB dung im o mieng accel (cho gap mainline) khong duoc "khoa" ca doan cong phia sau.
         list car_snap_rb <- safe_cars;
         list blocking_ramp_cars <- [];
         loop c over: car_snap_rb {
@@ -2246,7 +2419,21 @@ species car {
                         if (c_car.location != nil) {
                             if (c_car.is_on_ramp_merge_path()) {
                                 if (c_car.location.x > self.location.x) {
-                                    blocking_ramp_cars << c_car;
+                                    bool rb_count_blocker <- true;
+                                    if (rb_on_curve_approach) {
+                                        if (c_car.in_accel_zone) {
+                                            if (c_car.speed < 0.14) {
+                                                rb_count_blocker <- false;
+                                            }
+                                        }
+                                    }
+                                    if (rb_count_blocker) {
+                                        float rb_bdx <- c_car.location.x - location.x;
+                                        float rb_bdy <- c_car.location.y - location.y;
+                                        if (rb_bdx * rb_bdx + rb_bdy * rb_bdy < 484.0) {
+                                            blocking_ramp_cars << c_car;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -2270,21 +2457,28 @@ species car {
             }
         }
         
-        // 2. BỨC TƯỜNG VẬT LÝ CHO ĐƯỜNG NHÁNH
+        // 2. Car-following tren ramp: khong ep speed=0 (gay ket o giao ramp/accel).
         if (ramp_ahead != nil) {
             if (ramp_ahead.location != nil) {
                 float dist <- euclid_point_dist(location, ramp_ahead.location);
                 if (dist <= car_length + 0.5) {
-                    max_allowed_speed <- 0.0;
+                    max_allowed_speed <- rb_ramp_creep_min;
                 } else {
-                    max_allowed_speed <- max(0.0, dist - (car_length + 1.5));
+                    max_allowed_speed <- max(rb_ramp_creep_min, dist - (car_length + 1.5));
                 }
             }
         }
 
         int accel_flag_prev <- 0;
         if (in_accel_zone) { accel_flag_prev <- 1; }
-        in_accel_zone <- (waypoint_index = ramp_accel_waypoint_ix);
+        in_accel_zone <- false;
+        if (location != nil) {
+            if (location.x >= accel_start_x) {
+                if (location.x < accel_end_x) {
+                    in_accel_zone <- true;
+                }
+            }
+        }
         if (in_accel_zone) {
             if (accel_flag_prev = 0) {
                 total_ramp_attempts <- total_ramp_attempts + 1;
@@ -2305,6 +2499,11 @@ species car {
             float ur_ease <- urgency + 0.22 * (1.0 - urgency);
             float req_front <- gap_front_min + (1.0 - ur_ease) * (gap_front_max - gap_front_min) * 0.42;
             float req_rear  <- gap_rear_min  + (1.0 - ur_ease) * (gap_rear_max  - gap_rear_min)  * 0.42;
+            // Dau lane accel (urgency thap): chi can gap nhe de tiep tuc luot, tranh phanh dung ngay giao ramp.
+            if (urgency < 0.12) {
+                req_front <- gap_front_min * 0.85;
+                req_rear  <- gap_rear_min * 0.85;
+            }
 
             list bottom_lane_cars <- [];
             loop c over: car_snap_rb {
@@ -2380,9 +2579,17 @@ species car {
                 }
             }
 
-            if (lead_car != nil) {
-                if (gap_front < req_front) {
-                speed <- max(speed_min, speed - deceleration * 0.6);
+            if (urgency >= 0.08) {
+                if (lead_car != nil) {
+                    if (gap_front < req_front) {
+                        speed <- max(speed_min, speed - deceleration * 0.45);
+                    } else {
+                        if (lag_car != nil) {
+                            if (gap_rear < req_rear) {
+                                speed <- min(speed_max, speed + acceleration * 0.8);
+                            }
+                        }
+                    }
                 } else {
                     if (lag_car != nil) {
                         if (gap_rear < req_rear) {
@@ -2390,21 +2597,17 @@ species car {
                         }
                     }
                 }
-            } else {
-                if (lag_car != nil) {
-                    if (gap_rear < req_rear) {
-                        speed <- min(speed_max, speed + acceleration * 0.8);
+            }
+
+            if (urgency >= 0.08) {
+                if (gap_front >= req_front) {
+                    if (gap_rear >= req_rear) {
+                        do execute_merge();
+                        return;
                     }
                 }
             }
-
-            if (gap_front >= req_front) {
-                if (gap_rear >= req_rear) {
-                    do execute_merge();
-                    return;
-                }
-            }
-            if (stuck_counter > 95) {
+            if (stuck_counter > 55) {
                 if (gap_front > car_length * 0.95) {
                     if (gap_rear > car_length * 0.95) {
                         do execute_merge();
@@ -2413,15 +2616,18 @@ species car {
                 }
             }
             stuck_counter <- stuck_counter + 1;
+            if (urgency < 0.20) {
+                speed <- max(rb_ramp_creep_min, speed);
+            }
 
         } else {
-            speed <- min(speed_max * 0.7, speed + acceleration);
+            speed <- max(rb_ramp_creep_min, min(speed_max * 0.7, speed + acceleration));
             stuck_counter <- 0;
         }
 
         // 3. ÉP GIỚI HẠN TỐC ĐỘ CUỐI CÙNG (Không cho phép vượt quá max_allowed_speed)
         speed <- min(speed, max_allowed_speed);
-        speed <- max(0.0, speed); // Đảm bảo speed không bị âm lùi lại
+        speed <- max(rb_ramp_creep_min, speed);
 
         // Thực thi di chuyển trên nhánh
         if (ramp_waypoints != nil) {
@@ -2454,9 +2660,15 @@ species car {
         // Reset phạt tạm thời ở mỗi tick để reward chỉ phản ánh action vừa thực hiện.
         action_penalty <- 0.0;
 
-        // Cập nhật cờ vùng tăng tốc; chỉ trong vùng này agent mới được phép ra lệnh nhập làn.
-        // Throughput: đếm RL agent khi lần đầu vào accel zone (tương đương NPC trong ramp_behavior).
-        in_accel_zone <- (waypoint_index = ramp_accel_waypoint_ix);
+        // Cập nhật cờ vùng tăng tốc theo toạ độ x (không chỉ 1 waypoint) — khớp heuristic Python.
+        in_accel_zone <- false;
+        if (location != nil) {
+            if (location.x >= accel_start_x) {
+                if (location.x < accel_end_x) {
+                    in_accel_zone <- true;
+                }
+            }
+        }
         if (in_accel_zone) {
             if (not was_in_accel) {
                 total_ramp_attempts <- total_ramp_attempts + 1;
@@ -2502,16 +2714,14 @@ species car {
         }
         // Action 3: thử nhập làn; chỉ thành công khi đang ở vùng tăng tốc và gap đủ an toàn.
         else if (action_rl = 3) {
-            if (in_accel_zone) {
+                if (in_accel_zone) {
                 if (is_merge_gap_safe()) {
                     do execute_merge();
                     reward_val <- 100.0;
-                    terminal_reason <- "success";
                     merge_success <- true;
                     merge_step    <- episode_step;
                     do update_merging_metrics();
                     next_state <- get_current_state();
-                    is_done <- true;
                     return;
                 }
             }
@@ -3460,39 +3670,35 @@ species car {
     */
 
     action get_merging_state type: list<float> {
-        // Observation hot path khong return bien tam: GAMA headless de mat TempVariable context.
-        obs_speed <- min(1.0, max(0.0, speed));
-        obs_merge_len <- max(1.0, merge_x - accel_start_x);
-        obs_progress <- 0.0;
-        obs_dist_to_merge <- 1.0;
-        obs_lateral <- 1.0;
+        // Vector 15D chuan (khop rl/baselines.py + README): speed, progress, dist_merge, lateral,
+        // in_accel, gap_front, speed_front, gap_rear, speed_rear, gap_safe, ramp_gap, ramp_spd,
+        // urgency, last_action, patience.
+        float speed_denom <- max(0.001, speed_max);
+        float obs_denom <- max(1.0, observation_max);
+        float norm_speed <- min(1.0, max(0.0, speed / speed_denom));
+        float accel_len <- max(1.0, accel_end_x - accel_start_x);
+        float norm_progress <- 0.0;
+        float norm_dist_to_merge <- 1.0;
+        float norm_lateral <- 1.0;
+        float norm_in_accel <- 0.0;
+        float norm_urgency <- 0.0;
         if (location != nil) {
-            obs_progress <- min(1.0, max(0.0, (location.x - accel_start_x) / obs_merge_len));
-            obs_dist_to_merge <- min(1.0, max(0.0, (merge_x - location.x) / obs_merge_len));
-            obs_lateral <- min(1.0, max(0.0, abs(location.y - bottom_lane_y) / max(1.0, lane_width * 4.0)));
+            norm_progress <- min(1.0, max(0.0, (location.x - accel_start_x) / accel_len));
+            norm_dist_to_merge <- min(1.0, max(0.0, (merge_x - location.x) / accel_len));
+            norm_lateral <- min(1.0, max(0.0, abs(location.y - bottom_lane_y) / max(1.0, lane_width * 4.0)));
+            if (location.x >= accel_start_x) {
+                norm_urgency <- min(1.0, max(0.0, (location.x - accel_start_x) / accel_len));
+            }
         }
-        obs_in_accel <- 0.0;
         if (in_accel_zone) {
-            obs_in_accel <- 1.0;
-        }
-        obs_action <- 0.5;
-        if (action_rl <= 0) {
-            obs_action <- 0.0;
-        } else if (action_rl = 1) {
-            obs_action <- 0.25;
-        } else if (action_rl = 2) {
-            obs_action <- 0.5;
-        } else if (action_rl = 3) {
-            obs_action <- 0.75;
-        } else if (action_rl >= 4) {
-            obs_action <- 1.0;
-        }
-        obs_terminal <- 0.0;
-        if (terminal_reason != "running") {
-            obs_terminal <- 1.0;
+            norm_in_accel <- 1.0;
         }
         obs_front_gap_raw <- 999.0;
         obs_rear_gap_raw <- 999.0;
+        float obs_front_speed_raw <- speed_max;
+        float obs_rear_speed_raw <- 0.0;
+        float ramp_front_gap_raw <- 999.0;
+        float ramp_front_speed_raw <- speed_max;
         if (location != nil) {
             if (safe_cars != nil) {
                 loop c over: safe_cars {
@@ -3508,11 +3714,23 @@ species car {
                                                     obs_scan_dx <- c_car.location.x - location.x;
                                                     if (obs_scan_dx < obs_front_gap_raw) {
                                                         obs_front_gap_raw <- obs_scan_dx;
+                                                        obs_front_speed_raw <- c_car.speed;
                                                     }
                                                 } else {
                                                     obs_scan_dx <- location.x - c_car.location.x;
                                                     if (obs_scan_dx < obs_rear_gap_raw) {
                                                         obs_rear_gap_raw <- obs_scan_dx;
+                                                        obs_rear_speed_raw <- c_car.speed;
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            if (c_car.is_on_ramp_merge_path()) {
+                                                if (c_car.location.x > location.x) {
+                                                    obs_scan_dx <- c_car.location.x - location.x;
+                                                    if (obs_scan_dx < ramp_front_gap_raw) {
+                                                        ramp_front_gap_raw <- obs_scan_dx;
+                                                        ramp_front_speed_raw <- c_car.speed;
                                                     }
                                                 }
                                             }
@@ -3525,25 +3743,35 @@ species car {
                 }
             }
         }
-        obs_target_front_gap <- min(1.0, max(0.0, obs_front_gap_raw / max(1.0, observation_max)));
-        obs_target_rear_gap <- min(1.0, max(0.0, obs_rear_gap_raw / max(1.0, observation_max)));
-        obs_gap_safe <- 0.0;
+        float norm_gap_front <- min(1.0, max(0.0, obs_front_gap_raw / obs_denom));
+        float norm_speed_front <- min(1.0, max(0.0, obs_front_speed_raw / speed_denom));
+        float norm_gap_rear <- min(1.0, max(0.0, obs_rear_gap_raw / obs_denom));
+        float norm_speed_rear <- min(1.0, max(0.0, obs_rear_speed_raw / speed_denom));
+        float norm_gap_safe <- 0.0;
         obs_required_front <- max(gap_front_min, car_length * 1.2 + speed * 4.0);
         obs_required_rear <- max(gap_rear_min, car_length * 1.2 + speed * 3.0);
         if (obs_front_gap_raw >= obs_required_front) {
             if (obs_rear_gap_raw >= obs_required_rear) {
-                obs_gap_safe <- 1.0;
+                norm_gap_safe <- 1.0;
             }
         }
+        float norm_ramp_front_gap <- min(1.0, max(0.0, ramp_front_gap_raw / obs_denom));
+        float norm_ramp_front_speed <- min(1.0, max(0.0, ramp_front_speed_raw / speed_denom));
+        float norm_last_action <- 0.0;
+        if (action_rl >= 0) {
+            norm_last_action <- min(1.0, (action_rl + 1) / 5.0);
+        }
+        float norm_patience <- min(1.0, max(0.0, patience / 100.0));
         return [
-            obs_speed,
-            obs_progress, obs_dist_to_merge,
-            obs_lateral, obs_in_accel,
-            obs_gap_safe, obs_target_front_gap, obs_target_rear_gap, 1.0,
-            1.0, 1.0,
-            obs_action, obs_terminal,
-            0.0,
-            1.0
+            norm_speed,
+            norm_progress, norm_dist_to_merge,
+            norm_lateral, norm_in_accel,
+            norm_gap_front, norm_speed_front,
+            norm_gap_rear, norm_speed_rear,
+            norm_gap_safe,
+            norm_ramp_front_gap, norm_ramp_front_speed,
+            norm_urgency, norm_last_action,
+            norm_patience
         ];
     }
 
@@ -4030,33 +4258,21 @@ experiment TrafficSimulation type: gui {
             camera 'default' location: {100.0, 50.0, 155.0} target: {100.0, 50.0, 0.0};
 
             graphics "Infrastructure" {
+                // Nen lane tang toc / gore truoc mesh ramp (chi UI).
+                loop g over: ui_road_fill_geoms { if (g != nil) { draw g color: rgb(80, 80, 80); } }
                 // Nen ramp (ramp_surface_geoms) + bien/joint da tinh trong init.
-                if (ramp_waypoints != nil) {
-                    if (length(ramp_waypoints) > 1) {
-                        loop ri from: 0 to: length(ramp_waypoints) - 2 {
-                            if (ramp_waypoints[ri] != nil) {
-                                if (ramp_waypoints[ri + 1] != nil) {
-                                    point rpa <- ramp_waypoints[ri];
-                                    point rpb <- ramp_waypoints[ri + 1];
-                                    draw line([{rpa.x, rpa.y, 0.035}, {rpb.x, rpb.y, 0.035}]) color: rgb(70, 70, 70) width: 2.8;
-                                }
-                            }
-                        }
-                    }
-                }
+                // Khong ve polyline waypoint xam (chi UI tham chieu); xe van bam ramp_waypoints trong behave.
                 loop g over: ramp_surface_geoms { if (g != nil) { draw g color: rgb(80, 80, 80); } }
                 loop g over: ramp_joint_geoms { if (g != nil) { draw g color: rgb(80, 80, 80); } }
                 loop g over: ramp_edge_geoms { if (g != nil) { draw g color: #white width: 1.6; } }
                 loop g over: ramp_joint_edge_geoms { if (g != nil) { draw g color: #white width: 1.6; } }
-                // Bo line dut trong long duong nhap lan/duong gia toc theo yeu cau.
 
                 float top_edge <- offset_y;
                 float gore_y   <- offset_y + number_of_lanes * lane_width;
                 float outer_y  <- gore_y + lane_width;
                 float rescue_lane_y <- offset_y - lane_width;
-                
+
                 draw line([{0.0, top_edge, 0.06}, {road_length, top_edge, 0.06}]) color: #white width: 2.0;
-                // Giu nguyen: ranh gioi merge co net dut trong vung merge, net lien hai dau.
                 draw line([{0.0, gore_y, 0.06}, {accel_start_x, gore_y, 0.06}]) color: #white width: 2.0;
                 float gore_dash_len <- 2.5;
                 float gore_period <- 6.0;
@@ -4074,10 +4290,11 @@ experiment TrafficSimulation type: gui {
                     }
                 }
                 draw line([{merge_x, gore_y, 0.06}, {road_length, gore_y, 0.06}]) color: #white width: 2.0;
-                // Giu nguyen: bien tren lane gia toc la net dut.
                 loop g over: accel_outer_dash_geoms { if (g != nil) { draw g color: #white width: 2.0; } }
-                // Canh cheo duoi cung cua lane gia toc noi vao mep duoi lane cao toc duoi cung.
-                draw line([{accel_end_x, outer_y, 0.06}, {merge_x, gore_y, 0.06}]) color: #white width: 2.0;
+                // Mép duoi lane tang toc: ngang + cheo gore (khong ve day taper theo tam — gay net X).
+                draw line([{accel_start_x, outer_y, 0.07}, {accel_end_x, outer_y, 0.07}]) color: #white width: 2.0;
+                draw line([{accel_end_x, outer_y, 0.12}, {merge_x, gore_y, 0.12}]) color: #white width: 2.2;
+                loop g over: ui_accel_bottom_edge_geoms { if (g != nil) { draw g color: #white width: 2.0; } }
                 draw line([{0.0, rescue_lane_y, 0.06}, {road_length, rescue_lane_y, 0.06}]) color: #yellow width: 2.0;
             }
 

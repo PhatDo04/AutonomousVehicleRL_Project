@@ -38,7 +38,12 @@ from rl.config import (
     MODEL_PATH,
 )
 from rl.gama_compat import patch_gama_gymnasium
-from rl.metrics import EpisodeMetric, classify_episode, write_episode_metrics
+from rl.metrics import (
+    EpisodeMetric,
+    classify_episode,
+    finalize_merging_info_on_step_limit,
+    write_episode_metrics,
+)
 from rl.marl_env import AgentIndicatorParallelWrapper
 
 patch_gama_gymnasium()
@@ -146,6 +151,7 @@ async def async_main(args: argparse.Namespace) -> None:
             ep_lengths: dict[str, int] = {a: 0 for a in MARL_AGENTS}
             done_agents: set[str] = set()
             final_info: dict[str, Any] = {}
+            last_infos: dict[str, dict[str, Any]] = {}
             step = 0
             merging_actions_ep: Counter[int] = Counter()
             actions_ep: dict[str, Counter[int]] = {agent_id: Counter() for agent_id in MARL_AGENTS}
@@ -185,6 +191,9 @@ async def async_main(args: argparse.Namespace) -> None:
                 active_agents = set(actions)
                 next_obs, rewards, terminations, truncations, infos = env_ss.step(actions)
                 step += 1
+                for agent_id, info in (infos or {}).items():
+                    if info:
+                        last_infos[agent_id] = dict(info)
 
                 for agent_id in active_agents:
                     r = float(rewards.get(agent_id, 0.0))
@@ -198,8 +207,14 @@ async def async_main(args: argparse.Namespace) -> None:
 
                 obs_dict = next_obs
 
+            hit_step_limit = step >= args.max_episode_steps
+            if "merging_0" not in final_info and last_infos.get("merging_0"):
+                final_info["merging_0"] = last_infos["merging_0"]
             # Ghi metrics của merging_0
-            m0_info = final_info.get("merging_0", {})
+            m0_info = finalize_merging_info_on_step_limit(
+                final_info.get("merging_0", {}),
+                hit_step_limit=hit_step_limit,
+            )
             outcome = str(m0_info.get("outcome", "timeout"))
             is_term, is_trunc = classify_episode(outcome)
             rows.append(EpisodeMetric(
