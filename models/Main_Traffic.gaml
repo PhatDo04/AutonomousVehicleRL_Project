@@ -4086,7 +4086,7 @@ experiment TrafficSimulation type: gui {
 
             event #mouse_down action: select_car;
 
-            overlay position: {20 #px, 20 #px} size: {520 #px, 430 #px}
+            overlay position: {20 #px, 20 #px} size: {760 #px, 650 #px}
                     background: rgb(30, 30, 30, 220) border: #white rounded: true {
 
                 if (show_dashboard) {
@@ -4106,22 +4106,22 @@ experiment TrafficSimulation type: gui {
                         }
                     }
 
-                    draw "HIGHWAY MERGING RL DASHBOARD" at: {15 #px, 28 #px}
-                        color: #cyan font: font("Arial", 14, #bold);
+                    draw "HIGHWAY MERGING RL DASHBOARD" at: {15 #px, 38 #px}
+                        color: #cyan font: font("Arial", 24, #bold);
                     draw ("Policy: " + dashboard_policy + " | Algo: " + dashboard_algorithm)
-                        at: {15 #px, 55 #px} color: #white font: font("Arial", 12, #plain);
+                        at: {15 #px, 78 #px} color: #white font: font("Arial", 21, #plain);
                     draw ("Model version: " + dashboard_model_version)
-                        at: {15 #px, 78 #px} color: #white font: font("Arial", 12, #plain);
+                        at: {15 #px, 113 #px} color: #white font: font("Arial", 21, #plain);
                     draw "Action map: 0 Dec | 1 Keep | 2 Acc | 3 Merge | 4 Wait"
-                        at: {15 #px, 101 #px} color: #yellow font: font("Arial", 11, #plain);
+                        at: {15 #px, 148 #px} color: #yellow font: font("Arial", 17, #plain);
 
                     if (tracked = nil) {
                         draw "No RL agent found. Reset the experiment to spawn merging_0."
-                            at: {15 #px, 150 #px} color: #red font: font("Arial", 12, #bold);
+                            at: {15 #px, 193 #px} color: #red font: font("Arial", 21, #bold);
                     } else {
                         if (dead(tracked)) {
                             draw "No RL agent found. Reset the experiment to spawn merging_0."
-                                at: {15 #px, 150 #px} color: #red font: font("Arial", 12, #bold);
+                                at: {15 #px, 193 #px} color: #red font: font("Arial", 21, #bold);
                         } else {
                         car lead <- tracked.get_target_lane_ahead();
                         car lag <- tracked.get_target_lane_behind();
@@ -4185,19 +4185,19 @@ experiment TrafficSimulation type: gui {
                         }
 
                         draw (tracked_title_prefix + tracked.rl_agent_id)
-                            at: {15 #px, 132 #px} color: tracked_title_rgb font: font("Arial", 12, #bold);
+                            at: {15 #px, 178 #px} color: tracked_title_rgb font: font("Arial", 21, #bold);
                         draw ("Outcome: " + tracked.terminal_reason + " | Step: " + tracked.episode_step)
-                            at: {15 #px, 157 #px} color: outcome_rgb font: font("Arial", 12, #plain);
+                            at: {15 #px, 213 #px} color: outcome_rgb font: font("Arial", 21, #plain);
                         draw ("Action: " + tracked.action_rl + " | Reward: " + (tracked.reward_val with_precision 2) + " | CumReward: " + (tracked.cumulative_reward with_precision 2))
-                            at: {15 #px, 182 #px} color: reward_line_rgb font: font("Arial", 12, #plain);
+                            at: {15 #px, 248 #px} color: reward_line_rgb font: font("Arial", 21, #plain);
                         draw ("Speed: " + (tracked.speed with_precision 2) + " | Mean speed: " + (mean_speed with_precision 2) + " | Progress: " + ((progress * 100.0) with_precision 1) + "%")
-                            at: {15 #px, 207 #px} color: #white font: font("Arial", 12, #plain);
+                            at: {15 #px, 283 #px} color: #white font: font("Arial", 21, #plain);
                         draw ("Gap front/rear: " + (front_gap with_precision 2) + " / " + (rear_gap with_precision 2) + " | Safe: " + tracked.is_merge_gap_safe())
-                            at: {15 #px, 232 #px} color: gap_safe_rgb font: font("Arial", 12, #plain);
+                            at: {15 #px, 318 #px} color: gap_safe_rgb font: font("Arial", 21, #plain);
                         draw ("Min gap front/rear: " + (tracked.min_front_gap with_precision 2) + " / " + (tracked.min_rear_gap with_precision 2))
-                            at: {15 #px, 257 #px} color: #white font: font("Arial", 12, #plain);
+                            at: {15 #px, 353 #px} color: #white font: font("Arial", 21, #plain);
                         draw ("Ramp front gap: " + (tracked.get_ramp_front_gap() with_precision 2) + " | In accel zone: " + tracked.in_accel_zone)
-                            at: {15 #px, 282 #px} color: #white font: font("Arial", 12, #plain);
+                            at: {15 #px, 388 #px} color: #white font: font("Arial", 21, #plain);
                         }
                     }
 
@@ -4224,13 +4224,13 @@ experiment TrafficSimulation type: gui {
                         }
                     }
                     draw ("Agents: RL=" + rl_count + " rule-based merge=" + rule_based_merging_count + " mainline env=" + mainline_count)
-                        at: {15 #px, 323 #px} color: #white font: font("Arial", 12, #plain);
+                        at: {15 #px, 438 #px} color: #white font: font("Arial", 21, #plain);
                     draw ("Traffic: total=" + length(safe_cars) + " ramp=" + ramp_count + " damaged=" + damaged_count)
-                        at: {15 #px, 348 #px} color: #white font: font("Arial", 12, #plain);
+                        at: {15 #px, 473 #px} color: #white font: font("Arial", 21, #plain);
                     draw ("Cycle: " + cycle + " | Delay: " + demo_step_delay_ms + " ms | Manual action only when policy=Manual")
-                        at: {15 #px, 373 #px} color: #white font: font("Arial", 12, #plain);
-                    draw "SB3 .zip models are loaded by Python; this GUI labels/observes the selected run." at: {15 #px, 396 #px} color: #cyan font: font("Arial", 11, #italic);
-                    draw "Legend: RL=learning agent | RB=rule-based merging car | unlabelled=traffic environment" at: {15 #px, 418 #px} color: #cyan font: font("Arial", 11, #italic);
+                        at: {15 #px, 508 #px} color: #white font: font("Arial", 21, #plain);
+                    draw "SB3 .zip models are loaded by Python; this GUI labels/observes the selected run." at: {15 #px, 550 #px} color: #cyan font: font("Arial", 17, #italic);
+                    draw "Legend: RL=learning agent | RB=rule-based merging car | unlabelled=traffic environment" at: {15 #px, 585 #px} color: #cyan font: font("Arial", 17, #italic);
                 }
             }
         }
