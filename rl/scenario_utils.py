@@ -1,0 +1,135 @@
+"""Áp dụng kịch bản mật độ giao thông trực tiếp vào Main_Traffic.gaml.
+
+Kỷ luật khi đổi GAML:
+    Regex trông đời tên ``reflex``/khối văn bản có sẵn. Nếu đổi tên/refactor GAML nhưng quên chạy
+    test ``tests/test_scenario_utils.py``, vá có thể **không** thay chỗ ([WARN] không khớp pattern).
+    Sau mỗi lần sửa cấu trúc relevant reflex, kiểm tra output apply hoặc cập nhật pattern trong module này.
+
+Lý do tồn tại:
+    ScenarioConfig trong config.py chỉ ghi metadata vào CSV/log — nó KHÔNG
+    tự động thay đổi GAMA. Module này dùng regex để vá ba tham số trong GAML
+    trước khi khởi động GAMA headless, sau đó khôi phục về bản gốc khi xong.
+
+Workflow (được gọi từ run_experiments.py):
+    1. apply_scenario_to_gaml("high")   → tạo backup, vá GAML
+    2. khởi động GAMA headless
+    3. chạy thực nghiệm
+    4. restore_gaml_backup()            → khôi phục từ backup và xóa `.gaml.bak`
+
+Ba tham số được vá:
+    nb_cars_max             ← int trong global block
+    balance_tick interval   ← ngưỡng counter để sinh/bù xe highway
+    spawn_ramp_tick interval← ngưỡng counter để sinh xe ramp
+"""
+
+from __future__ import annotations
+
+import re
+import shutil
+from pathlib import Path
+
+from rl.config import MODEL_PATH, SCENARIO_PRESETS, SINGLE_AGENT_GAML_PATH
+
+_BACKUP_SUFFIX = ".gaml.bak"
+
+# Regex vá scenario — dùng chung cho apply và cho ``scenario_regex_matches()`` (test / kiểm tra tay).
+SCENARIO_GAML_REGEX: dict[str, str] = {
+    "nb_cars_max": r"(\bnb_cars_max\s*<-\s*)\d+",
+    "spawn_ramp_tick interval": r"(if\s*\(\s*spawn_ramp_tick\s*>=\s*)\d+(\s*\))",
+    "balance_tick interval": r"(if\s*\(\s*balance_tick\s*>=\s*)\d+(\s*\))",
+}
+
+
+def scenario_regex_matches(gaml_text: str) -> dict[str, bool]:
+    """Trả về từng pattern có khớp ``gaml_text`` hay không (read-only, không vá file)."""
+    return {name: bool(re.search(pat, gaml_text)) for name, pat in SCENARIO_GAML_REGEX.items()}
+
+
+def _backup_path(gaml_path: Path = MODEL_PATH) -> Path:
+    return gaml_path.with_suffix(_BACKUP_SUFFIX)
+
+
+def _apply_scenario_to_path(scenario_name: str, gaml_path: Path) -> None:
+    """Vá một file GAML in-place với các giá trị từ ScenarioPreset."""
+    if scenario_name not in SCENARIO_PRESETS:
+        raise ValueError(
+            f"Kịch bản '{scenario_name}' không hợp lệ. "
+            f"Chọn một trong: {list(SCENARIO_PRESETS)}"
+        )
+
+    scenario = SCENARIO_PRESETS[scenario_name]
+    bak_path = _backup_path(gaml_path)
+
+    # Tạo backup từ bản gốc nếu chưa có.
+    if not bak_path.exists():
+        shutil.copy2(gaml_path, bak_path)
+
+    # Luôn đọc từ backup để tránh compound patching.
+    content = bak_path.read_text(encoding="utf-8")
+
+    def _sub_checked(pattern: str, replacement: str, text: str, label: str) -> str:
+        """re.sub với cảnh báo nếu không khớp (0 thay thế → GAML có thể đã thay đổi cú pháp)."""
+        new_text, n = re.subn(pattern, replacement, text)
+        if n == 0:
+            print(
+                f"  [WARN] scenario_utils: pattern '{label}' không khớp trong GAML. "
+                f"Kiểm tra cú pháp GAML — tham số có thể chưa được vá."
+            )
+        return new_text
+
+    # 1–3: dùng cùng pattern với SCENARIO_GAML_REGEX / scenario_regex_matches()
+    content = _sub_checked(
+        SCENARIO_GAML_REGEX["nb_cars_max"],
+        rf"\g<1>{scenario.nb_cars_max}",
+        content,
+        "nb_cars_max",
+    )
+
+    content = _sub_checked(
+        SCENARIO_GAML_REGEX["spawn_ramp_tick interval"],
+        rf"\g<1>{scenario.spawn_interval}\2",
+        content,
+        "spawn_ramp_tick interval",
+    )
+
+    content = _sub_checked(
+        SCENARIO_GAML_REGEX["balance_tick interval"],
+        rf"\g<1>{scenario.spawn_interval}\2",
+        content,
+        "balance_tick interval",
+    )
+
+    gaml_path.write_text(content, encoding="utf-8")
+    print(
+        f"  [scenario_utils] {gaml_path.name} đã vá: nb_cars_max={scenario.nb_cars_max}, "
+        f"spawn_interval={scenario.spawn_interval}"
+    )
+
+
+def apply_scenario_to_gaml(scenario_name: str, *, gaml_path: Path | None = None) -> None:
+    """Vá Main_Traffic.gaml (mặc định) hoặc file GAML chỉ định."""
+    _apply_scenario_to_path(scenario_name, gaml_path or MODEL_PATH)
+
+
+def apply_scenario_all_gaml(scenario_name: str) -> None:
+    """Vá cả MARL chính và archive single-agent (baseline đồng bộ mật độ)."""
+    _apply_scenario_to_path(scenario_name, MODEL_PATH)
+    if SINGLE_AGENT_GAML_PATH.exists():
+        _apply_scenario_to_path(scenario_name, SINGLE_AGENT_GAML_PATH)
+
+
+def _restore_path(gaml_path: Path) -> None:
+    bak_path = _backup_path(gaml_path)
+    if not bak_path.exists():
+        print(f"  [scenario_utils] Không có backup cho {gaml_path.name} — bỏ qua.")
+        return
+    shutil.copy2(bak_path, gaml_path)
+    bak_path.unlink()
+    print(f"  [scenario_utils] Đã khôi phục {gaml_path.name} về medium.")
+
+
+def restore_gaml_backup() -> None:
+    """Khôi phục Main_Traffic.gaml và archive single-agent từ backup."""
+    _restore_path(MODEL_PATH)
+    if SINGLE_AGENT_GAML_PATH.exists():
+        _restore_path(SINGLE_AGENT_GAML_PATH)
