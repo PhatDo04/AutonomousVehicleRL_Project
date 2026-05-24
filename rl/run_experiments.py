@@ -77,10 +77,11 @@ def run_baselines(
     scenario: str,
     dry_run: bool,
 ) -> list[Path]:
-    """Chạy baseline random và heuristic, trả về danh sách CSV đã sinh."""
+    """Chạy baseline greedy, trả về danh sách CSV đã sinh."""
     csv_files: list[Path] = []
     # "greedy" = heuristic rule-based (tên trong đề cương). Bỏ "heuristic" để tránh dữ liệu trùng.
-    for policy in ("random", "greedy"):
+    # Random baseline đã bỏ — không còn dùng trong báo cáo (rl/baselines.py vẫn hỗ trợ nếu chạy tay).
+    for policy in ("greedy",):
         out_csv = LOG_DIR / f"{policy}_baseline_seed{seed}.csv"
         cmd = [
             _python(), str(ROOT / "rl" / "baselines.py"),
@@ -152,6 +153,7 @@ def run_evaluate(
     port: int,
     max_episode_steps: int,
     dry_run: bool,
+    stochastic: bool = False,
 ) -> Path:
     """Chạy evaluate deterministic sau training, trả về CSV eval.
 
@@ -162,7 +164,11 @@ def run_evaluate(
         print(f"  [SKIP] Model không tồn tại: {model_path}")
         return model_path.parent / "missing.csv"
 
-    out_csv = LOG_DIR / f"{model_path.stem}_eval.csv"
+    out_csv = (
+        LOG_DIR / f"{model_path.stem}_eval_stochastic.csv"
+        if stochastic
+        else LOG_DIR / f"{model_path.stem}_eval.csv"
+    )
     cmd = [
         _python(), str(ROOT / "rl" / "evaluate_marl.py"),
         "--algo", algo,
@@ -173,7 +179,13 @@ def run_evaluate(
         "--port", str(port),
         "--max-episode-steps", str(max_episode_steps),
         "--out", str(out_csv),
+        # Bat action histogram de debug policy collapse: thay vi chi xem reward/outcome,
+        # in luon phan phoi action argmax cua tung agent. Neu thay action 3 (Merge) 0% ->
+        # policy chua hoc duoc merge; neu action 1 (Keep) > 90% -> ket trong local minimum.
+        "--log-actions",
     ]
+    if stochastic:
+        cmd.append("--stochastic")
     if not dry_run:
         rc = _run(cmd, f"MARL Eval: {algo.upper()} | model={model_path.name}")
         if rc != 0:
@@ -257,6 +269,7 @@ def select_best_checkpoint(
             port=port,
             max_episode_steps=max_episode_steps,
             dry_run=dry_run,
+            stochastic=True,
         )
         score = 0.0 if dry_run else _score_eval_csv(
             eval_csv,
@@ -316,8 +329,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--scenario",
         choices=list(SCENARIO_PRESETS.keys()),
-        default="medium",
-        help="Mật độ giao thông: low / medium / high.",
+        default="low",
+        help="Mật độ giao thông: low / medium / high (mặc định low để học merge ổn định).",
     )
     parser.add_argument("--host", default="localhost", help="GAMA headless host.")
     parser.add_argument("--port", type=int, default=1001, help="GAMA headless socket port.")
@@ -395,9 +408,19 @@ def main() -> None:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     plot_out_dir = PLOT_DIR / args.preset
 
-    if args.scenario != "medium" and not args.dry_run:
+    # Sua bug #9: LUON va GAML theo scenario. Truoc day chi va khi scenario != "medium",
+    # nhung default GAML co nb_cars_max=20 (de tranh gridlock GUI) - khac han config medium=45.
+    # -> preset thesis + medium thuc te chay density 20 nhung CSV ghi nhan "medium" -> bao cao sai.
+    # Va luon dam bao mat do thuc trung voi nhan scenario.
+    _apply_gaml_scenario = True
+    if _apply_gaml_scenario and not args.dry_run:
         print(f"\n  Áp dụng scenario '{args.scenario}' vào GAML (MARL + archive baseline)...")
         apply_scenario_all_gaml(args.scenario)
+
+    if args.preset == "thesis" and not args.select_best_checkpoint:
+        args.select_best_checkpoint = True
+        if args.checkpoint_interval == 0:
+            args.checkpoint_interval = _default_checkpoint_interval(timesteps)
 
     try:
         _run_all_experiments(
@@ -409,7 +432,7 @@ def main() -> None:
             plot_out_dir=plot_out_dir,
         )
     finally:
-        if args.scenario != "medium" and not args.dry_run:
+        if _apply_gaml_scenario and not args.dry_run:
             print(f"\n  Khôi phục GAML về medium density...")
             restore_gaml_backup()
 
@@ -499,6 +522,8 @@ def _run_all_experiments(
                     )
 
             if run_eval_step:
+                # PPO/A2C: argmax deterministic thường sập về brake; eval thesis dùng sampling.
+                eval_stochastic = args.preset == "thesis"
                 eval_csv = run_evaluate(
                     algo=algo,
                     model_path=marl_model_path,
@@ -508,6 +533,7 @@ def _run_all_experiments(
                     port=args.port,
                     max_episode_steps=max_episode_steps,
                     dry_run=args.dry_run,
+                    stochastic=eval_stochastic,
                 )
                 all_csv.append(eval_csv)
 

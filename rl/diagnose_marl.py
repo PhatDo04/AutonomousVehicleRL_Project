@@ -53,12 +53,14 @@ def _fmt_obs(obs: np.ndarray) -> str:
         "gap_front", "spd_front", "gap_rear", "spd_rear", "gap_safe",
         "ramp_gap", "ramp_spd", "urgency", "last_act", "patience",
     ]
-    parts = [f"{labels[i]}={obs[i]:.3f}" for i in range(min(13, len(obs)))]
+    # Sua bug #12: truoc day chi in 13 chieu, drop `last_act` + `patience` (2 chieu cuoi cua 15D obs).
+    parts = [f"{labels[i]}={obs[i]:.3f}" for i in range(min(len(labels), len(obs)))]
     return " ".join(parts)
 
 
 async def trace_episode(
     env_ss: AgentIndicatorParallelWrapper,
+    parallel_env: GamaParallelEnv,
     *,
     label: str,
     seed: int,
@@ -67,7 +69,9 @@ async def trace_episode(
     max_steps: int = 20,
 ) -> dict:
     """Chạy 1 episode, in từng bước merging_0."""
-    obs_dict, _ = env_ss.reset(seed=seed)
+    from rl.gama_episode_reset import reset_marl_episode
+
+    obs_dict, _ = reset_marl_episode(env_ss, seed)
     ep_reward = 0.0
     actions: list[int] = []
     final_outcome = "unknown"
@@ -178,6 +182,7 @@ async def async_main(args: argparse.Namespace) -> int:
             results.append(
                 await trace_episode(
                     env_ss,
+                    parallel,
                     label=label,
                     seed=seed,
                     policy=policy,

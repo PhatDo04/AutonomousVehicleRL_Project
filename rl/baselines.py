@@ -25,6 +25,7 @@ from rl.config import (
 )
 from rl.gama_compat import patch_gama_gymnasium
 from rl.marl_env import AgentIndicatorParallelWrapper
+from rl.gama_episode_reset import reset_marl_episode
 from rl.metrics import (
     EpisodeMetric,
     build_episode_metric,
@@ -131,20 +132,22 @@ async def async_main(args: argparse.Namespace) -> None:
     )
     env_ss = AgentIndicatorParallelWrapper(parallel_env, type_only=False)
     rng = np.random.default_rng(args.seed)
+    # Bug #4 fix: sinh seed lon, xao tron tot cho moi episode (tranh `seed <- 1.0/2.0...` không xao tron GAMA RNG).
+    seed_rng = np.random.default_rng(args.seed)
     rows: list[EpisodeMetric] = []
 
     try:
-        obs_dict, _ = parallel_env.reset(seed=args.seed)
+        obs_dict, _ = reset_marl_episode(env_ss, args.seed)
         missing = [a for a in MARL_AGENTS if a not in obs_dict]
         if missing:
             raise RuntimeError(f"Thiếu agent MARL: {missing}. Kiểm tra GAML / GAMA headless.")
 
         for episode in range(1, args.episodes + 1):
-            ep_seed = args.seed + episode
+            ep_seed = int(seed_rng.integers(1, 2**31 - 1))
             if args.policy == "random":
                 rng = np.random.default_rng(ep_seed)
 
-            obs_dict, _ = env_ss.reset(seed=ep_seed)
+            obs_dict, _ = reset_marl_episode(env_ss, ep_seed)
             ep_reward = 0.0
             length = 0
             done_agents: set[str] = set()
@@ -153,7 +156,9 @@ async def async_main(args: argparse.Namespace) -> None:
             step = 0
             hit_step_limit = False
 
-            while len(done_agents) < len(MARL_AGENTS) and step < args.max_episode_steps:
+            while step < args.max_episode_steps:
+                if "merging_0" in done_agents:
+                    break
                 actions: dict[str, int] = {}
                 for agent_id in MARL_AGENTS:
                     if agent_id in done_agents:

@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.env
+
+# Test/coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Training outputs (large + regenerable)
+outputs/
+runs/
+checkpoints/
+tensorboard/
+wandb/
+*.log
+
+# Editor / OS
+.vscode/
+.idea/
+.settings/
+Thumbs.db
+.DS_Store
+
+# Caches
+cache/
+tmp/
+
+# Thesis documents (binary, not for source control)
+*.docx
+*.pdf
+_docx_text.txt
+
+# Project scripts (local)
+scripts/

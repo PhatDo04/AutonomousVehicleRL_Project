@@ -27,13 +27,16 @@ if str(ROOT) not in sys.path:
 os.environ.setdefault("TENSORBOARD_NO_TENSORFLOW", "1")
 
 import numpy as np
+import torch
 from stable_baselines3 import A2C, PPO
+from stable_baselines3.common.utils import obs_as_tensor
 
 from rl.config import (
     GamaConnectionConfig,
     LOG_DIR,
     MARL_AGENTS,
     MARL_ALGORITHMS,
+    MARL_EXPERIMENT,
     MARL_HIGHWAY_AGENTS,
     MODEL_PATH,
 )
@@ -44,11 +47,18 @@ from rl.metrics import (
     finalize_merging_info_on_step_limit,
     write_episode_metrics,
 )
+from rl.gama_episode_reset import reset_marl_episode
 from rl.marl_env import AgentIndicatorParallelWrapper
 
 patch_gama_gymnasium()
 
+from gama_gymnasium.exceptions import GamaCommandError  # noqa: E402
 from gama_pettingzoo.gama_parallel_env import GamaParallelEnv  # noqa: E402
+
+
+def _is_gama_sim_lost(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    return "unable to find" in msg and ("experiment" in msg or "simulation" in msg)
 
 
 def load_marl_model(algo: str, model_path: str):
@@ -68,6 +78,43 @@ _MERGING_ACTION_NAMES = {
     3: "merge",
     4: "wait",
 }
+
+
+def _predict_marl_action(
+    model: PPO | A2C,
+    obs_arr: np.ndarray,
+    *,
+    agent_id: str,
+    deterministic: bool,
+    eval_mask: bool,
+) -> int:
+    """Chọn action; với merging_0 deterministic có thể mask brake/keep khi đứng trong accel."""
+    if not deterministic or agent_id != "merging_0" or not eval_mask:
+        action, _ = model.predict(obs_arr, deterministic=deterministic)
+        return int(action)
+
+    obs_tensor = obs_as_tensor(obs_arr.reshape(1, -1), model.device)
+    with torch.no_grad():
+        dist = model.policy.get_distribution(obs_tensor)
+        probs = dist.distribution.probs.detach().cpu().numpy()[0].astype(np.float64)
+
+    speed = float(obs_arr[0])
+    in_accel = float(obs_arr[4]) > 0.5
+    gap_safe = float(obs_arr[9]) > 0.5
+    masked = probs.copy()
+    if in_accel:
+        if speed < 0.35:
+            masked[0] = 0.0
+        if speed < 0.14:
+            masked[1] *= 0.25
+        if gap_safe:
+            masked[3] *= 2.0
+        masked[2] *= 1.35
+    total = masked.sum()
+    if total <= 1e-8:
+        return int(np.argmax(probs))
+    masked /= total
+    return int(np.argmax(masked))
 
 
 def _format_action_hist(counter: "Counter[int]") -> str:
@@ -102,11 +149,57 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="In action histogram của từng agent cuối mỗi episode và tổng kết để debug policy.",
     )
+    parser.add_argument(
+        "--no-eval-mask",
+        action="store_true",
+        help="Tắt mask argmax cho merging_0 (deterministic thuần SB3).",
+    )
+    parser.add_argument(
+        "--experiment",
+        default=MARL_EXPERIMENT,
+        help="Tên experiment GAML. Hướng B (UI): TrafficSimulation. Headless train/eval: TrafficMARLHeadless.",
+    )
+    parser.add_argument(
+        "--step-delay",
+        type=float,
+        default=0.0,
+        help="Giây sleep giữa các bước (vd 0.25) để quan sát trên GAMA UI.",
+    )
+    parser.add_argument(
+        "--watch-ui",
+        action="store_true",
+        help="Demo trên GAMA UI: giảm reset, in cảnh báo NOTREADY/PAUSED, mặc định pause 5s giữa các episode.",
+    )
+    parser.add_argument(
+        "--pause-between-episodes",
+        type=float,
+        default=None,
+        help="Giây chờ trước khi reset episode tiếp (tránh GAMA UI nháy liên tục).",
+    )
+    parser.add_argument(
+        "--forever",
+        action="store_true",
+        help="Lặp episode liên tục đến khi Ctrl+C (demo GAMA UI, không dừng sau 1 lượt).",
+    )
     return parser.parse_args()
+
+
+def _apply_watch_ui_defaults(args: argparse.Namespace) -> None:
+    if args.pause_between_episodes is None:
+        args.pause_between_episodes = 5.0 if args.watch_ui else 0.0
+    if args.watch_ui:
+        print(
+            "\n  [watch-ui] Mỗi episode mới Python gọi reset() → GAMA báo NOTREADY/PAUSED và UI có thể "
+            "nháy/reload. Để xem một lượt merge ổn định: --episodes 1. "
+            "Giữa các episode: pause {:.0f}s (--pause-between-episodes).\n".format(
+                args.pause_between_episodes
+            )
+        )
 
 
 async def async_main(args: argparse.Namespace) -> None:
     """Chạy đánh giá deterministic và lưu metrics của merging_0."""
+    _apply_watch_ui_defaults(args)
     model = load_marl_model(args.algo, args.model)
 
     # Tạo PettingZoo parallel env với 4 agents
@@ -116,36 +209,74 @@ async def async_main(args: argparse.Namespace) -> None:
         max_episode_steps=args.max_episode_steps,
         simulation_seed=args.seed,
     )
+    exp_name = args.experiment
     parallel_env = GamaParallelEnv(
         gaml_experiment_path=str(MODEL_PATH),
-        gaml_experiment_name=config.experiment_name,
+        gaml_experiment_name=exp_name,
         gama_ip_address=config.host,
         gama_port=config.port,
     )
 
-    # Xác nhận 4 agent có mặt
-    obs_dict, _ = parallel_env.reset(seed=args.seed)
+    print(f"  GAML experiment: {exp_name}  |  socket {config.host}:{config.port}")
+    if exp_name == "TrafficSimulation":
+        print(
+            "  [UI] Dashboard policy = Python/SB3 model. "
+            "Chọn model bằng --model path/to/file.zip (không có tham số tương ứng trên GAMA)."
+        )
+
+    # Cùng pipeline obs như train: 15D GAMA + one-hot agent ID → 19D (không lấy obs thô từ parallel_env).
+    env_ss = AgentIndicatorParallelWrapper(parallel_env, type_only=False)
+    obs_dict, _ = env_ss.reset(seed=args.seed)
     missing = [a for a in MARL_AGENTS if a not in obs_dict]
     if missing:
         raise RuntimeError(f"Thiếu agent MARL: {missing}. Kiểm tra GAML.")
-
-    # Cùng pipeline obs như train (không dùng SuperSuit AEC round-trip — tránh KeyError GAMA).
-    env_ss = AgentIndicatorParallelWrapper(parallel_env, type_only=False)
+    for agent_id in MARL_AGENTS:
+        if agent_id in obs_dict:
+            sh = np.asarray(obs_dict[agent_id], dtype=np.float32).shape
+            if sh != (19,):
+                raise RuntimeError(
+                    f"{agent_id}: obs shape {sh} ≠ (19,) sau AgentIndicatorParallelWrapper."
+                )
 
     deterministic = not args.stochastic
+    eval_mask = not args.no_eval_mask
     mode_label = "deterministic" if deterministic else "stochastic"
-    print(f"\n=== MARL Evaluation: {args.algo.upper()} | {args.episodes} episodes | {mode_label} ===")
+    if deterministic and eval_mask:
+        mode_label = "deterministic+mask"
+    ep_label = "∞ (Ctrl+C dừng)" if args.forever else str(args.episodes)
+    print(f"\n=== MARL Evaluation: {args.algo.upper()} | {ep_label} episodes | {mode_label} ===")
     print(f"  Model: {args.model}")
     print(f"  Agents: {list(MARL_AGENTS)}\n")
+    if args.forever:
+        print("  [forever] Chạy liên tục — nhấn Ctrl+C trong terminal để dừng.\n")
 
     rows: list[EpisodeMetric] = []
     highway_stats: list[EpisodeMetric] = []
     merging_action_counter_total: Counter[int] = Counter()
     action_counter_total: dict[str, Counter[int]] = {agent_id: Counter() for agent_id in MARL_AGENTS}
 
+    # Bug #4 fix: sinh seed lon, xao tron tot cho moi episode tu RNG goc co seed.
+    # Truoc day truyen args.seed+episode = 1,2,3... -> GAMA `seed <- 1.0;` khong xao tron
+    # du RNG noi bo -> initial conditions giong nhau -> 20 episodes co metrics y het nhau.
+    seed_rng = np.random.default_rng(args.seed)
+    ep_seed = args.seed
+
+    episode = 0
     try:
-        for episode in range(1, args.episodes + 1):
-            obs_dict, _ = env_ss.reset(seed=args.seed + episode)
+        while True:
+            episode += 1
+            if not args.forever and episode > args.episodes:
+                break
+            if episode > 1:
+                if args.pause_between_episodes > 0:
+                    print(
+                        f"\n  [episode {episode}] Chờ {args.pause_between_episodes:.1f}s "
+                        "trước reset GAMA (UI có thể nháy)..."
+                    )
+                    await asyncio.sleep(args.pause_between_episodes)
+                ep_seed = int(seed_rng.integers(1, 2**31 - 1))
+                obs_dict, _ = reset_marl_episode(env_ss, ep_seed)
+            # Episode 1: dùng obs sau reset khởi tạo — tránh reset GAMA lần 2 ngay đầu (UI nháy thừa).
 
             ep_rewards: dict[str, float] = {a: 0.0 for a in MARL_AGENTS}
             ep_lengths: dict[str, int] = {a: 0 for a in MARL_AGENTS}
@@ -156,7 +287,9 @@ async def async_main(args: argparse.Namespace) -> None:
             merging_actions_ep: Counter[int] = Counter()
             actions_ep: dict[str, Counter[int]] = {agent_id: Counter() for agent_id in MARL_AGENTS}
 
-            while len(done_agents) < len(MARL_AGENTS) and step < args.max_episode_steps:
+            while step < args.max_episode_steps:
+                if "merging_0" in done_agents:
+                    break
                 actions: dict[str, int] = {}
                 for agent_id in MARL_AGENTS:
                     if agent_id in done_agents:
@@ -176,8 +309,13 @@ async def async_main(args: argparse.Namespace) -> None:
                             f"{agent_id}: obs shape {obs_arr.shape} ≠ (19,). "
                             f"Kiểm tra AgentIndicatorParallelWrapper / obs 19D trong evaluate_marl."
                         )
-                    action, _ = model.predict(obs_arr, deterministic=deterministic)
-                    a_int = int(action)
+                    a_int = _predict_marl_action(
+                        model,
+                        obs_arr,
+                        agent_id=agent_id,
+                        deterministic=deterministic,
+                        eval_mask=eval_mask,
+                    )
                     actions[agent_id] = a_int
                     actions_ep[agent_id][a_int] += 1
                     action_counter_total[agent_id][a_int] += 1
@@ -189,7 +327,22 @@ async def async_main(args: argparse.Namespace) -> None:
                     break  # Tất cả agent đã done hoặc missing
 
                 active_agents = set(actions)
-                next_obs, rewards, terminations, truncations, infos = env_ss.step(actions)
+                try:
+                    next_obs, rewards, terminations, truncations, infos = env_ss.step(actions)
+                except GamaCommandError as exc:
+                    if not _is_gama_sim_lost(exc):
+                        raise
+                    print(
+                        "\n  [GAMA] Simulation mat ket noi (NOTREADY/NONE). "
+                        "Bam Play tren TrafficSimulation, cho 3s roi thu lai..."
+                    )
+                    await asyncio.sleep(3.0)
+                    try:
+                        obs_dict, _ = reset_marl_episode(env_ss, ep_seed)
+                    except GamaCommandError:
+                        print("  [GAMA] Chua ket noi lai — dung Ctrl+C, Play GAMA, chay lai lenh Python.")
+                        raise
+                    continue
                 step += 1
                 for agent_id, info in (infos or {}).items():
                     if info:
@@ -206,6 +359,8 @@ async def async_main(args: argparse.Namespace) -> None:
                             final_info[agent_id] = dict(infos.get(agent_id) or {})
 
                 obs_dict = next_obs
+                if args.step_delay > 0:
+                    await asyncio.sleep(args.step_delay)
 
             hit_step_limit = step >= args.max_episode_steps
             if "merging_0" not in final_info and last_infos.get("merging_0"):
@@ -275,10 +430,15 @@ async def async_main(args: argparse.Namespace) -> None:
                     hist = _format_action_hist(actions_ep[agent_id])
                     print(f"            {agent_id} actions ({sum(actions_ep[agent_id].values())} steps): {hist}")
 
+    except KeyboardInterrupt:
+        print(f"\n  [dừng] Đã chạy {episode} episode(s).")
     finally:
         # Gọi env_ss.close() thay vì parallel_env.close() để SuperSuit wrapper
         # được dọn dẹp đúng cách trước khi đóng kết nối GAMA socket.
         env_ss.close()
+
+    if episode == 0:
+        return
 
     # Lưu CSV cho merging_0
     run_label = f"marl_{args.algo}_eval_seed{args.seed}"

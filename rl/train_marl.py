@@ -169,35 +169,41 @@ def build_marl_model(algo: str, env, seed: int, tensorboard_log: str):
         )
 
     if algo == "ppo":
-        # MARL: SuperSuit concat 4 agents thành 1 VecEnv (n_envs=4 hiệu quả).
-        # Effective batch per update = n_steps × n_envs = 128 × 4 = 512.
-        # Dùng n_steps=128 thay vì 512 để có ~390 updates trong 200k steps
-        # (thay vì ~97 updates với n_steps=512) — hội tụ ổn định hơn trong MARL.
+        # V6: ent_coef 0.08 -> 0.20 (anti policy-collapse).
+        # Iter 5 cho thay PPO collapse ve Keep 72.6% du phat -0.5/tick trong zone -> argmax
+        # bi stuck, exploration khong du de escape. Bump entropy de policy network giu
+        # probability cao cho cac action it duoc chon -> argmax co the flip qua Merge.
         return PPO(
             "MlpPolicy",
             env,
-            learning_rate=3e-4,
-            n_steps=128,        # giảm từ 512 vì n_envs=4 → effective batch = 512
-            batch_size=64,
+            learning_rate=5e-4,
+            n_steps=256,
+            batch_size=128,
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.01,
+            ent_coef=0.20,
+            vf_coef=0.5,
             tensorboard_log=tensorboard_log,
             seed=seed,
             verbose=1,
         )
 
     if algo == "a2c":
-        # MARL: n_steps=32 × n_envs=4 = 128 samples per update (phù hợp on-policy MARL).
+        # Iter 10: A2C iter 9 collapse hoan toan (0% success, 100% collision, 86% accel)
+        # vi C1+ GAML (bo per-tick gap penalty) thay doi reward landscape qua dot ngot
+        # voi A2C don gian (khong co clipping). Stabilize hyperparameter:
+        #   - learning_rate 1e-3 -> 5e-4: update nhe hon, tranh collapse "spam accel"
+        #   - ent_coef 0.32 -> 0.15: giam random exploration, khai thac policy an toan
+        #   - n_steps 32 -> 64: advantage estimate chinh xac hon -> gradient on dinh hon
         return A2C(
             "MlpPolicy",
             env,
-            learning_rate=7e-4,
-            n_steps=32,         # giảm từ 64 vì n_envs=4 → effective = 128
+            learning_rate=5e-4,
+            n_steps=64,
             gamma=0.99,
             gae_lambda=0.95,
-            ent_coef=0.01,
+            ent_coef=0.15,
             tensorboard_log=tensorboard_log,
             seed=seed,
             verbose=1,

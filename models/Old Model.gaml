@@ -1,4 +1,4 @@
-model HorizontalTraffic
+model HorizontalTrafficLegacy
 
 global {
 

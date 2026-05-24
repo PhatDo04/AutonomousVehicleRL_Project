@@ -24,7 +24,11 @@ def eval_ok(
     max_collision: float = 0.85,
     min_greedy_success: float = 0.05,
 ) -> tuple[bool, str]:
-    """Trả về (ok, message) dựa trên comparison_table.csv (eval KPI)."""
+    """Trả về (ok, message) dựa trên comparison_table.csv (eval KPI).
+
+    Với PPO/A2C, eval thesis dùng sampling (stochastic) vì argmax deterministic
+  thường sập về brake; file vẫn là ``*_eval_stochastic.csv`` nhưng gộp phase eval.
+    """
     table = plot_dir / "comparison_table.csv"
     rows = _read_comparison_table(table)
     if not rows:
@@ -33,7 +37,16 @@ def eval_ok(
     by_algo = {r["algorithm"]: r for r in rows}
 
     def f(key: str, algo: str) -> float:
-        return float(by_algo[algo].get(key, 0) or 0)
+        # Sua bug #13: raw value co the la "nan"/"None"/"" -> float() raise.
+        # Truoc day outer try-catch nuot loi -> silent 0 (sai khac voi missing key).
+        raw = by_algo[algo].get(key, "")
+        if raw is None or str(raw).strip() == "":
+            return 0.0
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            print(f"  [WARN] check_eval_results: '{key}' cho {algo} khong parse duoc ({raw!r}) -> 0")
+            return 0.0
 
     issues: list[str] = []
 

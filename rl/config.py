@@ -62,10 +62,11 @@ MARL_ALGORITHMS = ("ppo", "a2c")
 
 # Presets thực nghiệm MARL (PPO/A2C, 4 agents) — pipeline chính run_experiments.py.
 MARL_EXPERIMENT_PRESETS = {
-    "smoke": {"timesteps": 400,     "episodes": 2,  "seeds": [0],       "max_episode_steps": 20},
-    "short": {"timesteps": 50_000,  "episodes": 20, "seeds": [0],       "max_episode_steps": 300},
-    # A2C 200k seed0 overfits/collapses deterministic eval (0% merge); 50k is the validated thesis point.
-    "thesis":{"timesteps": 50_000,  "episodes": 50, "seeds": [0, 1, 2], "max_episode_steps": 300},
+    "smoke": {"timesteps": 400,     "episodes": 2,  "seeds": [0],       "max_episode_steps": 80},
+    # short v2 (sau iter 3): 100k→200k + 300→500 steps. Iter 3 cho thay PPO da 36% Merge intent
+    # nhung timeout vi (a) episode het truoc khi tim safe gap (b) chua du training de hoi tu success.
+    "short": {"timesteps": 200_000, "episodes": 20, "seeds": [0],       "max_episode_steps": 500},
+    "thesis":{"timesteps": 80_000,  "episodes": 50, "seeds": [0, 1, 2, 3, 4], "max_episode_steps": 500},
 }
 
 

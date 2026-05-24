@@ -16,10 +16,14 @@ Workflow (được gọi từ run_experiments.py):
     3. chạy thực nghiệm
     4. restore_gaml_backup()            → khôi phục từ backup và xóa `.gaml.bak`
 
-Ba tham số được vá:
+Hai tham số được vá:
     nb_cars_max             ← int trong global block
-    balance_tick interval   ← ngưỡng counter để sinh/bù xe highway
-    spawn_ramp_tick interval← ngưỡng counter để sinh xe ramp
+    spawn_ramp_tick interval← ngưỡng counter để sinh xe ramp NPC
+
+Lưu ý (sua bug #8): truoc day patch luon `balance_tick` voi cung gia tri `spawn_interval`.
+Hai counter co semantics khac nhau (`balance_tick` la mainline maintenance, default 10 cycle;
+`spawn_ramp_tick` la ramp NPC spawn, default 25 cycle), khong nen sync chung. Giu balance_tick
+o default GAML, chi va spawn_ramp_tick theo scenario.
 """
 
 from __future__ import annotations
@@ -33,10 +37,10 @@ from rl.config import MODEL_PATH, SCENARIO_PRESETS, SINGLE_AGENT_GAML_PATH
 _BACKUP_SUFFIX = ".gaml.bak"
 
 # Regex vá scenario — dùng chung cho apply và cho ``scenario_regex_matches()`` (test / kiểm tra tay).
+# Sua bug #8: bo "balance_tick interval" — khac semantics voi spawn_ramp_tick, khong sync chung.
 SCENARIO_GAML_REGEX: dict[str, str] = {
     "nb_cars_max": r"(\bnb_cars_max\s*<-\s*)\d+",
     "spawn_ramp_tick interval": r"(if\s*\(\s*spawn_ramp_tick\s*>=\s*)\d+(\s*\))",
-    "balance_tick interval": r"(if\s*\(\s*balance_tick\s*>=\s*)\d+(\s*\))",
 }
 
 
@@ -92,12 +96,7 @@ def _apply_scenario_to_path(scenario_name: str, gaml_path: Path) -> None:
         "spawn_ramp_tick interval",
     )
 
-    content = _sub_checked(
-        SCENARIO_GAML_REGEX["balance_tick interval"],
-        rf"\g<1>{scenario.spawn_interval}\2",
-        content,
-        "balance_tick interval",
-    )
+    # Bug #8 da bo: KHONG patch balance_tick — giu default GAML (10 cycle, mainline maintenance).
 
     gaml_path.write_text(content, encoding="utf-8")
     print(

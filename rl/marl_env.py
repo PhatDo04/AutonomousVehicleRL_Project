@@ -2,6 +2,7 @@
 
 Kiến trúc:
     GamaParallelEnv (PettingZoo parallel, 4 agents)
+        → PadPossibleAgentsParallelWrapper (luôn đủ 4 obs — MarkovVectorEnv.concat_obs)
         → AgentIndicatorParallelWrapper  (one-hot ID 15→19D, **không** qua parallel↔AEC của SuperSuit)
         → MarkovVectorEnv(..., black_death=True)
         → GamaMarkovSB3VecEnv      (stable_baselines3.common.vec_env.VecEnv)
@@ -56,6 +57,59 @@ except ImportError as exc:
 from stable_baselines3.common.vec_env import VecEnv
 
 
+class PadPossibleAgentsParallelWrapper(ParallelEnv):
+    """Giữ cố định ``possible_agents`` cho MarkovVectorEnv khi GAMA respawn/merge."""
+
+    def __init__(self, env: ParallelEnv) -> None:
+        self.env = env
+        self.metadata = dict(getattr(env, "metadata", {}) or {})
+        self.render_mode = getattr(env, "render_mode", None)
+        self.possible_agents = list(env.possible_agents)
+        self.agents = list(self.possible_agents)
+
+    def observation_space(self, agent: str) -> Space:
+        return self.env.observation_space(agent)
+
+    def action_space(self, agent: str) -> Space:
+        return self.env.action_space(agent)
+
+    def _zero_obs(self, agent: str) -> np.ndarray:
+        space = self.env.observation_space(agent)
+        return np.zeros(space.shape, dtype=space.dtype)
+
+    def _pad_obs(self, obs: dict[str, Any]) -> dict[str, Any]:
+        return {
+            agent: obs[agent]
+            if agent in obs and obs[agent] is not None
+            else self._zero_obs(agent)
+            for agent in self.possible_agents
+        }
+
+    def reset(self, seed: int | None = None, options: dict[str, Any] | None = None):
+        observations, infos = self.env.reset(seed=seed, options=options)
+        self.agents = list(self.possible_agents)
+        return self._pad_obs(observations), infos
+
+    def step(self, actions: dict[str, Any]):
+        act = {a: actions.get(a, 1) for a in self.possible_agents}
+        obs, rewards, terms, truncs, infos = self.env.step(act)
+        self.agents = list(self.possible_agents)
+        padded_obs = self._pad_obs(obs)
+        return (
+            padded_obs,
+            {a: float(rewards.get(a, 0.0)) for a in self.possible_agents},
+            {a: bool(terms.get(a, False)) for a in self.possible_agents},
+            {a: bool(truncs.get(a, False)) for a in self.possible_agents},
+            {a: infos.get(a, {}) for a in self.possible_agents},
+        )
+
+    def render(self):
+        return self.env.render()
+
+    def close(self) -> None:
+        self.env.close()
+
+
 class AgentIndicatorParallelWrapper(ParallelEnv):
     """Giống ``supersuit.agent_indicator_v0`` nhưng giữ nguyên Parallel API.
 
@@ -69,18 +123,27 @@ class AgentIndicatorParallelWrapper(ParallelEnv):
         self.render_mode = getattr(env, "render_mode", None)
         self.possible_agents = list(env.possible_agents)
         self.agents = list(getattr(env, "agents", []))
-        spaces = [env.observation_space(a) for a in self.possible_agents]
+        self._type_only = type_only
+        self._indicator_map: dict[str, int] | None = None
+        self._num_indicators = len(self.possible_agents)
+
+    def _ensure_indicator_map(self) -> None:
+        if self._indicator_map is not None:
+            return
+        spaces = [self.env.observation_space(a) for a in self.possible_agents]
         _agent_ider.check_params(spaces)
-        self._indicator_map = _agent_ider.get_indicator_map(self.possible_agents, type_only)
+        self._indicator_map = _agent_ider.get_indicator_map(self.possible_agents, self._type_only)
         self._num_indicators = len(set(self._indicator_map.values()))
 
     def observation_space(self, agent: str) -> Space:
+        self._ensure_indicator_map()
         return _agent_ider.change_obs_space(self.env.observation_space(agent), self._num_indicators)
 
     def action_space(self, agent: str) -> Space:
         return self.env.action_space(agent)
 
     def _patch_obs_dict(self, obs: dict[str, Any]) -> dict[str, Any]:
+        self._ensure_indicator_map()
         out: dict[str, Any] = {}
         for agent, o in obs.items():
             base_space = self.env.observation_space(agent)
@@ -215,10 +278,14 @@ def make_marl_vec_env(
         gama_port=cfg.port,
     )
 
-    # Xác nhận 4 agent MARL đều có mặt.
-    # Dùng try/finally để đóng socket GAMA nếu validation thất bại (tránh treo connection).
+    # 1. Pad obs cho đủ 4 agent (respawn ramp / MarkovVectorEnv.concat_obs).
+    env = PadPossibleAgentsParallelWrapper(parallel_env)
+    # 2. One-hot agent ID (15,) → (19,) — không dùng ss.agent_indicator_v0 (AEC round-trip + GAMA → KeyError).
+    env = AgentIndicatorParallelWrapper(env, type_only=False)
+
+    # Xác nhận 4 agent MARL đều có mặt (bootstrap GAML sau cycle>0).
     try:
-        obs, _ = parallel_env.reset(seed=cfg.simulation_seed)
+        obs, _ = env.reset(seed=cfg.simulation_seed)
         missing = [a for a in MARL_AGENTS if a not in obs]
         if missing:
             raise RuntimeError(
@@ -226,17 +293,14 @@ def make_marl_vec_env(
                 f"Kiểm tra possible_agents trong Main_Traffic.gaml."
             )
     except Exception:
-        parallel_env.close()
+        env.close()
         raise
 
-    # 1. One-hot agent ID (15,) → (19,) — không dùng ss.agent_indicator_v0 (AEC round-trip + GAMA → KeyError).
-    env = AgentIndicatorParallelWrapper(parallel_env, type_only=False)
-
-    # 2. MarkovVectorEnv: không dùng pettingzoo_env_to_vec_env_v1 (black_death=False).
+    # 3. MarkovVectorEnv: không dùng pettingzoo_env_to_vec_env_v1 (black_death=False).
     #    GAMA có bước par_env.agents != possible_agents (merge/respawn) → cần black_death=True.
     markov = MarkovVectorEnv(env, black_death=True)
 
-    # 3. SB3 VecEnv — không dùng concat_vec_envs_v1 (pickle GAMA → lỗi coroutine).
+    # 4. SB3 VecEnv — không dùng concat_vec_envs_v1 (pickle GAMA → lỗi coroutine).
     if num_vec_envs == 1:
         return GamaMarkovSB3VecEnv(markov)
 
