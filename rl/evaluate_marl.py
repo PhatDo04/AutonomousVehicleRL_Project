@@ -49,6 +49,7 @@ from rl.metrics import (
 )
 from rl.gama_episode_reset import reset_marl_episode
 from rl.marl_env import AgentIndicatorParallelWrapper
+from rl.centralized_policy import ACTOR_DIM, CENTRALIZED_OBS_DIM
 
 patch_gama_gymnasium()
 
@@ -80,6 +81,22 @@ _MERGING_ACTION_NAMES = {
 }
 
 
+def _to_model_obs(local_obs: np.ndarray) -> np.ndarray:
+    """Pad local obs 19D → 79D (zeros cho phần global) cho CTDE decentralized execution.
+
+    Model train với obs 79D (19 local + 60 global state). Tại execution không có global
+    state thực — pad 0; actor (``CentralizedCriticPolicy``) chỉ đọc ``obs[:19]`` nên
+    action không đổi. Đây là chứng minh chính cho tính chất decentralized execution
+    của kiến trúc CTDE.
+    """
+    arr = np.asarray(local_obs, dtype=np.float32)
+    if arr.shape[0] == CENTRALIZED_OBS_DIM:
+        return arr
+    padded = np.zeros(CENTRALIZED_OBS_DIM, dtype=np.float32)
+    padded[: ACTOR_DIM] = arr[:ACTOR_DIM] if arr.shape[0] >= ACTOR_DIM else arr
+    return padded
+
+
 def _predict_marl_action(
     model: PPO | A2C,
     obs_arr: np.ndarray,
@@ -88,12 +105,18 @@ def _predict_marl_action(
     deterministic: bool,
     eval_mask: bool,
 ) -> int:
-    """Chọn action; với merging_0 deterministic có thể mask brake/keep khi đứng trong accel."""
+    """Chọn action cho 1 agent; với deterministic eval của ``merging_0`` áp action mask.
+
+    Mask boost xác suất action 3 (merge) khi đang trong accel zone + gap an toàn,
+    đồng thời triệt tiêu brake/keep khi tốc độ quá thấp — giúp argmax không kẹt vào
+    hành vi thụ động khi policy có xác suất gần đều giữa nhiều action.
+    """
+    model_obs = _to_model_obs(obs_arr)
     if not deterministic or agent_id != "merging_0" or not eval_mask:
-        action, _ = model.predict(obs_arr, deterministic=deterministic)
+        action, _ = model.predict(model_obs, deterministic=deterministic)
         return int(action)
 
-    obs_tensor = obs_as_tensor(obs_arr.reshape(1, -1), model.device)
+    obs_tensor = obs_as_tensor(model_obs.reshape(1, -1), model.device)
     with torch.no_grad():
         dist = model.policy.get_distribution(obs_tensor)
         probs = dist.distribution.probs.detach().cpu().numpy()[0].astype(np.float64)

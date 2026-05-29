@@ -2452,9 +2452,9 @@ species car {
             if (merge_success) {
                 if (merge_mode != 1) {
                     if (move_next_x >= road_length - 6.0) {
-                        // Iter 9 revert: 100 -> 200. Iter 8 thu giam terminal nhung backfire
-                        // (HW collision 33.3%, reward -271). Quay lai 200 va dung C1+ (action-3 sai gap penalty)
-                        // de fix reward duong thay vi tinh chinh terminal.
+                        // Terminal success bonus lớn (+200) tạo signal mạnh để RL converge tới
+                        // hành vi merge an toàn. Cân bằng với reward shaping per-step (đa số nhỏ)
+                        // để giảm variance + tránh bias về chiến lược "delay đến cuối".
                         reward_val <- 200.0;
                         terminal_reason <- "success";
                         is_done <- true;
@@ -2937,16 +2937,14 @@ species car {
                         merge_step    <- episode_step;
                         reward_val    <- reward_val + 40.0;
                     } else {
-                        // V5 fix: BO HOAN TOAN penalty cho action 3 fail. Agent can THU NHIEU
-                        // moi hoc duoc, neu phat (du nhe) -> high variance -> policy collapse ve
-                        // low-variance Wait/Keep. Iter 3 cho thay 36% Merge intent, iter 4 collapse
-                        // ve 91% Wait vi Merge fail -0.04 + Wait -0.02 -> Wait win.
-                        // Them BONUS NHE +0.5/tick khi thu action 3 trong zone -> incentive try.
+                        // Action 3 trong zone với gap KHÔNG an toàn: thưởng nhẹ (+0.5) để agent
+                        // không bị disincentive khi thử merge. Phạt action-3-sai sẽ làm policy
+                        // collapse vào low-variance "wait/keep" do giảm động lực thử.
                         reward_val    <- reward_val + 0.5;
                     }
                 } else {
-                    // Action 3 ngoai zone: penalty rat nhe (-0.01) thay vi -0.05 — vua du de KHONG
-                    // spam action 3 truoc khi vao zone, nhung khong tao gradient phu lam mat focus.
+                    // Action 3 NGOÀI zone: penalty rất nhẹ (-0.01) — đủ để agent không spam
+                    // action 3 trước khi vào zone, không tạo gradient phụ làm mất focus.
                     action_penalty <- action_penalty - 0.01;
                 }
             }
@@ -4345,19 +4343,15 @@ species car {
                 return reward_cache;
             }
         }
-        // Speed reward + action_penalty cho highway / mainline.
-        // Sua bug RL collapse: speed * 0.10 qua manh -> agent uu tien speed > safety -> collision.
-        // Giam xuong 0.04 (bang ~40% cu) de balance voi TTC + collision penalty.
+        // Reward base cho highway / mainline agents.
+        //   - speed * 0.04: khuyến khích duy trì tốc độ; hệ số nhỏ để không đè safety signals.
+        //   - low-speed penalty (-0.05): tránh policy "đứng yên" trên cao tốc.
         reward_cache <- action_penalty + speed * 0.04;
-        // Phat ru bo: giu speed > 20% speed_max.
         if (speed < speed_max * 0.2) {
             reward_cache <- reward_cache - 0.05;
         }
-        // TTC penalty: trigger SOM HON (< 15m thay vi 10m), SPEED THAP HON (>0.15 thay vi 0.3),
-        // HE SO MANH HON (0.8 thay vi 0.5) -> day signal "phanh khi gan xe khac" som hon.
-        // Truoc: trigger qua muon, qua yeu -> agent khong hoc duoc tranh va cham.
-        // Iter 9: A2C iter 7 HW collision 66.7% (action: brake 43% / accel 56%) -> tang trigger
-        // 15m -> 20m va multiplier 0.8 -> 1.2 de signal "phanh som" manh hon, tranh rear-end.
+        // TTC penalty: phạt liên tục theo (gap_thiếu × speed) khi ahead_gap < 20m & speed > 0.15.
+        // Trigger sớm + hệ số mạnh để agent học "phanh khi gần xe khác" trước khi va chạm.
         if (enable_highway_ttc_reward) {
             if (ahead_gap_dx < 20.0) {
                 if (speed > 0.15) {
@@ -4365,25 +4359,16 @@ species car {
                 }
             }
         }
-        // Iter 11: HW collision 33% (ca PPO + A2C iter 9-10) vi HW agents action 0 (accel) 80-90%.
-        // CHU Y: HW action mapping NGUOC voi merging: 0=accelerate, 2=decelerate (action 2 dump speed).
-        // Xem [1983]: action 0 -> speed + acceleration; action 2 -> speed - deceleration.
-        // TTC penalty chung chung khong du - can phat truc tiep "quyet dinh accel khi gap nho".
-        // Action 0 (HW accel) + gap<12m -> -0.5/tick. Action 2 (HW decel) + gap<15m -> +0.2/tick.
-        // Tac dung: agent HW hoc "thay xe gan -> khong accel, nen decel".
+        // CHÚ Ý: action mapping của highway NGƯỢC với merging — xem reflex behave:
+        //   action 0 = accelerate, action 1 = keep, action 2 = decelerate, 3/4 = lane change.
+        // Phạt trực tiếp quyết định "accel khi gap quá gần" (TTC chung không đủ specific).
         if (action_rl = 0) {
             if (ahead_gap_dx < 12.0) {
                 reward_cache <- reward_cache - 0.5;
             }
         }
-        if (action_rl = 2) {
-            if (ahead_gap_dx < 15.0) {
-                reward_cache <- reward_cache + 0.2;
-            }
-        }
-        // Phase 7 ROLLBACK: proximity penalty cong don lam MARL collapse -> bo.
-        // Goc re la OBSERVATION (M3b da fix: 15D radar thuc).
-        // Phase 8 ROLLBACK: yield-to-merger per-tick reward lam highway dung yen -> MARL collapse.
+        // Không thưởng "phanh khi gần" (đã thử dạng bonus per-tick) — tạo degenerate trap
+        // "đứng yên": speed=0 → gap không đổi → +bonus mãi. Dùng TTC penalty (< 0) thay thế.
         // Cooperative reward MARL: thuong khi gan diem merge thanh cong trong TTL `recent_merge_coop_ticks`.
         if (enable_marl_coop_reward) {
             if (rl_agent_id != "") {
@@ -4477,16 +4462,14 @@ species car {
                 return -100.0;
             }
         }
-        // Sua bug RL collapse: speed * 0.14 qua manh -> agent uu tien max speed > safety
-        // -> lao thang vao xe khac -> 90-100% collision rate trong training. Giam xuong 0.06.
-        // Iter 8: tang 0.06 -> 0.10 de khuyen khich chay nhanh thay vi wait (PPO iter 7 81% wait).
+        // Base reward: -0.01/tick (time pressure) + action_penalty + speed * 0.10.
+        // Hệ số speed nhỏ để không lấn át safety signals (collision -100, gap penalties).
         reward_cache <- -0.01 + action_penalty + speed * 0.10;
         if (merge_mode = 1) {
-            // Voi speed floor moi 0.30, agent luon di chuyen forward du chon action gi.
-            // KHONG can shaping phuc tap "Acc bonus / non-Acc penalty" nua. Giu lai:
-            //   - Penalty nhe khi speed < 0.10 (chi xay ra neu floor logic bypass)
-            //   - Bonus in_accel_zone (incentive den dich)
-            //   - One-shot bonus khi vao zone
+            // Trên ramp: shaping signal hướng agent vào accel zone (vùng cuối có thể merge).
+            //   - Penalty nhẹ khi speed quá thấp (đứng yên trên ramp).
+            //   - Bonus liên tục khi đã trong zone (incentive duy trì vị trí merge).
+            //   - One-shot bonus +15 khi VÀO zone (signal dense cho exploration ban đầu).
             if (speed < 0.10) {
                 reward_cache <- reward_cache - 0.06;
             }
@@ -4508,60 +4491,57 @@ species car {
         m2_accel_len <- max(1.0, accel_end_x - accel_start_x);
         m2_urgency <- min(1.0, max(0.0, (move_next_x - accel_start_x) / m2_accel_len));
         if (enable_merging_gap_reward) {
-            // Iter 9 C1+: BO per-tick gap penalty (truoc *0.2). Penalty cong don moi tick lam reward
-            // luon am du agent dung yen tren ramp (PPO iter 7 -26.83, iter 6 -426). Logic an toan
-            // duoc bao toan boi: (1) obs co gap_front_raw/rear_raw/gap_safe, (2) action 3 gate
-            // is_merge_gap_safe(), (3) collision -100, (4) penalty action 3 sai gap (them duoi).
-            // Thuong nho khi gap an toan — giu nguyen de khuyen khich di chuyen den state an toan.
+            // Chỉ thưởng nhẹ khi gap an toàn (không phạt per-tick gap nhỏ — sẽ tạo reward
+            // âm tích lũy ngay khi agent đứng yên trên ramp). Safety vẫn được giữ qua:
+            //   (1) Observation: gap_front_raw / gap_rear_raw / gap_safe đưa vào policy obs.
+            //   (2) Action 3 gate: ``is_merge_gap_safe()`` chặn execute_merge khi unsafe.
+            //   (3) Collision penalty -100 (terminal).
+            //   (4) Penalty -2 cho action 3 với gap sai (đặt ở dưới).
             if (obs_gap_safe >= 1.0) {
                 reward_cache <- reward_cache + 0.05;
             }
         }
-        // Urgency penalty trong accel zone.
+        // Urgency penalty: trừ tuyến tính theo vị trí trong accel zone — khuyến khích merge
+        // sớm thay vì chờ đến cuối zone (vùng "merge muộn" có ít cơ hội tìm gap an toàn).
         if (in_accel_zone) {
             reward_cache <- reward_cache - m2_urgency * 0.05;
         }
-        // === BUFF MANH cho action 3 (Merge) — fix policy collapse ===
-        // Truoc: bonus +5.0 chua du de canh tranh voi local optimum "do nothing"
-        // (action 1 Keep cho speed=0 -> 0 reward, action 3 fail -0.04 -> agent chon Keep).
-        // Giai phap: (A) Bonus action 3 scale theo urgency (10 + urgency*10 = max 20).
-        //            (B) Phat action 1 (Keep) khi safe + in_zone -> ep agent thu action 3.
-        //            (C) Iter 9 C1+: Phat -1.0 khi merge voi gap SAI (thay the per-tick gap penalty).
+        // Action 3 (merge attempt) shaping — tạo sharp gradient hướng policy về quyết định merge:
+        //   - Trong zone + gap an toàn: bonus +25 → +50 (scale theo urgency, cap chung +60).
+        //   - Trong zone + gap không an toàn: -2 (phạt nhẹ, đủ để học "chọn đúng gap" mà
+        //     không khiến PPO né tránh hoàn toàn action 3 → policy collapse).
+        //   - Ngoài zone: -0.5 (signal "merge chỉ trong zone").
         if (action_rl = 3) {
             if (in_accel_zone) {
                 if (obs_gap_safe >= 1.0) {
-                    // Bonus scale theo urgency: 10 (vao zone) -> 20 (sap het zone).
-                    // Manh gap 4x bonus cu (5.0) -> compete duoc voi collision -100.
-                    reward_cache <- reward_cache + 10.0 + m2_urgency * 10.0;
+                    reward_cache <- reward_cache + 25.0 + m2_urgency * 25.0;
                 } else {
-                    // Iter 9 C1+: phat khi co merge voi gap khong an toan -> hoc "khong merge au".
-                    // Day la signal thay the per-tick gap penalty (da bo o tren).
-                    reward_cache <- reward_cache - 1.0;
+                    reward_cache <- reward_cache - 2.0;
                 }
+            } else {
+                reward_cache <- reward_cache - 0.5;
             }
         }
-        // V5: PHAT MANH cho cac low-variance action (Keep, Wait, Dec) khi DANG TRONG ZONE.
-        // Iter 4 cho thay policy collapse ve Wait 91% vi Wait/Keep co reward stable (-0.02/-0.3),
-        // trong khi Merge fail -0.04 -> agent tranh variance. Phai ep TAT CA action khong-merge
-        // trong zone thanh costly hon Merge.
+        // Hierarchy phạt non-progress actions trong zone (BRAKE/WAIT nặng nhất do "không tiến").
+        // Action 2 (accel) trong zone KHÔNG phạt — giữ tốc độ để bắt kịp traffic mainline.
         if (in_accel_zone) {
+            if (action_rl = 0) {  // Brake/Dec
+                reward_cache <- reward_cache - 2.0;
+            }
             if (action_rl = 1) {  // Keep
                 reward_cache <- reward_cache - 0.5;
             }
-            if (action_rl = 4) {  // Wait — iter 4 PPO chon 91% wait, phai phat NANG hon
-                reward_cache <- reward_cache - 0.5;
-            }
-            if (action_rl = 0) {  // Dec — iter 1 A2C chon 94% dec
-                reward_cache <- reward_cache - 0.3;
+            if (action_rl = 4) {  // Wait
+                reward_cache <- reward_cache - 3.0;
             }
         }
-        // Iter 9 revert: Bo wait penalty ngoai zone (iter 8 da gay HW collision 33.3% va reward -271).
-        // Per-tick penalty cong don qua nang lam agent thieu signal "doi safely".
-        if (reward_cache < -40.0) {
-            reward_cache <- -40.0;
+        // Cap [-60, 60] để bonus action 3 (+50) không bị clip mà vẫn ràng buộc magnitude
+        // cho value function ổn định (giảm variance gradient).
+        if (reward_cache < -60.0) {
+            reward_cache <- -60.0;
         }
-        if (reward_cache > 40.0) {
-            reward_cache <- 40.0;
+        if (reward_cache > 60.0) {
+            reward_cache <- 60.0;
         }
         return reward_cache;
     }

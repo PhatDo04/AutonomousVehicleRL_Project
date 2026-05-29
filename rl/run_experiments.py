@@ -218,20 +218,21 @@ def _score_eval_csv(
     *,
     reject_unsafe_highway: bool = False,
 ) -> float:
-    """Score chọn checkpoint: ưu tiên merge success, phạt collision/timeout.
+    """Score chọn checkpoint MARL.
 
-    Với MARL, highway collision là safety regression riêng: nếu bật reject thì
-    loại checkpoint khỏi best-selection thay vì chỉ trừ điểm nhẹ.
+    Công thức: ``success - collision - timeout - 0.5 * highway_collision``.
+
+    HW collision dùng **soft penalty** (weight 0.5) thay vì hard reject — vì shared
+    policy có baseline HW collision rate ~25%, nếu reject mọi checkpoint có HW collision
+    thì tất cả đều bị loại và fallback về final model, làm mất giá trị chọn best ckpt.
+    Tham số ``reject_unsafe_highway`` giữ lại cho backward compatibility (không có tác dụng).
     """
     success_rate = _read_rate(eval_csv, "success")
     collision_rate = _read_rate(eval_csv, "collision")
     timeout_rate = _read_rate(eval_csv, "timeout")
-    highway_collision_rate = 0.0
     highway_csv = _highway_eval_csv(eval_csv)
     highway_collision_rate = _read_rate(highway_csv, "collision")
-    if reject_unsafe_highway and highway_collision_rate > 0.0:
-        return float("-inf")
-    return success_rate - collision_rate - timeout_rate - highway_collision_rate
+    return success_rate - collision_rate - timeout_rate - 0.5 * highway_collision_rate
 
 
 def select_best_checkpoint(
@@ -383,6 +384,14 @@ def parse_args() -> argparse.Namespace:
             "train: chỉ huấn luyện. eval: chỉ đánh giá model có sẵn."
         ),
     )
+    parser.add_argument(
+        "--eval-stochastic",
+        action="store_true",
+        help=(
+            "Ép eval dùng sampling (PPO/A2C) kể cả khi preset = short. "
+            "Tránh ảo tưởng '100% success' do deterministic eval khoá cùng quỹ đạo."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -522,8 +531,9 @@ def _run_all_experiments(
                     )
 
             if run_eval_step:
-                # PPO/A2C: argmax deterministic thường sập về brake; eval thesis dùng sampling.
-                eval_stochastic = args.preset == "thesis"
+                # Stochastic eval cho PPO/A2C: argmax deterministic dễ sập về brake/keep
+                # (policy có entropy cao). Thesis dùng sampling; preset short opt-in qua flag.
+                eval_stochastic = args.preset == "thesis" or args.eval_stochastic
                 eval_csv = run_evaluate(
                     algo=algo,
                     model_path=marl_model_path,

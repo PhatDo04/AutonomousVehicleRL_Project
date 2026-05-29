@@ -1,16 +1,17 @@
-"""Huấn luyện MARL (Multi-Agent RL) cho bài toán nhập làn cao tốc.
+"""Huấn luyện MARL (Multi-Agent RL) cho bài toán nhập làn cao tốc — MAPPO / MAA2C với CTDE.
 
-Sử dụng chiến lược Shared Policy (IPPO/IA2C — Independent MARL với parameter sharing):
-  - 4 agent (merging_0, highway_0/1/2) cùng học 1 chính sách duy nhất
-  - SuperSuit agent_indicator_v0 thêm one-hot agent ID vào obs (15D → 19D)
-    để policy phân biệt vai trò mà không cần model riêng biệt
+Kiến trúc CTDE (Centralized Training, Decentralized Execution):
+  - 4 agent (merging_0, highway_0/1/2) cùng học 1 chính sách (parameter sharing).
+  - Actor decentralized: chỉ đọc local 19D (15 sensor + 4 one-hot agent ID).
+  - Critic centralized: thấy global state 60D (concat 15D base obs của cả 4 agents).
+  - Obs đưa vào SB3 model = 19 + 60 = 79D (xem ``rl/centralized_policy.py``).
 
-Lưu ý: DQN bị loại khỏi MARL vì:
-  - DQN là off-policy → replay buffer lẫn lộn transitions của 4 agents khác nhau
-  - Non-stationarity làm Q-values không hội tụ trong setting đa tác tử
-  - PPO/A2C là on-policy → cập nhật ngay trên dữ liệu hiện tại, ổn định hơn trong MARL
+DQN bị loại vì off-policy replay buffer trộn transitions của nhiều agent → bất ổn trong
+môi trường non-stationary multi-agent.
 
-Tham khảo: Lowe et al. (2017) MADDPG; de Witt et al. (2020) MAPPO.
+Tham khảo:
+  - Yu et al. "The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games" (2021).
+  - Lowe et al. (2017) MADDPG; de Witt et al. (2020) MAPPO.
 
 Sử dụng:
     python rl/train_marl.py --algo ppo --timesteps 200000 --seed 0
@@ -47,23 +48,24 @@ from rl.config import (
     TrainConfig,
 )
 from rl.marl_env import make_marl_vec_env
+from rl.centralized_policy import CentralizedCriticPolicy
 from rl.metrics import classify_episode, write_episode_metrics, EpisodeMetric
 
 
 # ---------------------------------------------------------------------------
-# Callback: ghi CSV metrics cho merging_0 sau mỗi episode
+# Callback: ghi CSV metrics cho merging_0 + highway agents sau mỗi episode
 # ---------------------------------------------------------------------------
 
 class MARLEpisodeCSVCallback(BaseCallback):
-    """Callback ghi metrics episode cho tất cả MARL agents trong training.
+    """Ghi metrics episode cho tất cả MARL agents trong training.
 
-    SuperSuit concat 4 agents thành 1 VecEnv. Callback tách riêng:
-    - CSV chính (output_path): metrics của merging_0 — để so sánh với single-agent
-    - CSV phụ (highway_path): metrics tổng hợp của highway_0/1/2 — theo dõi hành vi cooperative
+    SuperSuit concat 4 agents thành 1 VecEnv với 4 slots cố định. Callback tách riêng:
+      - CSV chính (output_path): metrics của merging_0 (so sánh với single-agent baseline).
+      - CSV phụ (highway_path):  metrics tổng hợp của highway_0/1/2 (theo dõi hành vi cooperative).
     """
 
     # SuperSuit concat agents theo thứ tự MARL_AGENTS → index 0 = merging_0, 1–3 = highway.
-    # Dùng để suy ra agent_role khi GAMA trả về missing_agent (không có agent_role trong info).
+    # Dùng để suy ra role khi info không có ``agent_role`` (vd: GAMA trả về missing_agent).
     _AGENT_INDEX_TO_ROLE: dict[int, str] = {
         i: ("merging" if agent == "merging_0" else "highway")
         for i, agent in enumerate(MARL_AGENTS)
@@ -74,7 +76,9 @@ class MARLEpisodeCSVCallback(BaseCallback):
         self.algorithm = f"marl_{algorithm}"
         self.seed = seed
         self.output_path = output_path
-        self.highway_path = output_path.parent / output_path.name.replace("_episodes.csv", "_highway_episodes.csv")
+        self.highway_path = output_path.parent / output_path.name.replace(
+            "_episodes.csv", "_highway_episodes.csv"
+        )
         self.merging_rows: list[EpisodeMetric] = []
         self.highway_rows: list[EpisodeMetric] = []
         self._ep_rewards: dict[int, float] = {}
@@ -93,10 +97,7 @@ class MARLEpisodeCSVCallback(BaseCallback):
             if done:
                 total_r = self._ep_rewards.pop(i, 0.0)
                 length = self._ep_lengths.pop(i, 0)
-                # Fallback khi GAMA trả về missing_agent (xe đã chết) — info không có agent_role.
-                # Suy ra từ vị trí index trong VecEnv (0=merging, 1–3=highway).
-                # i luôn trong [0, 3] vì concat_vec_envs tạo đúng 4 slots.
-                # Dùng .get(i, "highway") thay vì i % len để tránh nhầm lẫn toán học.
+                # Fallback role khi info thiếu ``agent_role`` (dùng index slot, 0=merging, 1–3=highway).
                 role = str(info.get("agent_role") or self._AGENT_INDEX_TO_ROLE.get(i, "highway"))
                 outcome = str(info.get("outcome", "unknown"))
                 wrapper_trunc = bool(info.get("TimeLimit.truncated", False))
@@ -152,37 +153,28 @@ class MARLEpisodeCSVCallback(BaseCallback):
 
 
 # ---------------------------------------------------------------------------
-# Model builders — giữ nguyên hyperparameter như single-agent nhưng obs_dim=19
+# Model builders
 # ---------------------------------------------------------------------------
 
 def build_marl_model(algo: str, env, seed: int, tensorboard_log: str):
-    """Tạo SB3 on-policy model cho MARL (PPO hoặc A2C).
-
-    DQN bị loại trừ khỏi MARL vì off-policy replay buffer không ổn định
-    trong môi trường đa tác tử (non-stationarity problem).
-    """
+    """Tạo SB3 on-policy model MARL với centralized critic (MAPPO / MAA2C)."""
     if algo not in MARL_ALGORITHMS:
         raise ValueError(
             f"Thuật toán '{algo}' không được hỗ trợ trong MARL. "
-            f"Dùng: {MARL_ALGORITHMS}. "
-            f"DQN bị loại vì off-policy không phù hợp đa tác tử."
+            f"Dùng: {MARL_ALGORITHMS}. DQN bị loại vì off-policy không phù hợp đa tác tử."
         )
 
     if algo == "ppo":
-        # V6: ent_coef 0.08 -> 0.20 (anti policy-collapse).
-        # Iter 5 cho thay PPO collapse ve Keep 72.6% du phat -0.5/tick trong zone -> argmax
-        # bi stuck, exploration khong du de escape. Bump entropy de policy network giu
-        # probability cao cho cac action it duoc chon -> argmax co the flip qua Merge.
         return PPO(
-            "MlpPolicy",
+            CentralizedCriticPolicy,
             env,
-            learning_rate=5e-4,
+            learning_rate=3e-4,
             n_steps=256,
             batch_size=128,
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.20,
+            ent_coef=0.01,
             vf_coef=0.5,
             tensorboard_log=tensorboard_log,
             seed=seed,
@@ -190,20 +182,14 @@ def build_marl_model(algo: str, env, seed: int, tensorboard_log: str):
         )
 
     if algo == "a2c":
-        # Iter 10: A2C iter 9 collapse hoan toan (0% success, 100% collision, 86% accel)
-        # vi C1+ GAML (bo per-tick gap penalty) thay doi reward landscape qua dot ngot
-        # voi A2C don gian (khong co clipping). Stabilize hyperparameter:
-        #   - learning_rate 1e-3 -> 5e-4: update nhe hon, tranh collapse "spam accel"
-        #   - ent_coef 0.32 -> 0.15: giam random exploration, khai thac policy an toan
-        #   - n_steps 32 -> 64: advantage estimate chinh xac hon -> gradient on dinh hon
         return A2C(
-            "MlpPolicy",
+            CentralizedCriticPolicy,
             env,
-            learning_rate=5e-4,
+            learning_rate=3e-4,
             n_steps=64,
             gamma=0.99,
             gae_lambda=0.95,
-            ent_coef=0.15,
+            ent_coef=0.05,
             tensorboard_log=tensorboard_log,
             seed=seed,
             verbose=1,
@@ -218,7 +204,7 @@ def build_marl_model(algo: str, env, seed: int, tensorboard_log: str):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--algo", choices=list(MARL_ALGORITHMS), default="ppo", help="Thuật toán RL (MARL: chỉ PPO/A2C).")
+    parser.add_argument("--algo", choices=list(MARL_ALGORITHMS), default="ppo", help="Thuật toán RL (MARL: PPO/A2C).")
     parser.add_argument("--timesteps", type=int, default=200_000, help="Tổng số training timesteps.")
     parser.add_argument("--seed", type=int, default=TrainConfig().seed)
     parser.add_argument("--host", default="localhost")
@@ -261,10 +247,12 @@ async def async_main(args: argparse.Namespace) -> None:
         print(f"Scenario: {scenario.name} (nb_cars_max={scenario.nb_cars_max})")
         print(SCENARIO_CLI_METADATA_ONLY_HINT)
 
-    print(f"\n=== MARL Training: {args.algo.upper()} | seed={args.seed} | {args.timesteps:,} steps ===")
+    ma_name = {"ppo": "MAPPO", "a2c": "MAA2C"}.get(args.algo, args.algo.upper())
+    print(f"\n=== MARL Training: {ma_name} (CTDE) | seed={args.seed} | {args.timesteps:,} steps ===")
     print(f"  4 agents: merging_0 + highway_0/1/2")
-    print(f"  Obs dim : {MARL_OBS_DIM}D (15 sensor + 4 one-hot agent ID)")
-    print(f"  Policy  : Shared (parameter sharing across all agents)\n")
+    print(f"  Actor   : {MARL_OBS_DIM}D local obs (15 sensor + 4 one-hot ID) — decentralized")
+    print(f"  Critic  : 60D global state (15D base × 4 agents) — centralized")
+    print(f"  Policy  : Shared params + centralized critic (CTDE)\n")
 
     config = GamaConnectionConfig(
         host=args.host,
@@ -279,8 +267,9 @@ async def async_main(args: argparse.Namespace) -> None:
         model = build_marl_model(args.algo, env, args.seed, tensorboard_log)
         callbacks = [MARLEpisodeCSVCallback(args.algo, args.seed, metric_path)]
         if args.checkpoint_interval > 0:
-            # SB3 callback n_calls tăng theo VecEnv step, còn num_timesteps tăng theo n_envs.
-            # MARL concat 4 agents => chia interval để checkpoint đúng theo tổng timestep.
+            # SB3 callback ``n_calls`` tăng theo VecEnv step (=1 step VecEnv tương ứng
+            # ``n_envs`` transitions). Chia interval cho num_envs để checkpoint đúng theo
+            # tổng timestep yêu cầu.
             save_freq = max(1, args.checkpoint_interval // max(1, int(getattr(env, "num_envs", 1))))
             callbacks.append(
                 CheckpointCallback(
@@ -300,7 +289,10 @@ async def async_main(args: argparse.Namespace) -> None:
         model.save(model_path)
         print(f"\nĐã lưu model      : {model_path}")
         print(f"Đã lưu metrics    : {metric_path}")
-        print(f"Highway metrics   : {metric_path.parent / metric_path.name.replace('_episodes.csv', '_highway_episodes.csv')}")
+        print(
+            f"Highway metrics   : "
+            f"{metric_path.parent / metric_path.name.replace('_episodes.csv', '_highway_episodes.csv')}"
+        )
     finally:
         env.close()
 

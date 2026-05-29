@@ -1,9 +1,10 @@
 """MARL environment wrapper: GAMA PettingZoo → SuperSuit → SB3 VecEnv.
 
-Kiến trúc:
+Kiến trúc (CTDE — centralized critic, decentralized actor):
     GamaParallelEnv (PettingZoo parallel, 4 agents)
         → PadPossibleAgentsParallelWrapper (luôn đủ 4 obs — MarkovVectorEnv.concat_obs)
         → AgentIndicatorParallelWrapper  (one-hot ID 15→19D, **không** qua parallel↔AEC của SuperSuit)
+        → GlobalStateParallelWrapper     (nối global state 60D → 79D cho centralized critic)
         → MarkovVectorEnv(..., black_death=True)
         → GamaMarkovSB3VecEnv      (stable_baselines3.common.vec_env.VecEnv)
 
@@ -171,6 +172,73 @@ class AgentIndicatorParallelWrapper(ParallelEnv):
         self.env.close()
 
 
+class GlobalStateParallelWrapper(ParallelEnv):
+    """CTDE: nối global state vào obs mỗi agent → centralized critic.
+
+    Global state = concat 15D base obs (KHÔNG kèm one-hot ID) của cả 4 agent theo
+    thứ tự cố định ``MARL_AGENTS`` = 60D. Mỗi agent obs (19D) → 19+60 = 79D.
+
+    Actor chỉ đọc ``obs[:19]`` (decentralized); critic đọc ``obs[19:79]`` (global).
+    Đặt SAU ``AgentIndicatorParallelWrapper`` (obs đã là 19D = 15 base + 4 one-hot).
+    """
+
+    BASE_DIM = 15  # 15D sensor gốc (trước one-hot agent ID)
+
+    def __init__(self, env: ParallelEnv) -> None:
+        self.env = env
+        self.metadata = dict(getattr(env, "metadata", {}) or {})
+        self.render_mode = getattr(env, "render_mode", None)
+        self.possible_agents = list(env.possible_agents)
+        self.agents = list(getattr(env, "agents", []))
+        self._global_dim = self.BASE_DIM * len(self.possible_agents)
+
+    def observation_space(self, agent: str) -> Space:
+        base = self.env.observation_space(agent)
+        low = float(np.min(base.low)) if np.ndim(base.low) else float(base.low)
+        high = float(np.max(base.high)) if np.ndim(base.high) else float(base.high)
+        new_len = int(base.shape[0]) + self._global_dim
+        return gym.spaces.Box(low=low, high=high, shape=(new_len,), dtype=base.dtype)
+
+    def action_space(self, agent: str) -> Space:
+        return self.env.action_space(agent)
+
+    def _build_global(self, obs: dict[str, Any]) -> np.ndarray:
+        """Concat 15D base của cả 4 agent theo thứ tự possible_agents (thiếu → zeros)."""
+        parts: list[np.ndarray] = []
+        for a in self.possible_agents:
+            o = obs.get(a)
+            if o is None:
+                parts.append(np.zeros(self.BASE_DIM, dtype=np.float32))
+            else:
+                arr = np.asarray(o, dtype=np.float32)
+                parts.append(arr[: self.BASE_DIM])
+        return np.concatenate(parts, axis=0)
+
+    def _augment(self, obs: dict[str, Any]) -> dict[str, Any]:
+        glob = self._build_global(obs)
+        out: dict[str, Any] = {}
+        for a, o in obs.items():
+            arr = np.asarray(o, dtype=np.float32)
+            out[a] = np.concatenate([arr, glob], axis=0)
+        return out
+
+    def reset(self, seed: int | None = None, options: dict[str, Any] | None = None):
+        observations, infos = self.env.reset(seed=seed, options=options)
+        self.agents = list(self.env.agents)
+        return self._augment(observations), infos
+
+    def step(self, actions: dict[str, Any]):
+        obs, rewards, terms, truncs, infos = self.env.step(actions)
+        self.agents = list(self.env.agents)
+        return self._augment(obs), rewards, terms, truncs, infos
+
+    def render(self):
+        return self.env.render()
+
+    def close(self) -> None:
+        self.env.close()
+
+
 class GamaMarkovSB3VecEnv(VecEnv):
     """Bọc ``supersuit`` MarkovVectorEnv (Gymnasium vector) thành SB3 ``VecEnv``.
 
@@ -180,8 +248,16 @@ class GamaMarkovSB3VecEnv(VecEnv):
     không có — lớp này forward tới ``par_env`` (PettingZoo / GAMA).
     """
 
-    def __init__(self, markov_vector_env: Any) -> None:
+    def __init__(self, markov_vector_env: Any, reset_on_merging_death: bool = True) -> None:
         self._m = markov_vector_env
+        # ``MarkovVectorEnv(black_death=True)`` che ``done`` cho dead agents — SB3 PPO
+        # vì thế không bao giờ thấy episode boundary khi merging_0 chết → rollout buffer
+        # tràn dead-agent transitions (zero obs, 0 reward) → policy gradient nhiễu nặng.
+        #
+        # Khi cờ này bật, ``step_wait`` tự phát hiện merging_0 chết → force ALL slots
+        # done=True + reset env → SB3 bootstrap value đúng và bắt đầu episode sạch.
+        # Khớp với pipeline eval (gọi ``reset_marl_episode`` sau mỗi merging_0 termination).
+        self._reset_on_merging_death = reset_on_merging_death
         super().__init__(
             num_envs=int(markov_vector_env.num_envs),
             observation_space=markov_vector_env.observation_space,
@@ -204,9 +280,41 @@ class GamaMarkovSB3VecEnv(VecEnv):
     def step_async(self, actions: np.ndarray) -> None:
         self._m.step_async(actions)
 
+    def _merging_just_died(self, infos: list, terms: Any) -> bool:
+        """Phát hiện merging_0 vừa chết trong step hiện tại.
+
+        Hai tín hiệu vì ``MarkovVectorEnv(black_death=True)`` che ``terms`` cho dead agents:
+          1. ``terms[0]=True`` — trực tiếp tại step chết đầu tiên (sau đó black_death ép False).
+          2. ``par_env.agents`` không có "merging_0" + ``infos[0].outcome`` là terminal — bắt
+             trường hợp pipeline xử lý termination không sync với ``terms`` array.
+        """
+        terms_arr = np.asarray(terms, dtype=bool)
+        if terms_arr.shape[0] > 0 and bool(terms_arr[0]):
+            return True
+        par = self._par()
+        agents_now = getattr(par, "agents", None)
+        if agents_now is not None and "merging_0" not in agents_now:
+            info0 = infos[0] if len(infos) > 0 else {}
+            outcome = str(info0.get("outcome", "")).lower() if isinstance(info0, dict) else ""
+            if outcome in {"collision", "success", "failed_merge"}:
+                return True
+        return False
+
     def step_wait(self) -> VecEnvStepReturn:
         obs, rewards, terms, truncs, infos = self._m.step_wait()
         dones = np.logical_or(np.asarray(terms, dtype=bool), np.asarray(truncs, dtype=bool))
+
+        if self._reset_on_merging_death and self._merging_just_died(list(infos), terms):
+            # Theo convention SB3: lưu terminal_observation trong info để PPO bootstrap
+            # value đúng tại episode boundary, sau đó trả về obs sau reset như obs mới.
+            infos_out = [dict(info) if isinstance(info, dict) else {} for info in infos]
+            for i in range(self.num_envs):
+                infos_out[i]["terminal_observation"] = np.asarray(obs[i])
+                infos_out[i]["TimeLimit.truncated"] = False
+            dones = np.ones(self.num_envs, dtype=bool)
+            new_obs, _ = self._m.reset()
+            return new_obs, np.asarray(rewards, dtype=np.float32), dones, infos_out
+
         return obs, rewards, dones, infos
 
     def close(self) -> None:
@@ -282,6 +390,8 @@ def make_marl_vec_env(
     env = PadPossibleAgentsParallelWrapper(parallel_env)
     # 2. One-hot agent ID (15,) → (19,) — không dùng ss.agent_indicator_v0 (AEC round-trip + GAMA → KeyError).
     env = AgentIndicatorParallelWrapper(env, type_only=False)
+    # 3. CTDE: nối global state 60D → obs 79D cho centralized critic (MAPPO/MAA2C).
+    env = GlobalStateParallelWrapper(env)
 
     # Xác nhận 4 agent MARL đều có mặt (bootstrap GAML sau cycle>0).
     try:
@@ -296,11 +406,11 @@ def make_marl_vec_env(
         env.close()
         raise
 
-    # 3. MarkovVectorEnv: không dùng pettingzoo_env_to_vec_env_v1 (black_death=False).
+    # 4. MarkovVectorEnv: không dùng pettingzoo_env_to_vec_env_v1 (black_death=False).
     #    GAMA có bước par_env.agents != possible_agents (merge/respawn) → cần black_death=True.
     markov = MarkovVectorEnv(env, black_death=True)
 
-    # 4. SB3 VecEnv — không dùng concat_vec_envs_v1 (pickle GAMA → lỗi coroutine).
+    # 5. SB3 VecEnv — không dùng concat_vec_envs_v1 (pickle GAMA → lỗi coroutine).
     if num_vec_envs == 1:
         return GamaMarkovSB3VecEnv(markov)
 
