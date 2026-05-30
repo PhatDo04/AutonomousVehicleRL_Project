@@ -45,7 +45,6 @@ from rl.config import (
     MODEL_DIR,
     SCENARIO_CLI_METADATA_ONLY_HINT,
     SCENARIO_PRESETS,
-    TrainConfig,
 )
 from rl.marl_env import make_marl_vec_env
 from rl.centralized_policy import CentralizedCriticPolicy
@@ -206,7 +205,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--algo", choices=list(MARL_ALGORITHMS), default="ppo", help="Thuật toán RL (MARL: PPO/A2C).")
     parser.add_argument("--timesteps", type=int, default=200_000, help="Tổng số training timesteps.")
-    parser.add_argument("--seed", type=int, default=TrainConfig().seed)
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--host", default="localhost")
     parser.add_argument("--port", type=int, default=1001)
     parser.add_argument("--max-episode-steps", type=int, default=300)

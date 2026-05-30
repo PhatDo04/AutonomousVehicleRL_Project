@@ -29,20 +29,8 @@ class GamaConnectionConfig:
     simulation_seed: int | None = None
 
 
-@dataclass(frozen=True)
-class TrainConfig:
-    """Default hyperparameters for MARL training (train_marl.py)."""
-
-    total_timesteps: int = 50_000   # MARL thesis validated baseline
-    seed: int = 0
-    learning_rate: float = 1e-4
-    tensorboard_log: str = str(LOG_DIR / "tensorboard")
-    eval_episodes: int = 20
-
-
-ALGORITHMS = ("dqn", "ppo", "a2c")
-# DQN không phù hợp MARL (off-policy, replay buffer lẫn transitions của nhiều agent).
-# MARL chỉ dùng on-policy algorithms: PPO và A2C.
+# MARL chỉ dùng các thuật toán on-policy (PPO/A2C). DQN bị loại vì off-policy:
+# replay buffer trộn transitions của nhiều agent → bất ổn trong môi trường non-stationary.
 MARL_ALGORITHMS = ("ppo", "a2c")
 
 # Presets thực nghiệm MARL (PPO/A2C, 4 agents) — pipeline chính run_experiments.py.

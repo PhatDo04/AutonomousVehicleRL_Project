@@ -162,9 +162,8 @@ def build_comparison_table(df: pd.DataFrame) -> pd.DataFrame:
 
 
 _DEFAULT_ALGO_ORDER = [
-    "random", "greedy", "heuristic",   # baselines
-    "dqn", "a2c", "ppo",               # single-agent RL
-    "marl_a2c", "marl_ppo",            # MARL
+    "random", "greedy", "heuristic",   # baselines (rule-based)
+    "marl_a2c", "marl_ppo",            # MARL (MAA2C / MAPPO)
 ]
 
 
@@ -183,7 +182,7 @@ def build_latex_table(
         DataFrame từ build_comparison_table().
     algo_order:
         Danh sách tên thuật toán theo thứ tự hiển thị trong bảng.
-        Mặc định: random → greedy → DQN → A2C → PPO → MARL-A2C → MARL-PPO.
+        Mặc định: random → greedy → heuristic → MAA2C → MAPPO.
         Thuật toán không có trong comp sẽ bị bỏ qua.
     """
     order = algo_order or _DEFAULT_ALGO_ORDER

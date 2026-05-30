@@ -38,8 +38,8 @@ def parse_model_name(path: Path) -> ModelRegistryEntry:
     """Infer lightweight metadata from common filenames.
 
     Định dạng chuẩn:
-      dqn_seed0_100k.zip          → algorithm=dqn,      mode=single
-      marl_ppo_seed0_200k.zip     → algorithm=marl_ppo, mode=marl
+      marl_ppo_seed0_200k.zip     → algorithm=marl_ppo
+      marl_a2c_seed3_200k.zip     → algorithm=marl_a2c
     """
     path = path.resolve()
     stem = path.stem
