@@ -255,9 +255,8 @@ global {
         } catch {}
     }
 
-    // Bug #11 da xoa: 4 action global pz_default_info / pz_find_rl_car / pz_put_agent_payload /
-    // pz_sync_from_world — dead code. Khong co reflex hay action nao goi. petz_collect_tick.tick_sync_from_world
-    // (line ~1440) la code thuc te chay moi cycle.
+    // Dong bo observation/reward GAMA -> Python moi cycle do species petz_collect_tick
+    // (action tick_sync_from_world) dam nhiem. Khong co action sync nao o cap global.
 
     // Diem tren polyline ramp theo arc-length (meter theo mang hinh — dung cho net dut deu trong init).
     action ramp_point_at_distance(float dist_along) type: point {
@@ -1300,10 +1299,8 @@ species PzBridgeAgent {
         if (data = nil) { data <- []; }
     }
 
-    // Bug #11 da xoa: 5 action update_data / default_info / find_rl_car / put_agent_payload /
-    // sync_from_world — dead code, khong co caller. Species PzBridgeAgent giu lai vi init block
-    // (global ":593") set bootstrap cho pz_observation_spaces / pz_action_spaces / pz_observations
-    // truoc khi petz_collect_tick.tick_sync_from_world chay tu cycle 1.
+    // Species PzBridgeAgent chi giu lai de init block (global) bootstrap pz_observation_spaces /
+    // pz_action_spaces / pz_observations truoc khi petz_collect_tick.tick_sync_from_world chay tu cycle 1.
 
     aspect default {}
 }

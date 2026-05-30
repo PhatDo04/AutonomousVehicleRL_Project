@@ -340,7 +340,7 @@ def main() -> None:
     else:
         comp_eval = pd.DataFrame()
         print("\n  [WARN] Không có CSV phase=eval/baseline — bảng so sánh CHÍNH bị bỏ qua.")
-        print("         Hãy chạy `evaluate.py` để có CSV `*_eval.csv` đánh giá đúng KPI.")
+        print("         Hãy chạy `evaluate_marl.py` để có CSV `*_eval.csv` đánh giá đúng KPI.")
 
     # 2. Bảng tham khảo (training rollouts) — KHÔNG dùng cho báo cáo, chỉ để debug
     if not df_train.empty:
