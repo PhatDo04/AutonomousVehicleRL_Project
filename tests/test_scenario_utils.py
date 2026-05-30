@@ -83,23 +83,7 @@ class TestRegexNbCarsMax:
             bak.unlink(missing_ok=True)
 
 
-class TestRegexBalanceTraffic:
-    def test_spawn_interval_replaced(self, tmp_path):
-        """Pattern balance_tick interval thay đúng interval."""
-        import rl.scenario_utils as su
-        gaml = _make_fake_gaml(tmp_path)
-        original = su.MODEL_PATH
-        su.MODEL_PATH = gaml
-        try:
-            su.apply_scenario_to_gaml("high")
-            content = gaml.read_text(encoding="utf-8")
-            cfg = SCENARIO_PRESETS["high"]
-            assert f"balance_tick >= {cfg.spawn_interval}" in content
-        finally:
-            su.MODEL_PATH = original
-            bak = gaml.parent / (gaml.stem + ".gaml.bak")
-            bak.unlink(missing_ok=True)
-
+class TestRegexSpawnRamp:
     def test_spawn_ramp_interval_replaced(self, tmp_path):
         """Pattern spawn_ramp_tick interval thay đúng interval."""
         import rl.scenario_utils as su
@@ -185,13 +169,3 @@ class TestRegexOnRepoMainTraffic:
             f"Regex scenario không còn khớp GAML repo (cần cập nhật SCENARIO_GAML_REGEX hoặc format GAML): {missing}"
         )
 
-    def test_archive_single_agent_matches_scenario_patterns(self):
-        from rl.config import SINGLE_AGENT_GAML_PATH
-        import rl.scenario_utils as su
-
-        if not SINGLE_AGENT_GAML_PATH.exists():
-            pytest.skip("Không có archive single-agent GAML")
-        text = SINGLE_AGENT_GAML_PATH.read_text(encoding="utf-8")
-        hits = su.scenario_regex_matches(text)
-        missing = [k for k, ok in hits.items() if not ok]
-        assert not missing, f"Archive GAML thiếu pattern scenario: {missing}"

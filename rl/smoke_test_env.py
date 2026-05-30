@@ -1,16 +1,13 @@
-"""
-Smoke test: GAMA headless (socket) + gama-pettingzoo — MARL (mặc định).
+"""Smoke test: GAMA headless (socket) + gama-pettingzoo — MARL (4 agents).
 
 Cách chạy:
   1) gama-headless.bat -socket 1001
   2) python rl/smoke_test_env.py
-     python rl/smoke_test_env.py --legacy-single   # archive TrafficSingleHeadless
 
 Cần: pip install -r requirements.txt
 """
 from __future__ import annotations
 
-import argparse
 import asyncio
 import sys
 from pathlib import Path
@@ -19,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from rl.config import MARL_AGENTS, MARL_EXPERIMENT, MODEL_PATH, SINGLE_AGENT_EXPERIMENT, SINGLE_AGENT_GAML_PATH
+from rl.config import MARL_AGENTS, MARL_EXPERIMENT, MODEL_PATH
 from rl.gama_compat import patch_gama_gymnasium
 
 patch_gama_gymnasium()
@@ -86,52 +83,10 @@ async def smoke_marl() -> bool:
     return True
 
 
-async def smoke_legacy_single() -> bool:
-    """Kiểm tra archive single-agent (merging_0 only)."""
-    _print_sep("SMOKE TEST — Legacy single (TrafficSingleHeadless)")
-    env = GamaParallelEnv(
-        gaml_experiment_path=str(SINGLE_AGENT_GAML_PATH),
-        gaml_experiment_name=SINGLE_AGENT_EXPERIMENT,
-        gama_ip_address="localhost",
-        gama_port=1001,
-    )
-    try:
-        obs, _ = env.reset(seed=0)
-        print(f"  Agents available : {env.agents}")
-        if "merging_0" not in obs:
-            print(f"  [FAIL] merging_0 không có. Có: {list(obs.keys())}")
-            return False
-        if len(obs) != 1:
-            print(f"  [WARN] Mong đợi 1 agent, nhận {len(obs)}: {list(obs.keys())}")
-        assert getattr(obs["merging_0"], "shape", None) == (15,)
-        for t in range(min(STEPS, 50)):
-            actions = {a: int(env.action_space(a).sample()) for a in env.agents}
-            obs, rewards, term, trunc, _ = env.step(actions)
-            if env.agents and all(term.get(a, False) or trunc.get(a, False) for a in env.agents):
-                obs, _ = env.reset(seed=None)
-    finally:
-        env.close()
-    print("  [PASS] Legacy single-agent smoke OK")
-    return True
-
-
-def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument(
-        "--legacy-single",
-        action="store_true",
-        help="Thêm smoke archive GAML (models/single_agent/Main_Traffic_SingleAgent.gaml).",
-    )
-    return p.parse_args()
-
-
 async def async_main() -> None:
-    args = parse_args()
-    results = [await smoke_marl()]
-    if args.legacy_single:
-        results.append(await smoke_legacy_single())
+    ok = await smoke_marl()
     print(f"\n{'='*55}")
-    print("  Tất cả smoke test PASSED" if all(results) else "  Có smoke test FAILED")
+    print("  Smoke test PASSED" if ok else "  Smoke test FAILED")
     print(f"{'='*55}\n")
 
 

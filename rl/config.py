@@ -8,8 +8,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = ROOT / "models" / "Main_Traffic.gaml"
-SINGLE_AGENT_GAML_PATH = ROOT / "models" / "single_agent" / "Main_Traffic_SingleAgent.gaml"
-SINGLE_AGENT_EXPERIMENT = "TrafficSingleHeadless"
 MARL_EXPERIMENT = "TrafficMARLHeadless"
 OUTPUT_DIR = ROOT / "outputs"
 MODEL_DIR = OUTPUT_DIR / "models"
@@ -29,19 +27,6 @@ class GamaConnectionConfig:
     # Truyền vào PettingZoo ``reset(seed=...)`` (train/eval/baseline). Giúp tái lập phía Python/bridge;
     # RNG nội bộ GAMA vẫn có thể khác — báo cáo nên nêu reproducibility **một phần**.
     simulation_seed: int | None = None
-
-
-@dataclass(frozen=True)
-class SingleAgentGamaConfig:
-    """GAMA socket cho baseline / rl/legacy (archive GAML, 1 agent merging_0)."""
-
-    host: str = "localhost"
-    port: int = 1001
-    experiment_name: str = SINGLE_AGENT_EXPERIMENT
-    agent_id: str = "merging_0"
-    max_episode_steps: int = 300
-    simulation_seed: int | None = None
-    gaml_path: Path = SINGLE_AGENT_GAML_PATH
 
 
 @dataclass(frozen=True)

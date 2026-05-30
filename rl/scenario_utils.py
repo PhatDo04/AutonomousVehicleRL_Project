@@ -32,7 +32,7 @@ import re
 import shutil
 from pathlib import Path
 
-from rl.config import MODEL_PATH, SCENARIO_PRESETS, SINGLE_AGENT_GAML_PATH
+from rl.config import MODEL_PATH, SCENARIO_PRESETS
 
 _BACKUP_SUFFIX = ".gaml.bak"
 
@@ -111,10 +111,8 @@ def apply_scenario_to_gaml(scenario_name: str, *, gaml_path: Path | None = None)
 
 
 def apply_scenario_all_gaml(scenario_name: str) -> None:
-    """Vá cả MARL chính và archive single-agent (baseline đồng bộ mật độ)."""
+    """Vá MARL Main_Traffic.gaml theo scenario."""
     _apply_scenario_to_path(scenario_name, MODEL_PATH)
-    if SINGLE_AGENT_GAML_PATH.exists():
-        _apply_scenario_to_path(scenario_name, SINGLE_AGENT_GAML_PATH)
 
 
 def _restore_path(gaml_path: Path) -> None:
@@ -128,7 +126,5 @@ def _restore_path(gaml_path: Path) -> None:
 
 
 def restore_gaml_backup() -> None:
-    """Khôi phục Main_Traffic.gaml và archive single-agent từ backup."""
+    """Khôi phục Main_Traffic.gaml từ backup."""
     _restore_path(MODEL_PATH)
-    if SINGLE_AGENT_GAML_PATH.exists():
-        _restore_path(SINGLE_AGENT_GAML_PATH)
