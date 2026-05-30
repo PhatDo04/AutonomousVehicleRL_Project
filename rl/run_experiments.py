@@ -67,6 +67,14 @@ def _default_checkpoint_interval(timesteps: int) -> int:
     return max(1_000, timesteps // 5)
 
 
+def marl_run_basename(algo: str, seed: int, timesteps: int, scenario: str) -> str:
+    """Tên file gốc cho 1 run MARL (KHÔNG kèm run-tag). Nguồn duy nhất để train + model_path đồng bộ."""
+    base = f"marl_{algo}_seed{seed}_{timesteps // 1000}k"
+    if scenario != "medium":
+        base = f"{base}_{scenario}"
+    return base
+
+
 def run_baselines(
     *,
     episodes: int,
@@ -76,13 +84,14 @@ def run_baselines(
     max_episode_steps: int,
     scenario: str,
     dry_run: bool,
+    logs_dir: Path = LOG_DIR,
 ) -> list[Path]:
     """Chạy baseline greedy, trả về danh sách CSV đã sinh."""
     csv_files: list[Path] = []
     # "greedy" = heuristic rule-based (tên trong đề cương). Bỏ "heuristic" để tránh dữ liệu trùng.
     # Random baseline đã bỏ — không còn dùng trong báo cáo (rl/baselines.py vẫn hỗ trợ nếu chạy tay).
     for policy in ("greedy",):
-        out_csv = LOG_DIR / f"{policy}_baseline_seed{seed}.csv"
+        out_csv = logs_dir / f"{policy}_baseline_seed{seed}.csv"
         cmd = [
             _python(), str(ROOT / "rl" / "baselines.py"),
             "--policy", policy,
@@ -115,12 +124,17 @@ def run_training(
     scenario: str,
     dry_run: bool,
     checkpoint_interval: int = 0,
+    run_tag: str | None = None,
+    logs_dir: Path = LOG_DIR,
 ) -> Path:
-    """Huấn luyện MARL (shared policy) với một seed."""
-    run_name = f"marl_{algo}_seed{seed}_{timesteps // 1000}k"
-    if scenario != "medium":
-        run_name = f"{run_name}_{scenario}"
-    out_csv = LOG_DIR / f"{run_name}_episodes.csv"
+    """Huấn luyện MARL (shared policy) với một seed.
+
+    ``run_tag`` (nếu có) biến ``--run-name`` thành "<tag>/<base>" → train_marl ghi model/CSV
+    vào ``models/<tag>/`` và ``logs/<tag>/`` (tách output theo từng lần chạy).
+    """
+    base = marl_run_basename(algo, seed, timesteps, scenario)
+    run_name = f"{run_tag}/{base}" if run_tag else base
+    out_csv = logs_dir / f"{base}_episodes.csv"
     cmd = [
         _python(), str(ROOT / "rl" / "train_marl.py"),
         "--algo", algo,
@@ -154,6 +168,7 @@ def run_evaluate(
     max_episode_steps: int,
     dry_run: bool,
     stochastic: bool = False,
+    logs_dir: Path = LOG_DIR,
 ) -> Path:
     """Chạy evaluate deterministic sau training, trả về CSV eval.
 
@@ -165,9 +180,9 @@ def run_evaluate(
         return model_path.parent / "missing.csv"
 
     out_csv = (
-        LOG_DIR / f"{model_path.stem}_eval_stochastic.csv"
+        logs_dir / f"{model_path.stem}_eval_stochastic.csv"
         if stochastic
-        else LOG_DIR / f"{model_path.stem}_eval.csv"
+        else logs_dir / f"{model_path.stem}_eval.csv"
     )
     cmd = [
         _python(), str(ROOT / "rl" / "evaluate_marl.py"),
@@ -247,6 +262,7 @@ def select_best_checkpoint(
     max_episode_steps: int,
     dry_run: bool,
     reject_unsafe_highway: bool = False,
+    logs_dir: Path = LOG_DIR,
 ) -> Path:
     """Eval các checkpoint đã lưu và copy checkpoint tốt nhất thành model chính."""
     checkpoint_dir = MODEL_DIR / "checkpoints" / run_name
@@ -271,6 +287,7 @@ def select_best_checkpoint(
             max_episode_steps=max_episode_steps,
             dry_run=dry_run,
             stochastic=True,
+            logs_dir=logs_dir,
         )
         score = 0.0 if dry_run else _score_eval_csv(
             eval_csv,
@@ -392,6 +409,16 @@ def parse_args() -> argparse.Namespace:
             "Tránh ảo tưởng '100% success' do deterministic eval khoá cùng quỹ đạo."
         ),
     )
+    parser.add_argument(
+        "--run-tag",
+        default=None,
+        help=(
+            "Tên thư mục con tách output của LẦN CHẠY này: models/<tag>/, logs/<tag>/, plots/<preset>/<tag>/. "
+            "MẶC ĐỊNH (không truyền): tự sinh theo timestamp '<preset>_YYYYmmdd_HHMMSS' — mỗi lần chạy 1 thư mục riêng. "
+            "Truyền tên tuỳ ý (vd 'baocao_v1') để tự đặt. "
+            "Truyền 'none' để ghi PHẲNG như cũ (models/*.zip, logs/*.csv — dùng khi muốn đè/ghi đúng bộ thesis phẳng)."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -404,6 +431,19 @@ def main() -> None:
     seeds: list[int] = preset["seeds"]
     max_episode_steps: int = preset["max_episode_steps"]
 
+    # Tách output theo TỪNG LẦN CHẠY. Mặc định (None) → tự sinh timestamp '<preset>_YYYYmmdd_HHMMSS'.
+    # 'none'/'flat'/'off' → ghi phẳng như cũ (escape hatch). Tên khác → dùng nguyên (vd 'baocao_v1').
+    run_tag: str | None = args.run_tag
+    if run_tag is None or run_tag == "auto":
+        from datetime import datetime
+        run_tag = f"{args.preset}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    elif run_tag.lower() in ("none", "flat", "off"):
+        run_tag = None
+
+    models_dir = MODEL_DIR / run_tag if run_tag else MODEL_DIR
+    logs_dir = LOG_DIR / run_tag if run_tag else LOG_DIR
+    plot_out_dir = (PLOT_DIR / args.preset / run_tag) if run_tag else (PLOT_DIR / args.preset)
+
     print(f"\n{'#'*60}")
     print(f"  ĐỒ ÁN RL NHẬP LÀN CAO TỐC — THỰC NGHIỆM MARL")
     print(f"  Preset  : {args.preset}")
@@ -412,10 +452,16 @@ def main() -> None:
     print(f"  Seeds   : {seeds}")
     print(f"  MARL timesteps: {timesteps:,}  agents: {list(MARL_AGENTS)}")
     print(f"  Eval episodes: {eval_episodes}")
+    if run_tag:
+        print(f"  Run-tag : {run_tag}  → models/{run_tag}/, logs/{run_tag}/, plots/{args.preset}/{run_tag}/")
+    else:
+        print(f"  Run-tag : (none) → ghi phẳng models/, logs/, plots/{args.preset}/")
     print(f"{'#'*60}")
 
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    plot_out_dir = PLOT_DIR / args.preset
+    # Chỉ tạo thư mục khi chạy thật (tránh dry-run sinh thư mục timestamp rỗng mỗi lần gọi).
+    if not args.dry_run:
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        models_dir.mkdir(parents=True, exist_ok=True)
 
     # Sua bug #9: LUON va GAML theo scenario. Truoc day chi va khi scenario != "medium",
     # nhung default GAML co nb_cars_max=20 (de tranh gridlock GUI) - khac han config medium=45.
@@ -439,6 +485,9 @@ def main() -> None:
             seeds=seeds,
             max_episode_steps=max_episode_steps,
             plot_out_dir=plot_out_dir,
+            run_tag=run_tag,
+            logs_dir=logs_dir,
+            models_dir=models_dir,
         )
     finally:
         if _apply_gaml_scenario and not args.dry_run:
@@ -448,6 +497,9 @@ def main() -> None:
     print(f"\n{'#'*60}")
     print("  HOÀN THÀNH TOÀN BỘ THỰC NGHIỆM")
     print(f"  Biểu đồ và bảng tổng hợp: {plot_out_dir}")
+    if run_tag:
+        print(f"  Models : {models_dir}")
+        print(f"  Logs   : {logs_dir}")
     print(f"{'#'*60}\n")
 
 
@@ -459,6 +511,9 @@ def _run_all_experiments(
     seeds: list[int],
     max_episode_steps: int,
     plot_out_dir: Path,
+    run_tag: str | None = None,
+    logs_dir: Path = LOG_DIR,
+    models_dir: Path = MODEL_DIR,
 ) -> None:
     """Thân thực nghiệm — tách riêng để main() có thể bọc trong try/finally."""
     all_csv: list[Path] = []
@@ -476,6 +531,7 @@ def _run_all_experiments(
             max_episode_steps=max_episode_steps,
             scenario=args.scenario,
             dry_run=args.dry_run,
+            logs_dir=logs_dir,
         )
         all_csv.extend(baseline_csvs)
     elif args.mode in ("both", "full"):
@@ -495,10 +551,10 @@ def _run_all_experiments(
 
     for algo in args.algos:
         for seed in seeds:
-            marl_prefix = f"marl_{algo}_seed{seed}_{timesteps // 1000}k"
-            if args.scenario != "medium":
-                marl_prefix = f"{marl_prefix}_{args.scenario}"
-            marl_model_path = MODEL_DIR / f"{marl_prefix}.zip"
+            base = marl_run_basename(algo, seed, timesteps, args.scenario)
+            # run_name (kèm tag nếu có) phải khớp với run_training để model_path/checkpoint trỏ đúng chỗ.
+            run_name = f"{run_tag}/{base}" if run_tag else base
+            marl_model_path = models_dir / f"{base}.zip"
 
             if run_train:
                 checkpoint_interval = 0
@@ -514,12 +570,14 @@ def _run_all_experiments(
                     scenario=args.scenario,
                     dry_run=args.dry_run,
                     checkpoint_interval=checkpoint_interval,
+                    run_tag=run_tag,
+                    logs_dir=logs_dir,
                 )
                 all_csv.append(csv_path)
                 if args.select_best_checkpoint:
                     select_best_checkpoint(
                         algo=algo,
-                        run_name=marl_prefix,
+                        run_name=run_name,
                         model_path=marl_model_path,
                         episodes=args.checkpoint_eval_episodes,
                         seed=seed,
@@ -528,6 +586,7 @@ def _run_all_experiments(
                         max_episode_steps=max_episode_steps,
                         dry_run=args.dry_run,
                         reject_unsafe_highway=not args.allow_highway_collision_checkpoints,
+                        logs_dir=logs_dir,
                     )
 
             if run_eval_step:
@@ -544,6 +603,7 @@ def _run_all_experiments(
                     max_episode_steps=max_episode_steps,
                     dry_run=args.dry_run,
                     stochastic=eval_stochastic,
+                    logs_dir=logs_dir,
                 )
                 all_csv.append(eval_csv)
 

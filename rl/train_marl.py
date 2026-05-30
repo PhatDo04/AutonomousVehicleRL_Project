@@ -236,8 +236,10 @@ async def async_main(args: argparse.Namespace) -> None:
     tensorboard_log = str(LOG_DIR / "tensorboard")
     checkpoint_dir = MODEL_DIR / "checkpoints" / run_name
 
-    MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    # mkdir parent của từng output: hỗ trợ --run-name dạng "<tag>/<base>" (chia output theo lần chạy).
+    # Khi run_name không có subfolder, parent = MODEL_DIR/LOG_DIR như cũ (backward compatible).
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    metric_path.parent.mkdir(parents=True, exist_ok=True)
     if args.checkpoint_interval > 0:
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
@@ -270,11 +272,15 @@ async def async_main(args: argparse.Namespace) -> None:
             # ``n_envs`` transitions). Chia interval cho num_envs để checkpoint đúng theo
             # tổng timestep yêu cầu.
             save_freq = max(1, args.checkpoint_interval // max(1, int(getattr(env, "num_envs", 1))))
+            # name_prefix phải là BASENAME (không chứa "<tag>/"): nếu để cả run_name có dấu "/",
+            # SB3 sinh file vào checkpoints/<tag>/<base>/<tag>/... (lồng kép) → select_best_checkpoint
+            # glob ở checkpoints/<tag>/<base>/*.zip không thấy. save_path đã là checkpoint_dir (kèm tag).
+            ckpt_prefix = Path(run_name).name
             callbacks.append(
                 CheckpointCallback(
                     save_freq=save_freq,
                     save_path=str(checkpoint_dir),
-                    name_prefix=run_name,
+                    name_prefix=ckpt_prefix,
                     save_replay_buffer=False,
                     save_vecnormalize=False,
                 )
