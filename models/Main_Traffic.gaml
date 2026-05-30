@@ -1,5 +1,4 @@
 // MARL-only (repo chinh): 4 RL agents merging_0 + highway_0/1/2, experiment TrafficMARLHeadless.
-// Single-agent archive (baseline/legacy): models/single_agent/Main_Traffic_SingleAgent.gaml + TrafficSingleHeadless.
 model HorizontalTraffic
 
 global {
@@ -3775,7 +3774,7 @@ species car {
     }
 
     action get_heuristic_merging_action type: int {
-        // Rule-based baseline dùng cho dashboard GAMA và làm mốc so sánh với DQN/PPO/A2C.
+        // Rule-based baseline (Greedy) dùng cho dashboard GAMA và NPC ramp.
         float ramp_gap <- get_ramp_front_gap();
         float accel_len <- max(1.0, accel_end_x - accel_start_x);
         float urgency <- 0.0;
@@ -4264,7 +4263,7 @@ species car {
 // TrafficMARLHeadless: MARL 4 agents — pipeline chinh (train_marl, run_experiments).
 //   Khởi động: gama-headless.bat -socket 1001
 //   Sau đó: python rl/smoke_test_env.py | python rl/run_experiments.py --preset ...
-// Baseline Greedy dùng archive GAML (TrafficSingleHeadless), không experiment này.
+// Baseline Greedy/Random chạy qua Python (rl/baselines.py) trên chính experiment này.
 experiment TrafficMARLHeadless type: gui {
     init {
         // Headless socket + GAMA 2025.06.4: parallel species stepping can lose agent scope in `do` statements.

@@ -3,15 +3,10 @@
 from __future__ import annotations
 
 import csv
-import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-# The callback imports SB3, which imports PyTorch TensorBoard; keep TensorFlow out of this path.
-os.environ.setdefault("TENSORBOARD_NO_TENSORFLOW", "1")
-
-from stable_baselines3.common.callbacks import BaseCallback
 
 
 @dataclass
@@ -70,8 +65,8 @@ def classify_episode(outcome: str, wrapper_truncated: bool = False) -> tuple[boo
        Ngay cả khi wrapper cũng timeout cùng lúc, outcome GAMA có ý nghĩa học thuật hơn.
     2. Nếu không có GAMA outcome → dùng wrapper_truncated (TimeLimit hoặc timeout flag).
 
-    Dùng chung trong EpisodeCSVCallback (train.py), MARLEpisodeCSVCallback (train_marl.py)
-    và evaluate_marl.py để số liệu báo cáo nhất quán.
+    Dùng chung trong MARLEpisodeCSVCallback (train_marl.py) và evaluate_marl.py
+    để số liệu báo cáo nhất quán.
 
     Với outcome không thuộc terminal/timeout/unknown hợp lệ, dùng truncated và (tùy) ``warnings.warn``
     tối đa một lần cho mỗi chuỗi outcome lạ trong tiến trình — cân bằng log vs. debug.
@@ -185,55 +180,3 @@ def write_episode_metrics(path: Path, rows: Iterable[EpisodeMetric]) -> None:
         writer.writeheader()
         for row in rows:
             writer.writerow(asdict(row))
-
-
-class EpisodeCSVCallback(BaseCallback):
-    """Ghi reward/length episode ra CSV (single-agent).
-
-    Giả định ``locals['rewards'][0]``, ``dones[0]``, ``infos[0]`` — đúng với ``Monitor(GamaMergingEnv)`` (**một**
-    vec slot). Nếu sau này bọc thêm SB3 VecEnv (nhiều replica), cần lặp hoặc chỉnh indexing.
-    """
-
-    def __init__(self, algorithm: str, seed: int, output_path: Path, verbose: int = 0) -> None:
-        super().__init__(verbose=verbose)
-        self.algorithm = algorithm
-        self.seed = seed
-        self.output_path = output_path
-        self.rows: list[EpisodeMetric] = []
-        self.current_reward = 0.0
-        self.current_length = 0
-
-    def _on_step(self) -> bool:
-        """Collect per-step rewards and flush one metric row whenever an episode ends."""
-        reward = float(self.locals["rewards"][0])
-        done = bool(self.locals["dones"][0])
-        info = self.locals["infos"][0]
-
-        self.current_reward += reward
-        self.current_length += 1
-
-        if done:
-            gama_outcome = str(info.get("outcome", ""))
-            wrapper_trunc = bool(info.get("TimeLimit.truncated", False)) or bool(info.get("timeout", False))
-            is_terminated, is_truncated = classify_episode(gama_outcome, wrapper_trunc)
-
-            self.rows.append(
-                build_episode_metric(
-                    algorithm=self.algorithm,
-                    seed=self.seed,
-                    episode=len(self.rows) + 1,
-                    reward=self.current_reward,
-                    length=self.current_length,
-                    terminated=is_terminated,
-                    truncated=is_truncated,
-                    info=info,
-                )
-            )
-            self.current_reward = 0.0
-            self.current_length = 0
-
-        return True
-
-    def _on_training_end(self) -> None:
-        """Persist metrics once training finishes."""
-        write_episode_metrics(self.output_path, self.rows)

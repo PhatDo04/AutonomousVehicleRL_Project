@@ -79,7 +79,7 @@ class ScenarioConfig:
     """Traffic density scenario for labelling experiments.
 
     ``nb_cars_max`` / ``spawn_interval`` / ``ramp_spawn_prob`` là tham số **mục tiêu** tương ứng với ``Main_Traffic.gaml``,
-    nhưng khi chỉ đổi ``--scenario`` trong ``train.py`` / ``train_marl.py`` / ``baselines.py`` thì chúng **chỉ ghi vào nhãn
+    nhưng khi chỉ đổi ``--scenario`` trong ``train_marl.py`` / ``baselines.py`` thì chúng **chỉ ghi vào nhãn
     và log** — không kích hoạt ``apply_scenario_to_gaml``. Để mô phỏng khớp preset: dùng ``run_experiments.py``, hoặc gọi
     ``scenario_utils.apply_scenario_to_gaml`` rồi **restart GAMA**.
     """
@@ -97,7 +97,7 @@ SCENARIO_PRESETS: dict[str, ScenarioConfig] = {
 }
 
 
-# Được in từ train.py / train_marl.py / baselines.py — tránh hiểu nhầm CLI.
+# Được in từ train_marl.py / baselines.py — tránh hiểu nhầm CLI.
 SCENARIO_CLI_METADATA_ONLY_HINT = (
     "[scenario] --scenario chỉ là nhãn (CSV/metadata); không vá GAML — mật độ thật là file GAMA simulator đã load. "
     "Đồng bộ preset: rl.scenario_utils.apply_scenario_to_gaml(...) + restart headless, hoặc rl/run_experiments.py."

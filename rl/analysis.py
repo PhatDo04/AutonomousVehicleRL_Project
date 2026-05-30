@@ -1,6 +1,6 @@
 """Phân tích thống kê kết quả thực nghiệm và sinh bảng tổng hợp cho báo cáo.
 
-Module này đọc tất cả CSV episode metrics (từ train.py, evaluate.py, baselines.py),
+Module này đọc tất cả CSV episode metrics (từ train_marl.py, evaluate_marl.py, baselines.py),
 tính toán các chỉ số thống kê và xuất:
   - comparison_table.csv  : bảng wide (thuật toán × metric, mean ± std)
   - latex_table.tex        : bảng LaTeX copy-paste vào báo cáo
@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,7 +23,6 @@ if str(ROOT) not in sys.path:
 
 import math
 
-import numpy as np
 import pandas as pd
 from scipy import stats as scipy_stats
 

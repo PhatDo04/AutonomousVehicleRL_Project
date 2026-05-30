@@ -1,7 +1,5 @@
 """Unit tests cho scenario_utils.py — kiểm tra regex patterns và logic backup/restore."""
-import shutil
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest

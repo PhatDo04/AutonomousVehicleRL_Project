@@ -59,7 +59,7 @@ class MARLEpisodeCSVCallback(BaseCallback):
     """Ghi metrics episode cho tất cả MARL agents trong training.
 
     SuperSuit concat 4 agents thành 1 VecEnv với 4 slots cố định. Callback tách riêng:
-      - CSV chính (output_path): metrics của merging_0 (so sánh với single-agent baseline).
+      - CSV chính (output_path): metrics của merging_0 (agent nhập làn).
       - CSV phụ (highway_path):  metrics tổng hợp của highway_0/1/2 (theo dõi hành vi cooperative).
     """
 

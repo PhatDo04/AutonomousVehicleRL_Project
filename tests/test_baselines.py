@@ -8,7 +8,6 @@ Chạy: python -m pytest tests/test_baselines.py -v
 """
 
 import numpy as np
-import pytest
 
 from rl.baselines import heuristic_action
 

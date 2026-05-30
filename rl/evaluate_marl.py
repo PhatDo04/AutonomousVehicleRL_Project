@@ -2,7 +2,7 @@
 
 Script load model MARL (shared policy, 19D obs) và chạy qua môi trường
 PettingZoo 4-agent. Xuất 2 CSV:
-  - {run_label}.csv            : metrics của merging_0 (so sánh với single-agent)
+  - {run_label}.csv            : metrics của merging_0 (agent nhập làn)
   - {run_label}_highway.csv   : metrics tổng hợp của highway_0/1/2
 
 Sử dụng:
