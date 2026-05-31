@@ -25,8 +25,6 @@ Thesis preset: 5 seeds × 200k timesteps × 50 episode eval stochastic, scenario
 
 **Phát hiện kỹ thuật then chốt** — *reset-on-merging-death wrapper* trong [`rl/marl_env.py:GamaMarkovSB3VecEnv.step_wait`](rl/marl_env.py): pipeline train ban đầu **không** reset env khi `merging_0` chết (do `MarkovVectorEnv(black_death=True)` che `done` signal), khiến rollout buffer tràn dead-agent transitions. Fix này khớp pipeline train với pipeline eval (đã có `reset_marl_episode` sau mỗi termination) và giúp cả MAPPO/MAA2C đạt kết quả cao + ổn định.
 
-Hành trình research + ablation evidence (IPPO/IA2C → CTDE → reset fix): xem [`RESEARCH_PPO_VS_A2C.md`](RESEARCH_PPO_VS_A2C.md).
-
 ---
 
 ## Kiến trúc hệ thống
@@ -258,6 +256,17 @@ Tùy chọn:
 - `--skip-baselines`: bỏ Greedy/Random baseline.
 - `--algos ppo` hoặc `--algos a2c`: chỉ chạy một thuật toán.
 - `--eval-stochastic`: ép eval dùng sampling (mặc định bật cho `thesis`).
+- `--run-tag <tên>`: đặt tên thư mục cho lần chạy (vd `baocao_v1`). Truyền `none` để ghi phẳng (không tách).
+
+**Tách output theo từng lần chạy (mặc định):** mỗi lần chạy `run_experiments.py` tự sinh một thư mục riêng theo timestamp `<preset>_YYYYmmdd_HHMMSS`, áp cho **cả model, log và plots**:
+
+```
+outputs/models/thesis_20260530_143022/marl_ppo_seed0_200k_low.zip
+outputs/logs/thesis_20260530_143022/...csv
+outputs/plots/thesis/thesis_20260530_143022/...png
+```
+
+→ Mỗi lần chạy không bao giờ đè kết quả lần trước. Muốn ghi phẳng (như bộ thesis cũ ở `outputs/models/*.zip`): thêm `--run-tag none`.
 
 Presets MARL (`rl/config.py`):
 
@@ -284,7 +293,7 @@ python rl/baselines.py --policy greedy --episodes 50 --seed 0 --host localhost -
 
 ## Phân tích kết quả
 
-Sau khi pipeline xong, CSV ở `outputs/logs/`, model ở `outputs/models/`, plots ở `outputs/plots/thesis/`.
+Sau khi pipeline xong, output nằm trong thư mục theo lần chạy: CSV ở `outputs/logs/<tag>/`, model ở `outputs/models/<tag>/`, plots + bảng ở `outputs/plots/<preset>/<tag>/` (với `<tag>` = `<preset>_<timestamp>` mặc định). Nếu chạy `--run-tag none` thì output ghi phẳng ở `outputs/logs/`, `outputs/models/`, `outputs/plots/<preset>/`.
 
 ```powershell
 # Sinh 12 biểu đồ
@@ -368,8 +377,6 @@ python rl/analysis.py outputs/logs/marl_*.csv --out-dir outputs/plots/thesis
 │   ├── logs/                          # episodes.csv + tensorboard/
 │   └── plots/thesis/                  # 12 PNG + comparison_table.csv + latex_table.tex
 ├── tests/                             # pytest (chủ yếu offline)
-├── RESEARCH_PPO_VS_A2C.md             # Research log: hành trình tìm reset fix
-├── LOG_TIEN_DO_ITER18.md              # Progress log
 └── requirements.txt
 ```
 
