@@ -55,6 +55,7 @@ def ensure_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
         "merge_step": 0,
         "throughput": 0.0,
         "shockwave_index": 0.0,
+        "mainline_mean_speed": 0.0,
     }
     for column, default in defaults.items():
         if column not in df.columns:

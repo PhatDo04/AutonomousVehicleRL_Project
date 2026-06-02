@@ -44,12 +44,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--policy",
-        choices=["random", "heuristic", "greedy"],
-        default="heuristic",
+        choices=["greedy", "random"],
+        default="greedy",
         help=(
-            "Chính sách baseline: "
-            "'heuristic'/'greedy' = rule-based (tương đương, khớp thuật ngữ đề cương); "
-            "'random' = ngẫu nhiên."
+            "Baseline (non-learning) cho bảng so sánh với PPO/A2C: "
+            "'greedy' = THAM LAM — tăng tốc + merge sớm + vượt làn; né va chạm dọc nhờ khiên môi trường "
+            "(như move-forward-greedy của NetLogo). "
+            "'random' = action ngẫu nhiên (sàn tuyệt đối). "
+            "Lưu ý: demo GUI chế độ Heuristic dùng luật phía GAML (get_heuristic_*), KHÔNG phải file này."
         ),
     )
     parser.add_argument("--episodes", type=int, default=20)
@@ -69,46 +71,55 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def heuristic_action(obs: np.ndarray) -> int:
-    """Rule-based Greedy policy dùng 15D merging observation từ Main_Traffic.gaml."""
-    speed = float(obs[0])
+def greedy_merging_action(obs: np.ndarray) -> int:
+    """greedy (merging): tham lam — tăng tốc + merge SỚM, không chờ/không phanh phòng bị.
+
+    Baseline tham lam (non-learning) so với PPO/A2C. Merging obs index: [4]=in_accel_zone.
+    - Trong accel zone → luôn thử merge (action 3). GAML gate is_merge_gap_safe() nên merge chỉ
+      thực thi khi an toàn — greedy thử mỗi bước (sớm) thay vì chờ khe tốt hơn như chính sách học.
+    - Ngoài zone → luôn tăng tốc (action 2). Va chạm dọc được khiên môi trường (M3c) né phản ứng,
+      giống move-forward-greedy của NetLogo (tham lam + né phản ứng).
+    """
     in_accel_zone = float(obs[4]) >= 0.5
-    gap_rear = float(obs[7])
-    speed_rear = float(obs[8])
-    gap_safe = float(obs[9]) >= 0.5
-    ramp_front_gap = float(obs[10])
-    urgency = float(obs[12])
-
-    if in_accel_zone and gap_safe:
+    if in_accel_zone:
         return 3
+    return 2
 
-    if gap_rear < 0.1 and speed_rear > 0.5:
-        return 0
 
-    if ramp_front_gap < 0.08:
-        return 0
+def greedy_highway_action(obs: np.ndarray) -> int:
+    """greedy THẬT (highway): phóng nhanh + vượt làn hung hãn, BỎ QUA gap phía sau.
 
-    if urgency > 0.9 and not gap_safe:
-        return 3
-    if urgency > 0.75 and not gap_safe:
-        return 4
+    Highway obs (get_current_state): [1]=own lane, [2]=same-lane ahead dist,
+    [4]=left-ahead dist, [8]=right-ahead dist (tất cả normalize /100m). Action highway:
+    0=accel, 1=keep, 2=decel, 3=lane_left, 4=lane_right.
 
-    if speed < 0.7:
-        return 2
-
-    return 1
+    Khiên M3c chỉ chặn đâm đuôi CÙNG LÀN; va chạm NGANG khi đổi làn KHÔNG được che → greedy đổi
+    làn để vượt mà không xét kỹ xe sau ([6]/[10]) nên thỉnh thoảng vẫn va chạm (đúng kiểu lái ẩu).
+    """
+    own_lane = float(obs[1])
+    ahead = float(obs[2])
+    left_ahead = float(obs[4])
+    right_ahead = float(obs[8])
+    # Bị chặn phía trước (< ~12m) → vượt sang làn THOÁNG hơn, bất chấp xe sau.
+    if ahead < 0.12:
+        if own_lane > 0.0 and left_ahead >= right_ahead:
+            return 3
+        if own_lane < 1.0:
+            return 4
+    # Đường thoáng → tăng tốc tối đa (không bao giờ keep/brake).
+    return 0
 
 
 def _choose_merging_action(policy: str, obs: np.ndarray, rng: np.random.Generator) -> int:
     if policy == "random":
         return int(rng.integers(0, 5))
-    return heuristic_action(obs)
+    return greedy_merging_action(obs)
 
 
-def _choose_highway_action(policy: str, rng: np.random.Generator) -> int:
+def _choose_highway_action(policy: str, obs: np.ndarray, rng: np.random.Generator) -> int:
     if policy == "random":
         return int(rng.integers(0, 5))
-    return 1
+    return greedy_highway_action(obs)
 
 
 async def async_main(args: argparse.Namespace) -> None:
@@ -124,19 +135,20 @@ async def async_main(args: argparse.Namespace) -> None:
         max_episode_steps=args.max_episode_steps,
         simulation_seed=args.seed,
     )
-    parallel_env = GamaParallelEnv(
-        gaml_experiment_path=str(MODEL_PATH),
-        gaml_experiment_name=MARL_EXPERIMENT,
-        gama_ip_address=config.host,
-        gama_port=config.port,
-    )
-    env_ss = AgentIndicatorParallelWrapper(parallel_env, type_only=False)
     rng = np.random.default_rng(args.seed)
     # Bug #4 fix: sinh seed lon, xao tron tot cho moi episode (tranh `seed <- 1.0/2.0...` không xao tron GAMA RNG).
     seed_rng = np.random.default_rng(args.seed)
     rows: list[EpisodeMetric] = []
+    parallel_env = None
 
     try:
+        parallel_env = GamaParallelEnv(
+            gaml_experiment_path=str(MODEL_PATH),
+            gaml_experiment_name=MARL_EXPERIMENT,
+            gama_ip_address=config.host,
+            gama_port=config.port,
+        )
+        env_ss = AgentIndicatorParallelWrapper(parallel_env, type_only=False)
         obs_dict, _ = reset_marl_episode(env_ss, args.seed)
         missing = [a for a in MARL_AGENTS if a not in obs_dict]
         if missing:
@@ -168,11 +180,11 @@ async def async_main(args: argparse.Namespace) -> None:
                         done_agents.add(agent_id)
                         final_info[agent_id] = {"outcome": "missing_agent"}
                         continue
+                    arr = np.asarray(obs, dtype=np.float32)[:15]
                     if agent_id == "merging_0":
-                        arr = np.asarray(obs, dtype=np.float32)[:15]
                         actions[agent_id] = _choose_merging_action(args.policy, arr, rng)
                     else:
-                        actions[agent_id] = _choose_highway_action(args.policy, rng)
+                        actions[agent_id] = _choose_highway_action(args.policy, arr, rng)
 
                 if not actions:
                     break
@@ -220,7 +232,8 @@ async def async_main(args: argparse.Namespace) -> None:
                 f"outcome={rows[-1].outcome}"
             )
     finally:
-        parallel_env.close()
+        if parallel_env is not None:
+            parallel_env.close()
 
     output_path = Path(args.out) if args.out else LOG_DIR / f"{args.policy}_baseline_seed{args.seed}.csv"
     write_episode_metrics(output_path, rows)

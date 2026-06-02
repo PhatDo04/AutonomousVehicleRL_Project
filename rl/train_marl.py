@@ -122,6 +122,7 @@ class MARLEpisodeCSVCallback(BaseCallback):
                         merge_step=int(info.get("merge_step", 0)) if outcome == "success" else 0,
                         throughput=float(info.get("throughput", 0.0)),
                         shockwave_index=float(info.get("shockwave_index", 0.0)),
+                        mainline_mean_speed=float(info.get("mainline_mean_speed", 0.0)),
                     ))
                 elif role == "highway":
                     self._hw_ep_count += 1

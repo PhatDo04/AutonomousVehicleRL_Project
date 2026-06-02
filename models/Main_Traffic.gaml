@@ -68,7 +68,6 @@ global {
     float  observation_max    <- 100.0;
 
     string dashboard_policy <- "Python/SB3 model";
-    int    manual_action <- 1;
     bool   show_dashboard <- true;
 
     // Legacy restore flags: bat tung nhom logic cu co kiem soat, tranh bat dong loat gay NPE/timeout headless.
@@ -81,8 +80,24 @@ global {
     bool enable_highway_ttc_reward <- true;
     bool enable_merging_gap_reward <- true;
     bool enable_marl_coop_reward <- false;
+    // Flow-aware highway reward (thử nghiệm Plan V1 §10): bù việc xe highway phanh thừa → giữ lưu lượng.
+    // ON  = thưởng giữ tốc cao + TTC penalty nhẹ hơn (gap<12, coef 0.8).
+    // OFF = baseline hiện tại (speed*0.04, TTC gap<20 coef 1.2). Để A/B sạch.
+    // GHI CHÚ: bật ON phá merging (highway hết nhường → ramp đâm). highway chậm = cooperative yield. Giữ OFF.
+    bool enable_highway_flow_reward <- false;
     // false = chi merge khi policy/heuristic goi action 3 + gap an toan (KPI eval co y nghia).
     bool enable_curriculum_merge_assist <- false;
+
+    // KHIEN AN TOAN GAMA (gate is_merge_gap_safe + safety-shield M3c). Mac dinh ON.
+    // A/B thuc nghiem: run_experiments --shield off se va GAML enable_safety_shield<-false cho CA RUN
+    // (greedy/random/PPO/A2C deu khong khien) -> so cong bang anh huong cua khien len tung thuat toan.
+    // Bypass chi tac dung headless (dashboard="Python/SB3 model"); demo GUI Heuristic LUON giu khien.
+    bool enable_safety_shield <- true;
+
+    // FIX seed traffic: Python set bien nay (rl/gama_episode_reset.set_sim_seed) qua _execute_expression
+    // SAU reset -> bootstrap reseed `seed <- pz_sim_seed` o SIMULATION-scope -> traffic bien thien theo
+    // seed Python (reproducible + paired). -1 = chua set (giu hanh vi cu, khong reseed).
+    float pz_sim_seed <- -1.0;
 
     // Throughput counters: đếm tổng số xe ramp đã cố merge và số lần merge thành công.
     int total_ramp_attempts <- 0;   // Tăng khi xe ramp vào acceleration zone
@@ -687,6 +702,13 @@ global {
 
     // Trì hoãn create car sang reflex đầu tiên để chắc chắn simulation scope đã sẵn population.
     reflex bootstrap_initial_cars when: ((not initial_cars_created) and (cycle > 0)) {
+        // FIX seed traffic: gama_client_wrapper set `seed <- X` o EXPERIMENT-scope SAU reload ->
+        // KHONG reseed RNG cua simulation dang chay -> traffic giong het moi episode. Ep reseed o
+        // SIMULATION-scope (reflex nay) ngay TRUOC spawn -> traffic bien thien theo seed Python truyen
+        // vao (reproducible). Chi headless (dashboard="Python/SB3 model"); GUI demo KHONG dinh.
+        if (dashboard_policy = "Python/SB3 model" and pz_sim_seed >= 0.0) {
+            seed <- pz_sim_seed;
+        }
         // --- 1. KHỞI TẠO XE TRÊN CAO TỐC CHÍNH ---
         int cars_per_lane_boot <- int(nb_cars_max / number_of_lanes);
         float spacing_boot <- road_length / (cars_per_lane_boot + 1);
@@ -855,7 +877,7 @@ global {
     // Tránh empty(car where ...) và empty(nil): một số bản GAMA trả nil / không rút gọn or → UnaryOperator.empty NPE.
     reflex respawn_rl_merging_agent when: enable_rl_respawn {
         try {
-            // GUI/Heuristic/Manual: không có Python reset nên pz_block_merging_respawn sẽ kẹt true
+            // GUI/Heuristic: không có Python reset nên pz_block_merging_respawn sẽ kẹt true
             // sau khi merging_0 success. Tự động clear flag khi không ở Python mode.
             if (pz_block_merging_respawn) {
                 if (dashboard_policy != "Python/SB3 model") {
@@ -1896,9 +1918,7 @@ species car {
         if (dashboard_policy != "Python/SB3 model") {
             if (rl_agent_id != "") {
                 if (rl_agent_id = "merging_0") {
-                    if (dashboard_policy = "Manual") {
-                        action_rl <- manual_action;
-                    } else if (dashboard_policy = "Heuristic") {
+                    if (dashboard_policy = "Heuristic") {
                         // Phan biet ramp (merge_mode=1) vs sau merge (merge_mode=0):
                         //   - Tren ramp: dung heuristic_merging (action 3 = MERGE, gap check).
                         //   - Sau merge: dung heuristic_highway (action 3/4 = lane change mainline).
@@ -1924,9 +1944,7 @@ species car {
                         }
                     }
                 } else {
-                    if (dashboard_policy = "Manual") {
-                        action_rl <- manual_action;
-                    } else if (dashboard_policy = "Heuristic") {
+                    if (dashboard_policy = "Heuristic") {
                         action_rl <- get_heuristic_highway_action();
                     }
                 }
@@ -2061,7 +2079,8 @@ species car {
         // car-following guard, highway agents rear-end xe phia truoc truoc khi reward
         // TTC kip sua. Dung ahead_gap_dx/ahead_speed_other tu scan tick truoc de ep
         // mainline car giam toc truoc movement, khong ap dung cho xe ramp merge_mode=1.
-        if (merge_mode != 1) {
+        // KHIEN OFF (A/B): tat shield M3c o headless -> xe dam duoi / di sat bat chap. GUI giu shield.
+        if (merge_mode != 1 and (enable_safety_shield or dashboard_policy != "Python/SB3 model")) {
             if (ahead_gap_dx < 12.0) {
                 if (speed > ahead_speed_other) {
                     // Xe truoc gan nhu dung: neu van con > collision_distance theo dx thi cho "lun" nhe
@@ -2897,10 +2916,8 @@ species car {
             action_rl <- 1;
         }
 
-        // Dashboard GUI: Manual = manual_action, Heuristic = rule-based, con lai la Python/SB3.
-        if (dashboard_policy = "Manual") {
-            action_rl <- manual_action;
-        } else if (dashboard_policy = "Heuristic") {
+        // Dashboard GUI: Heuristic = rule-based, con lai la Python/SB3.
+        if (dashboard_policy = "Heuristic") {
             action_rl <- get_heuristic_merging_action();
         }
 
@@ -3446,6 +3463,9 @@ species car {
     }
 
     action is_merge_gap_safe type: bool {
+        // KHIEN OFF (A/B): coi nhu luon an toan -> merge bat chap gap. Chi headless Python;
+        // Heuristic GUI (dashboard != Python) LUON giu gate -> demo khong dinh.
+        if (not enable_safety_shield and dashboard_policy = "Python/SB3 model") { return true; }
         // Lấy xe trước và xe sau ở làn mục tiêu để đánh giá khoảng trống nhập làn.
         car lead_car <- get_target_lane_ahead();
         car lag_car  <- get_target_lane_behind();
@@ -4104,12 +4124,34 @@ species car {
         if (speed < speed_max * 0.2) {
             reward_cache <- reward_cache - 0.05;
         }
-        // TTC penalty: phạt liên tục theo (gap_thiếu × speed) khi ahead_gap < 20m & speed > 0.15.
-        // Trigger sớm + hệ số mạnh để agent học "phanh khi gần xe khác" trước khi va chạm.
+        // Flow-aware (Plan V1 §10): thưởng giữ tốc cao + PHẠT GIẢM TỐC THỪA -> chống highway "phanh thừa".
+        if (enable_highway_flow_reward) {
+            reward_cache <- reward_cache + speed * 0.06;
+            if (speed >= speed_max * 0.7) {
+                reward_cache <- reward_cache + 0.05;
+            }
+            // ③ Phạt phanh khi đường THOÁNG: highway action 2 = giảm tốc; nếu ahead_gap > 15m
+            // (không có lý do an toàn để phanh) -> phạt -0.3 để dịch phân phối khỏi "luôn giảm tốc".
+            if (action_rl = 2) {
+                if (ahead_gap_dx > 15.0) {
+                    reward_cache <- reward_cache - 0.3;
+                }
+            }
+        }
+        // TTC penalty: phạt liên tục theo (gap_thiếu × speed) khi gần xe trước. Trigger sớm để
+        // agent học "phanh khi gần". Flow mode: nhẹ hơn (gap<12, coef 0.8) để bớt phanh thừa.
         if (enable_highway_ttc_reward) {
-            if (ahead_gap_dx < 20.0) {
-                if (speed > 0.15) {
-                    reward_cache <- reward_cache - ((20.0 - ahead_gap_dx) / 20.0) * speed * 1.2;
+            if (enable_highway_flow_reward) {
+                if (ahead_gap_dx < 12.0) {
+                    if (speed > 0.15) {
+                        reward_cache <- reward_cache - ((12.0 - ahead_gap_dx) / 12.0) * speed * 0.8;
+                    }
+                }
+            } else {
+                if (ahead_gap_dx < 20.0) {
+                    if (speed > 0.15) {
+                        reward_cache <- reward_cache - ((20.0 - ahead_gap_dx) / 20.0) * speed * 1.2;
+                    }
                 }
             }
         }
@@ -4275,8 +4317,7 @@ experiment TrafficMARLHeadless type: gui {
 // ─────────────────────────────────────────────────────────────
 experiment TrafficSimulation type: gui {
     parameter "Dashboard policy" var: dashboard_policy category: "RL Demo"
-        among: ["Python/SB3 model", "Heuristic", "Manual"];
-    parameter "Manual action" var: manual_action category: "RL Demo" min: 0 max: 4;
+        among: ["Python/SB3 model", "Heuristic"];
     parameter "Show dashboard" var: show_dashboard category: "RL Demo";
     parameter "Max cars (spawn cap)" var: nb_cars_max category: "RL Demo" min: 20 max: 80;
 
@@ -4490,7 +4531,7 @@ experiment TrafficSimulation type: gui {
                         at: {15 #px, 438 #px} color: #white font: font("Arial", 21, #plain);
                     draw ("Traffic: total=" + length(safe_cars) + " ramp=" + ramp_count + " damaged=" + damaged_count)
                         at: {15 #px, 473 #px} color: #white font: font("Arial", 21, #plain);
-                    draw ("Cycle: " + cycle + " | Slow demo: GAMA speed slider or Python --step-delay | Manual only when policy=Manual")
+                    draw ("Cycle: " + cycle + " | Slow demo: GAMA speed slider or Python --step-delay")
                         at: {15 #px, 508 #px} color: #white font: font("Arial", 21, #plain);
                     draw "SB3 .zip models are loaded by Python; this GUI labels/observes the selected run." at: {15 #px, 550 #px} color: #cyan font: font("Arial", 17, #italic);
                     draw "Legend: RL=learning agent | unlabelled=traffic | red=breakdown (tow to yellow lane)" at: {15 #px, 585 #px} color: #cyan font: font("Arial", 17, #italic);

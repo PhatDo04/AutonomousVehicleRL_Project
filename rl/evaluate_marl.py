@@ -414,9 +414,15 @@ async def async_main(args: argparse.Namespace) -> None:
                 merge_step=int(m0_info.get("merge_step", 0)) if outcome == "success" else 0,
                 throughput=float(m0_info.get("throughput", 0.0)),
                 shockwave_index=float(m0_info.get("shockwave_index", 0.0)),
+                mainline_mean_speed=float(m0_info.get("mainline_mean_speed", 0.0)),
             ))
 
-            # Ghi thống kê highway agents theo từng agent
+            # Ghi thống kê highway agents theo từng agent.
+            # Fallback last_infos (giống merging_0): episode thường kết thúc theo merging_0 khi
+            # highway vẫn "running" → final_info[highway] rỗng → trước đây ghi 0.0/unknown.
+            for agent_id in MARL_HIGHWAY_AGENTS:
+                if agent_id not in final_info and last_infos.get(agent_id):
+                    final_info[agent_id] = last_infos[agent_id]
             hw_collisions = 0
             for agent_id in MARL_HIGHWAY_AGENTS:
                 hw_info = final_info.get(agent_id, {})

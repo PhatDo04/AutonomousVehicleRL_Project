@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from rl.baselines import heuristic_action
+from rl.baselines import greedy_merging_action
 from rl.config import LOG_DIR, MARL_AGENTS, MARL_EXPERIMENT, MODEL_PATH
 from rl.gama_compat import patch_gama_gymnasium
 from rl.marl_env import AgentIndicatorParallelWrapper
@@ -87,7 +87,7 @@ async def trace_episode(
             arr = np.asarray(obs, dtype=np.float32)[:15]
             if agent_id == "merging_0":
                 if policy == "greedy":
-                    a = heuristic_action(arr)
+                    a = greedy_merging_action(arr)
                 elif policy == "random":
                     a = int(np.random.randint(0, 5))
                 elif policy == "model" and model is not None:

@@ -35,10 +35,13 @@ MARL_ALGORITHMS = ("ppo", "a2c")
 
 # Presets thực nghiệm MARL (PPO/A2C, 4 agents) — pipeline chính run_experiments.py.
 #   - smoke : sanity check pipeline (~vài giây).
-#   - short : 1 seed, 200k steps — smoke test nhanh sau khi đổi config.
+#   - fast  : 1 seed, 60k steps — kiểm TIỀM NĂNG nhanh khi tune reward (~6-7'/thuật toán).
+#             Chưa hội tụ → chỉ xem XU HƯỚNG, không phải số cuối.
+#   - short : 1 seed, 200k steps — smoke test sau khi đổi config.
 #   - thesis: 5 seeds × 200k steps + 50 eval episodes — bộ số chính cho luận văn.
 MARL_EXPERIMENT_PRESETS = {
     "smoke":  {"timesteps": 400,     "episodes": 2,  "seeds": [0],             "max_episode_steps": 80},
+    "fast":   {"timesteps": 60_000,  "episodes": 10, "seeds": [0],             "max_episode_steps": 500},
     "short":  {"timesteps": 200_000, "episodes": 20, "seeds": [0],             "max_episode_steps": 500},
     "thesis": {"timesteps": 200_000, "episodes": 50, "seeds": [0, 1, 2, 3, 4], "max_episode_steps": 500},
 }

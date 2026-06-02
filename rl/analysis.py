@@ -103,10 +103,18 @@ def build_comparison_table(df: pd.DataFrame) -> pd.DataFrame:
     """Tính mean ± std cho từng metric theo thuật toán."""
     rows = []
     for algo, group in df.groupby("algorithm"):
+        # success = "đã nhập làn an toàn" (cờ merge_success). KHÁC completion.
         success = as_bool_series(group["success"])
         collision = as_bool_series(group["collision"])
         failed_merge = as_bool_series(group["failed_merge"])
         timeout = as_bool_series(group["timeout"])
+
+        # completion = "nhập làn VÀ về đích sạch" (outcome == "success"). Ở mật độ cao xe có thể
+        # merge (success=True) nhưng kẹt → timeout → completion=False. Phân biệt rõ 2 chỉ số.
+        if "outcome" in group.columns:
+            completion = group["outcome"].astype(str).str.lower().eq("success")
+        else:
+            completion = success  # CSV cũ không có cột outcome → coi merge = completion
 
         merge_steps = group.loc[success, "merge_step"]
 
@@ -121,6 +129,9 @@ def build_comparison_table(df: pd.DataFrame) -> pd.DataFrame:
             "success_rate_mean": round(success.mean(), 4),
             "success_rate_std":  round(success.std(), 4),
             "success_rate_ci95": _ci95(success),
+            "completion_rate_mean": round(completion.mean(), 4),
+            "completion_rate_std":  round(completion.std(), 4),
+            "completion_rate_ci95": _ci95(completion),
             "collision_rate_mean": round(collision.mean(), 4),
             "collision_rate_std":  round(collision.std(), 4),
             "collision_rate_ci95": _ci95(collision),
@@ -147,6 +158,10 @@ def build_comparison_table(df: pd.DataFrame) -> pd.DataFrame:
             "avg_throughput_mean": round(group["throughput"].mean(), 4) if "throughput" in group.columns else float("nan"),
             "avg_throughput_std":  round(group["throughput"].std(), 4) if "throughput" in group.columns else float("nan"),
             "avg_throughput_ci95": _ci95(group["throughput"]) if "throughput" in group.columns else float("nan"),
+            "avg_mainline_speed_mean": round(group["mainline_mean_speed"].mean(), 4) if "mainline_mean_speed" in group.columns else float("nan"),
+            "avg_mainline_speed_std":  round(group["mainline_mean_speed"].std(), 4) if "mainline_mean_speed" in group.columns else float("nan"),
+            "avg_mainline_speed_ci95": _ci95(group["mainline_mean_speed"]) if "mainline_mean_speed" in group.columns else float("nan"),
+            # shockwave_index = CV tốc độ — chỉ số PHỤ (không phản ánh gridlock). Xem mainline_speed.
             "avg_shockwave_mean": round(group["shockwave_index"].mean(), 4) if "shockwave_index" in group.columns else float("nan"),
             "avg_shockwave_std":  round(group["shockwave_index"].std(), 4) if "shockwave_index" in group.columns else float("nan"),
             "avg_shockwave_ci95": _ci95(group["shockwave_index"]) if "shockwave_index" in group.columns else float("nan"),
@@ -160,8 +175,8 @@ def build_comparison_table(df: pd.DataFrame) -> pd.DataFrame:
 
 
 _DEFAULT_ALGO_ORDER = [
-    "random", "greedy", "heuristic",   # baselines (rule-based)
-    "marl_a2c", "marl_ppo",            # MARL (MAA2C / MAPPO)
+    "random", "greedy",         # baselines non-learning (random=sàn, greedy=tham lam)
+    "marl_a2c", "marl_ppo",     # MARL (MAA2C / MAPPO)
 ]
 
 
@@ -219,7 +234,8 @@ def build_latex_table(
         "    \\midrule",
         n_row,
         "    \\midrule",
-        row("Tỷ lệ thành công",     "success_rate_mean",     "success_rate_ci95"),
+        row("Tỷ lệ nhập làn (merge)", "success_rate_mean",     "success_rate_ci95"),
+        row("Tỷ lệ hoàn thành",      "completion_rate_mean",  "completion_rate_ci95"),
         row("Tỷ lệ va chạm",        "collision_rate_mean",    "collision_rate_ci95"),
         row("Tỷ lệ thất bại merge", "failed_merge_rate_mean", "failed_merge_rate_ci95"),
         row("Tỷ lệ hết giờ",        "timeout_rate_mean",      "timeout_rate_ci95"),
@@ -227,9 +243,10 @@ def build_latex_table(
         row("Phần thưởng TB",       "avg_reward_mean",        "avg_reward_ci95",       ".2f"),
         row("Số bước TB",           "avg_steps_mean",         "avg_steps_ci95",        ".1f"),
         row("Bước nhập làn TB",     "avg_merge_step_mean",    "avg_merge_step_ci95",   ".1f"),
-        row("Tốc độ TB",            "avg_mean_speed_mean",    "avg_mean_speed_ci95",   ".4f"),
+        row("Tốc độ TB (agent)",    "avg_mean_speed_mean",    "avg_mean_speed_ci95",   ".4f"),
+        row("Tốc độ dòng chính",    "avg_mainline_speed_mean","avg_mainline_speed_ci95", ".4f"),
         row("Thông lượng",          "avg_throughput_mean",    "avg_throughput_ci95",   ".3f"),
-        row("Chỉ số sóng lùi",     "avg_shockwave_mean",     "avg_shockwave_ci95",    ".3f"),
+        row("CV tốc độ (phụ)",      "avg_shockwave_mean",     "avg_shockwave_ci95",    ".3f"),
         "    \\bottomrule",
         "  \\end{tabular}",
         "\\end{table}",
@@ -252,7 +269,7 @@ def compute_learning_efficiency(
     đường cong học nên sẽ bị bỏ qua.
     """
     # Loại baseline không có đường cong học — tính learning efficiency cho chúng không có ý nghĩa.
-    _baselines = {"random", "heuristic", "greedy"}
+    _baselines = {"random", "greedy", "base_rule", "heuristic"}  # base_rule/heuristic giữ để tương thích CSV cũ
     rl_algos = [a for a in df["algorithm"].unique() if a.lower() not in _baselines]
     rows = []
     for algo in sorted(rl_algos):
@@ -329,8 +346,8 @@ def main() -> None:
         print(f"\n  Đã lưu: {comp_eval_path} (KPI thật từ eval + baseline)")
 
         print("\n--- Tóm tắt EVAL + BASELINE (KPI báo cáo) ---")
-        display_cols = ["algorithm", "n_episodes", "success_rate_mean", "collision_rate_mean",
-                        "timeout_rate_mean", "avg_reward_mean", "avg_merge_step_mean"]
+        display_cols = ["algorithm", "n_episodes", "success_rate_mean", "completion_rate_mean",
+                        "collision_rate_mean", "timeout_rate_mean", "avg_mean_speed_mean"]
         print(comp_eval[display_cols].to_string(index=False))
 
         latex_str = build_latex_table(comp_eval)

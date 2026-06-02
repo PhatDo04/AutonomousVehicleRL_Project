@@ -33,7 +33,7 @@ from rl.config import (
     SCENARIO_PRESETS,
 )
 from rl.gama_compat import _configure_windows_cli_io
-from rl.scenario_utils import apply_scenario_all_gaml, restore_gaml_backup
+from rl.scenario_utils import apply_scenario_all_gaml, restore_gaml_backup, set_safety_shield
 
 _configure_windows_cli_io()
 
@@ -88,9 +88,11 @@ def run_baselines(
 ) -> list[Path]:
     """Chạy baseline greedy, trả về danh sách CSV đã sinh."""
     csv_files: list[Path] = []
-    # "greedy" = heuristic rule-based (tên trong đề cương). Bỏ "heuristic" để tránh dữ liệu trùng.
-    # Random baseline đã bỏ — không còn dùng trong báo cáo (rl/baselines.py vẫn hỗ trợ nếu chạy tay).
-    for policy in ("greedy",):
+    # 2 baseline NON-LEARNING làm mốc so với PPO/A2C:
+    #   "greedy" = tham lam (tăng tốc + merge sớm + vượt làn; né va chạm dọc nhờ khiên môi trường),
+    #   "random" = action ngẫu nhiên (sàn tuyệt đối).
+    # base_rule (luật thận trọng) ĐÃ BỎ khỏi pipeline — demo GUI Heuristic dùng luật phía GAML.
+    for policy in ("greedy", "random"):
         out_csv = logs_dir / f"{policy}_baseline_seed{seed}.csv"
         cmd = [
             _python(), str(ROOT / "rl" / "baselines.py"),
@@ -350,6 +352,16 @@ def parse_args() -> argparse.Namespace:
         default="low",
         help="Mật độ giao thông: low / medium / high (mặc định low để học merge ổn định).",
     )
+    parser.add_argument(
+        "--shield",
+        choices=("on", "off"),
+        default="on",
+        help=(
+            "Khiên an toàn GAMA (gate merge + shield M3c) cho TOÀN BỘ run. "
+            "on (mặc định) = mọi policy có khiên. off = mọi policy KHÔNG khiên (A/B: đo ảnh hưởng khiên). "
+            "Áp đồng đều greedy/random/PPO/A2C → so sánh công bằng trong từng run."
+        ),
+    )
     parser.add_argument("--host", default="localhost", help="GAMA headless host.")
     parser.add_argument("--port", type=int, default=1001, help="GAMA headless socket port.")
     parser.add_argument(
@@ -447,6 +459,7 @@ def main() -> None:
     print(f"\n{'#'*60}")
     print(f"  ĐỒ ÁN RL NHẬP LÀN CAO TỐC — THỰC NGHIỆM MARL")
     print(f"  Preset  : {args.preset}")
+    print(f"  Khiên   : {args.shield.upper()} (gate merge + shield M3c cho mọi policy)")
     print(f"  Scenario: {args.scenario}")
     print(f"  Thuật toán: {args.algos}")
     print(f"  Seeds   : {seeds}")
@@ -471,6 +484,10 @@ def main() -> None:
     if _apply_gaml_scenario and not args.dry_run:
         print(f"\n  Áp dụng scenario '{args.scenario}' vào GAML (MARL + archive baseline)...")
         apply_scenario_all_gaml(args.scenario)
+        # Khiên an toàn cho CẢ run (sau scenario patch; restore_gaml_backup cuối run sẽ revert về true).
+        if args.shield == "off":
+            print("  [shield] enable_safety_shield <- false cho TOÀN BỘ run (mọi policy KHÔNG khiên).")
+            set_safety_shield(False)
 
     if args.preset == "thesis" and not args.select_best_checkpoint:
         args.select_best_checkpoint = True

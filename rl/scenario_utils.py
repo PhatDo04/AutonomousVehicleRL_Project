@@ -49,6 +49,29 @@ def scenario_regex_matches(gaml_text: str) -> dict[str, bool]:
     return {name: bool(re.search(pat, gaml_text)) for name, pat in SCENARIO_GAML_REGEX.items()}
 
 
+# Khiên an toàn GAMA (gate is_merge_gap_safe + shield M3c) — A/B per-RUN cho toàn bộ thuật toán.
+_SAFETY_SHIELD_REGEX = r"(\benable_safety_shield\s*<-\s*)(?:true|false)"
+
+
+def set_safety_shield(enabled: bool, *, gaml_path: Path | None = None) -> None:
+    """Ép cờ ``enable_safety_shield`` trong GAML (idempotent). Gọi SAU apply_scenario, TRƯỚC khi chạy.
+
+    ``run_experiments --shield off`` set False cho cả run (train+eval+baseline). ``restore_gaml_backup()``
+    cuối run sẽ revert về true (backup tạo từ bản committed mặc định = true). Bypass phía GAML còn đòi
+    ``dashboard_policy="Python/SB3 model"`` nên demo GUI Heuristic luôn giữ khiên dù cờ = false.
+    """
+    path = gaml_path or MODEL_PATH
+    content = path.read_text(encoding="utf-8")
+    value = "true" if enabled else "false"
+    new_content, n = re.subn(_SAFETY_SHIELD_REGEX, rf"\g<1>{value}", content)
+    if n == 0:
+        print("  [WARN] set_safety_shield: không tìm thấy 'enable_safety_shield <- ...' trong GAML.")
+        return
+    if new_content != content:
+        path.write_text(new_content, encoding="utf-8")
+    print(f"  [scenario_utils] enable_safety_shield <- {value}")
+
+
 def _backup_path(gaml_path: Path = MODEL_PATH) -> Path:
     return gaml_path.with_suffix(_BACKUP_SUFFIX)
 

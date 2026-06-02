@@ -35,5 +35,10 @@ tmp/
 *.pdf
 _docx_text.txt
 
+# Báo cáo (giữ local, không đưa lên repo — README vẫn được track)
+BAO_CAO_DO_AN.md
+BAO_CAO_MA_NGUON_CHI_TIET.md
+GIAI_THICH_CHO_NGUOI_MOI.md
+
 # Project scripts (local)
 scripts/

@@ -32,8 +32,12 @@ class EpisodeMetric:
     # Throughput: tỷ lệ xe merge thành công / tổng xe đã cố merge trong simulation (0–1).
     throughput: float = 0.0
     # Shockwave index = std/mean tốc độ xe mainline vùng merge (Coefficient of Variation).
-    # Thấp → dòng chảy êm, không sóng lùi. Cao → ùn tắc sóng lùi.
+    # LƯU Ý: CV KHÔNG phản ánh gridlock (mọi xe chậm đều nhau → std nhỏ → CV nhỏ "êm giả").
+    # Dùng làm chỉ số PHỤ; thước đo ùn tắc chính là mainline_mean_speed (thấp = kẹt) + completion.
     shockwave_index: float = 0.0
+    # Tốc độ trung bình dòng chính vùng merge (space-mean-speed, từ GAML sw_mean).
+    # THẤP = ùn tắc/kẹt, CAO = dòng chảy thông. Thước đo congestion robust (phân biệt được gridlock).
+    mainline_mean_speed: float = 0.0
 
 
 _TERMINAL_OUTCOMES: frozenset[str] = frozenset({"success", "collision", "failed_merge"})
@@ -139,10 +143,11 @@ def build_episode_metric(
     """Create a normalized metric row from the final environment info."""
     info = info or {}
     outcome = str(info.get("outcome") or ("timeout" if truncated else "unknown"))
-    timeout = _as_bool(info.get("timeout")) or (truncated and not terminated)
-    success = _as_bool(info.get("success")) or outcome == "success"
-    collision = _as_bool(info.get("collision")) or outcome == "collision"
-    failed_merge = _as_bool(info.get("failed_merge")) or outcome == "failed_merge"
+    # 4 cờ suy TỪ outcome (khớp evaluate_marl.py + train_marl.py) — tránh bug success=True khi timeout.
+    success = outcome == "success"
+    collision = outcome == "collision"
+    failed_merge = outcome == "failed_merge"
+    timeout = outcome == "timeout"
 
     return EpisodeMetric(
         algorithm=algorithm,
@@ -165,6 +170,7 @@ def build_episode_metric(
         merge_step=_as_int(info.get("merge_step", 0) if success else 0),
         throughput=_as_float(info.get("throughput"), default=0.0),
         shockwave_index=_as_float(info.get("shockwave_index"), default=0.0),
+        mainline_mean_speed=_as_float(info.get("mainline_mean_speed"), default=0.0),
     )
 
 
