@@ -2,8 +2,8 @@
 
 > Mô phỏng kịch bản **nhập làn (on-ramp merging)** trên đường cao tốc bằng **GAMA Platform** và huấn luyện các tác tử xe tự hành **tự học cách nhập làn an toàn & phối hợp nhường đường** bằng học tăng cường đa tác tử (**MAPPO** và **MAA2C**).
 
-**Sinh viên:** Đỗ Tiến Phát — 2251172447 — ĐH Thủy Lợi, Khoa CNTT, Lớp 64KTPM1      
-**GVHD:** TS. Lê Nguyễn Tuấn Thành       
+**Sinh viên:** Đỗ Tiến Phát — 2251172447 — ĐH Thủy Lợi, Khoa CNTT, Lớp 64KTPM1
+**GVHD:** TS. Lê Nguyễn Tuấn Thành
 **Tham chiếu:** Le Nguyen Tuan Thanh (2023). *Multi-agent reinforcement learning for traffic congestion on one-way multi-lane highways*. Journal of Information and Telecommunication, 7:3, 255–269.
 
 ---
@@ -18,21 +18,35 @@ Kiến trúc học áp dụng **CTDE** (Centralized Training, Decentralized Exec
 
 - **Môi trường nhập làn đầy đủ** trên GAMA: 3 làn cao tốc + nhánh ramp + vùng tăng tốc + xe nền NPC + hệ thống xe hỏng tạo ùn tắc.
 - **4 tác tử học đồng thời** (1 xe nhập làn + 3 xe cao tốc) với chính sách dùng chung (parameter sharing + agent indicator).
-- **Hai thuật toán MARL** (MAPPO, MAA2C) theo kiến trúc CTDE, so sánh với baseline quy tắc tĩnh **Greedy**.
-- **Pipeline thực nghiệm tự động**: một lệnh chạy trọn bộ huấn luyện → đánh giá đa hạt giống → 12 biểu đồ + bảng so sánh có CI95%.
-- **Bộ chỉ số đầy đủ**: tỷ lệ thành công, va chạm, thông lượng, chỉ số sóng lùi (shockwave).
+- **Hai thuật toán học** (MAPPO, MAA2C) theo kiến trúc CTDE, so với **baseline không học**: `greedy` (tham lam) và `random` (sàn).
+- **A/B khiên an toàn** (`--shield on/off`): bật/tắt lưới an toàn của môi trường (gate nhập làn + car-following guard) cho **toàn bộ** policy → đo ảnh hưởng của khiên lên từng thuật toán một cách công bằng.
+- **Pipeline thực nghiệm tự động**: một lệnh chạy trọn bộ huấn luyện → đánh giá đa hạt giống → biểu đồ + bảng so sánh có CI95%.
+- **Traffic tái lập theo seed**: mỗi episode (baseline + eval) sinh giao thông khác nhau nhưng tái lập được và **paired** (cùng seed → cùng tình huống cho mọi policy).
+- **Bộ chỉ số đầy đủ**: tỷ lệ thành công, va chạm, thông lượng, tốc độ dòng chính, chỉ số sóng lùi (shockwave).
 
 ## Kết quả chính
 
-Thiết lập: 5 hạt giống × 200k bước huấn luyện × 50 episode đánh giá (stochastic), kịch bản `low` (~20 xe).
+Thiết lập: kịch bản `medium` (~45 xe), 5 hạt giống × 200k bước huấn luyện × 50 episode đánh giá (stochastic), traffic biến thiên theo seed.
 
-| Thuật toán | Success rate | CI95 | Per-seed |
+**Khiên ON (môi trường có lưới an toàn):**
+
+| Policy | Success | Collision | Ghi chú |
 |---|---|---|---|
-| **MAA2C** (CTDE) | **84.0%** ⭐ | ±4.6% | 80 / 82 / 84 / 86 / 88 |
-| **MAPPO** (CTDE) | 71.2% | ±5.7% | 58 / 66 / 74 / 76 / 82 |
-| Greedy (deterministic) | 100% | — | baseline quy tắc tĩnh |
+| **MAA2C** (CTDE) | **89.2% ± 1.6** ⭐ | 10.8% | Cao + ổn định nhất |
+| **MAPPO** (CTDE) | 83.6% ± 8.6 | 16.0% | Variance lớn hơn |
+| Greedy (baseline) | 96% | 0% | Tham lam, dựa vào khiên |
+| Random (sàn) | 0% | 100% | — |
 
-> MAA2C đạt tỷ lệ nhập làn thành công cao nhất trong các phương pháp học. Greedy đạt 100% ở kịch bản mật độ thấp (đường thưa) — đóng vai trò cận trên để so sánh.
+**A/B — gỡ khiên (`--shield off`, sát thực tế hơn):**
+
+| Policy | Success ON → OFF | Δ |
+|---|---|---|
+| **MAA2C** | 89.2% → **85%** | −4 (bền) |
+| **MAPPO** | 83.6% → 77% | −7 (seed lẻ mất ổn định) |
+| **Greedy** | 96% → **2%** | **−94 (sụp)** |
+| Random | 0% → 0% | — |
+
+> **Luận điểm:** "năng lực" của greedy là **vay mượn từ khiên môi trường** — gỡ khiên là vô dụng (96%→2%, va chạm 98%). Ngược lại, chính sách **học** đã nội hóa hành vi lái an toàn nên **bền vững** (MAA2C 89→85%). Khi cùng điều kiện không-lưới-an-toàn, **RL thắng greedy áp đảo**. Đây là minh chứng giá trị của học so với luật tham lam tĩnh. MAA2C cũng ổn định hơn MAPPO (khiên còn giúp MAPPO ổn định lúc huấn luyện).
 
 ---
 
@@ -45,10 +59,11 @@ Thiết lập: 5 hạt giống × 200k bước huấn luyện × 50 episode đá
 │  • 3 làn cao tốc (lane_width = 3.5m, dài 200m)              │
 │  • Nhánh ramp (8 waypoints) + vùng tăng tốc (48m → 162m)    │
 │  • Điểm merge x = 180m                                      │
+│  • Khiên an toàn: gate is_merge_gap_safe + shield M3c        │
 │                                                             │
-│  Xe nền NPC (Greedy)   │   RL Agents (PettingZoo Parallel)  │
-│                        │    • merging_0  (magenta) — ramp   │
-│                        │    • highway_0/1/2 (cyan) — cao tốc│
+│  Xe nền NPC           │   RL Agents (PettingZoo Parallel)   │
+│                       │    • merging_0  (magenta) — ramp     │
+│                       │    • highway_0/1/2 (cyan) — cao tốc  │
 └──────────────────────────┬──────────────────────────────────┘
                            │ gama-pettingzoo  (socket :1001)
                            ▼
@@ -59,10 +74,12 @@ Thiết lập: 5 hạt giống × 200k bước huấn luyện × 50 episode đá
 │  centralized_policy Actor(local 19D) + Critic(global 60D)    │
 │  train_marl.py      PPO/A2C + CentralizedCriticPolicy        │
 │  evaluate_marl.py   đánh giá + histogram action              │
-│  baselines.py       Greedy / Random (rule-based)             │
+│  baselines.py       greedy / random (non-learning)          │
 │  run_experiments.py điều phối: train → eval → plots → bảng   │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+> **Greedy/random vs khiên:** đây là baseline **không học** (chỉ là mốc so sánh, không train). Chế độ Heuristic trên GUI GAMA dùng luật phía GAML (`get_heuristic_*`) — độc lập với `baselines.py`, để xe demo chạy hợp lý khi quan sát trực quan.
 
 ---
 
@@ -102,14 +119,12 @@ Thiết lập: 5 hạt giống × 200k bước huấn luyện × 50 episode đá
 
 Toàn bộ reward được tính trong GAML (`calculate_merging_reward`, `calculate_reward`); Python chỉ nhận giá trị qua PettingZoo.
 
-| `merging_0` | Giá trị | | `highway_0/1/2` | Giá trị |
-|---|---|---|---|---|
-| Nhập làn thành công | **+200** | | Thoát đường an toàn | +50 |
-| Va chạm | **−100** | | Va chạm | −100 |
-| Hết đường chưa merge | −50 | | Bám đuôi quá gần (TTC) | phạt theo gap |
-| Vào vùng tăng tốc (1 lần) | +15 | | Tốc độ quá thấp | −0.05 |
-| Nhập làn đúng lúc (gap an toàn) | +25 → +50 | | Nhường gap khi xe ramp merge | +0.3 |
-| Giới hạn | [−60, 60] | | | |
+| `merging_0` | | `highway_0/1/2` |
+|---|---|---|
+| Nhập làn thành công (lớn) | | Thoát đường an toàn (+) |
+| Va chạm (−100) | | Va chạm (−100) |
+| Hết đường chưa merge (−) | | Bám đuôi quá gần (TTC): phạt theo gap |
+| Vào vùng tăng tốc / merge đúng lúc gap an toàn (+) | | Nhường gap khi xe ramp merge (+) |
 
 ---
 
@@ -151,7 +166,7 @@ cd <ĐƯỜNG_DẪN>\gama-headless
 .\gama-headless.bat -socket 1001
 ```
 
-Quan sát trực quan: mở `models/Main_Traffic.gaml` trong GAMA GUI → chạy experiment `TrafficSimulation`.
+Quan sát trực quan: mở `models/Main_Traffic.gaml` trong GAMA GUI → chạy experiment `TrafficSimulation` (chế độ Heuristic dùng luật rule-based phía GAML).
 
 ## Chạy thực nghiệm
 
@@ -164,12 +179,13 @@ python rl/smoke_test_env.py        # kỳ vọng: [PASS] MARL smoke test OK
 Chạy pipeline tự động (khuyến nghị):
 
 ```powershell
-python rl/run_experiments.py --preset thesis --port 1001   # bộ số chính (~5h)
-python rl/run_experiments.py --preset short  --port 1001   # nhanh: 1 seed
-python rl/run_experiments.py --preset smoke  --dry-run     # kiểm tra cấu hình
+python rl/run_experiments.py --preset thesis --port 1001 --scenario medium                 # bộ số chính (~5h)
+python rl/run_experiments.py --preset thesis --port 1001 --scenario medium --shield off     # A/B: gỡ khiên an toàn
+python rl/run_experiments.py --preset short  --port 1001                                    # nhanh: 1 seed
+python rl/run_experiments.py --preset smoke  --dry-run                                      # kiểm tra cấu hình
 ```
 
-Tùy chọn: `--algos ppo|a2c` (chỉ một thuật toán) · `--skip-baselines` · `--run-tag <tên>` (đặt tên thư mục lần chạy; `none` = ghi phẳng).
+Tùy chọn: `--scenario low|medium|high` (mật độ) · `--shield on|off` (khiên an toàn cho cả run) · `--algos ppo|a2c` · `--skip-baselines` · `--run-tag <tên>` (đặt tên thư mục lần chạy; `none` = ghi phẳng).
 
 | Preset | Timesteps | Eval episodes | Seeds | Dùng cho |
 |---|---|---|---|---|
@@ -177,13 +193,19 @@ Tùy chọn: `--algos ppo|a2c` (chỉ một thuật toán) · `--skip-baselines`
 | `short` | 200,000 | 20 | [0] | Kiểm tra nhanh |
 | `thesis` | 200,000 | 50 | [0–4] | Bộ số chính |
 
-**Tách output theo từng lần chạy (mặc định):** mỗi lần chạy tự sinh thư mục riêng theo timestamp `<preset>_YYYYmmdd_HHMMSS` cho cả model, log và plots — không bao giờ đè kết quả lần trước.
+| Scenario | nb_cars_max | spawn_interval | Mô tả |
+|---|---|---|---|
+| `low` | 20 | 10 | Mật độ thấp (đường thưa) |
+| `medium` | 45 | 5 | Mật độ vừa (bộ số chính) |
+| `high` | 70 | 3 | Mật độ cao (ùn tắc) |
+
+**Tách output theo từng lần chạy (mặc định):** mỗi lần chạy tự sinh thư mục riêng theo timestamp `<preset>_YYYYmmdd_HHMMSS` (hoặc tên `--run-tag`) cho cả model, log và plots — không bao giờ đè kết quả lần trước.
 
 ## Phân tích kết quả
 
 `run_experiments.py` tự sinh biểu đồ + bảng cuối pipeline. Output (trong thư mục theo lần chạy):
 
-- **12 biểu đồ PNG**: reward curve, success/collision/failed_merge/timeout rate, merge_step, episode_length, throughput, shockwave_index, radar, boxplot.
+- **Biểu đồ PNG**: reward curve, success/collision/failed_merge/timeout rate, merge_step, episode_length, throughput, shockwave_index, radar, boxplot.
 - **Bảng**: `comparison_table.csv` (mean±std mọi metric), `latex_table.tex` (copy vào báo cáo), `summary_metrics.csv`, `learning_efficiency.csv`.
 
 Có thể chạy thủ công: `python rl/plots.py <csv...> --out-dir <dir>` và `python rl/analysis.py <csv...> --out-dir <dir>`.
@@ -192,11 +214,12 @@ Có thể chạy thủ công: `python rl/plots.py <csv...> --out-dir <dir>` và 
 
 | Metric | Ý nghĩa | Tốt khi |
 |---|---|---|
-| `success_rate` | Tỷ lệ nhập làn thành công | Cao |
+| `success_rate` | Tỷ lệ episode nhập làn xong + hoàn thành lộ trình | Cao |
 | `collision_rate` | Tỷ lệ va chạm | Thấp |
 | `failed_merge_rate` / `timeout_rate` | Các loại thất bại | Thấp |
 | `avg_reward` | Tổng reward trung bình/episode | Cao |
 | `mean_speed` / `throughput` | Tốc độ / thông lượng nhập làn | Cao |
+| `mainline_mean_speed` | Tốc độ trung bình dòng chính (đo ùn tắc robust) | Cao |
 | `shockwave_index` | Độ dao động tốc độ mainline (sóng lùi) | Thấp |
 
 ---
@@ -212,15 +235,15 @@ Có thể chạy thủ công: `python rl/plots.py <csv...> --out-dir <dir>` và 
 │   ├── marl_env.py            # Chuỗi wrapper GAMA → SB3 VecEnv
 │   ├── train_marl.py          # Huấn luyện MAPPO + MAA2C
 │   ├── evaluate_marl.py       # Đánh giá + histogram action
-│   ├── baselines.py           # Greedy / Random (rule-based)
-│   ├── run_experiments.py     # Điều phối pipeline
+│   ├── baselines.py           # greedy / random (non-learning)
+│   ├── run_experiments.py     # Điều phối pipeline (+ --shield, --scenario)
 │   ├── analysis.py            # Bảng so sánh + LaTeX
-│   ├── plots.py               # 12 biểu đồ
+│   ├── plots.py               # Biểu đồ
 │   ├── metrics.py             # EpisodeMetric + ghi CSV
-│   ├── config.py              # Preset, paths, ACTION_MEANINGS
-│   ├── scenario_utils.py      # Vá GAML theo mật độ scenario
+│   ├── config.py              # Preset, paths, ACTION_MEANINGS, scenario
+│   ├── scenario_utils.py      # Vá GAML: scenario mật độ + khiên an toàn
 │   ├── gama_compat.py         # Lớp tương thích gama-pettingzoo
-│   ├── gama_episode_reset.py  # Reset helper (eval)
+│   ├── gama_episode_reset.py  # Reset helper + reseed traffic theo seed
 │   ├── smoke_test_env.py      # Kiểm tra kết nối (chạy tay)
 │   ├── diagnose_marl.py       # Công cụ debug (chạy tay)
 │   └── model_registry.py      # Liệt kê model → JSON (chạy tay)
@@ -238,10 +261,11 @@ Có thể chạy thủ công: `python rl/plots.py <csv...> --out-dir <dir>` và 
 | `ModuleNotFoundError: supersuit` | `pip install -r requirements.txt` trong venv |
 | `UnicodeEncodeError` (Windows) | `$env:PYTHONIOENCODING='utf-8'` hoặc `chcp 65001` |
 | GAMA: `unable to find experiment/simulation` | Restart GAMA headless (`gama-headless.bat -socket 1001`) |
+| GAMA chết giữa run dài | Khởi động lại headless rồi chạy lại lần đó |
 
 ## Phạm vi & hạn chế
 
 - Mô phỏng tinh giản: hành động rời rạc + waypoint, không phải động học/cảm biến xe thật.
 - Chính sách dùng chung cho hai vai trò có ngữ nghĩa khác nhau — lựa chọn thiết kế đơn giản, không tương đương hai chính sách chuyên biệt.
 - Một instance GAMA (`num_vec_envs=1`) → thời gian huấn luyện dài.
-- Tái lập một phần: hạt giống cố định phía Python, RNG nội bộ GAMA có thể khác giữa máy.
+- Traffic của **baseline + eval** đã tái lập theo seed (reproducible + paired); riêng **huấn luyện** RL chạy trên một layout cố định (chưa randomize traffic theo seed trong vòng train).
