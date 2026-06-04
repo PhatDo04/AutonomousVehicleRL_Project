@@ -1558,6 +1558,7 @@ species car {
     float       obs_target_rear_gap <- 1.0;
     float       obs_front_gap_raw <- 999.0;
     float       obs_rear_gap_raw <- 999.0;
+    float       obs_front_speed_raw <- 1.0;   // persist tốc độ xe dẫn làn đích cho merger speed-match
     float       obs_scan_dx <- 0.0;
     float       obs_required_front <- 0.0;
     float       obs_required_rear <- 0.0;
@@ -4013,7 +4014,7 @@ species car {
         }
         obs_front_gap_raw <- 999.0;
         obs_rear_gap_raw <- 999.0;
-        float obs_front_speed_raw <- speed_max;
+        obs_front_speed_raw <- speed_max;
         float obs_rear_speed_raw <- 0.0;
         float ramp_front_gap_raw <- 999.0;
         float ramp_front_speed_raw <- speed_max;
@@ -4244,6 +4245,14 @@ species car {
             if (in_accel_zone) {
                 if (obs_gap_safe >= 1.0) {
                     reward_cache <- reward_cache - (1.0 + m2_urgency * 2.0);
+                    // MERGER SPEED-MATCH (PlanB-2, giảm merger collision 27%) — chỉ kích KHI GAP AN
+                    // TOÀN (sắp nhập): phạt NHẸ phần vượt tốc so với xe dẫn làn đích. Merger floor
+                    // accel (~0.9) lách vào gap mà highway giờ chạy ~0.54 → đâm đuôi xe dẫn lúc lách.
+                    // K=0.7 + gate gap_safe. K=1.5 quá mạnh → merger rụt rè → timeout 47%. Hạ xuống
+                    // 0.7 để vừa giảm va chạm vừa không làm merger chậm tới mức không nhập kịp.
+                    if (speed > obs_front_speed_raw) {
+                        reward_cache <- reward_cache - (speed - obs_front_speed_raw) * 0.7;
+                    }
                 }
             }
         }
