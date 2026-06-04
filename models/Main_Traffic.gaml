@@ -606,6 +606,22 @@ global {
             ]);
         }
 
+        // Nen lan khan cap: dai tu (offset_y - lane_width) den offset_y, mau long duong cao toc.
+        float rescue_lane_y_init <- offset_y - lane_width;
+        if (polygon([
+            {0.0, rescue_lane_y_init, 0.008},
+            {road_length, rescue_lane_y_init, 0.008},
+            {road_length, offset_y, 0.008},
+            {0.0, offset_y, 0.008}
+        ]) != nil) {
+            ui_road_fill_geoms << polygon([
+                {0.0, rescue_lane_y_init, 0.008},
+                {road_length, rescue_lane_y_init, 0.008},
+                {road_length, offset_y, 0.008},
+                {0.0, offset_y, 0.008}
+            ]);
+        }
+
         // Tam tat net dut precompute de tranh loi geometry runtime; se co cac net co so ve truc tiep o display.
 
         loop i from: 0 to: number_of_lanes - 1 {
