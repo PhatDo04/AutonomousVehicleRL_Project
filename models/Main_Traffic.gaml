@@ -2941,6 +2941,9 @@ species car {
         // Sua bug: truoc day gate `x >= merge_x-14` khien action 3 vo dung trong toan bo accel zone [48,162],
         // mau thuan voi heuristic / reward shaping (+2.5 cho action 3 + in_accel + gap_safe).
         else if (action_rl = 3) {
+            // CHÚ Ý: reward/penalty cho action 3 được tính TẬP TRUNG trong calculate_merging_reward()
+            // (gọi ở cuối reflex, dòng ~3065 qua `reward_val <- calculate_reward()`). KHÔNG ghi
+            // reward_val ở đây vì nó sẽ bị ghi đè. Nhánh này chỉ thực thi side-effect merge + flag.
             if (location != nil) {
                 if (in_accel_zone or location.x >= merge_x - 14.0) {
                     if (is_merge_gap_safe()) {
@@ -2948,16 +2951,11 @@ species car {
                         merge_success <- true;
                         failed_merge <- false;
                         merge_step    <- episode_step;
-                        reward_val    <- reward_val + 40.0;
-                    } else {
-                        // Action 3 trong zone với gap KHÔNG an toàn: thưởng nhẹ (+0.5) để agent
-                        // không bị disincentive khi thử merge. Phạt action-3-sai sẽ làm policy
-                        // collapse vào low-variance "wait/keep" do giảm động lực thử.
-                        reward_val    <- reward_val + 0.5;
                     }
+                    // Gap không an toàn: không merge; phạt -2 do calculate_merging_reward xử lý.
                 } else {
                     // Action 3 NGOÀI zone: penalty rất nhẹ (-0.01) — đủ để agent không spam
-                    // action 3 trước khi vào zone, không tạo gradient phụ làm mất focus.
+                    // action 3 trước khi vào zone. Đặt qua action_penalty (được reward cộng vào).
                     action_penalty <- action_penalty - 0.01;
                 }
             }
@@ -4234,14 +4232,17 @@ species car {
             reward_cache <- reward_cache - m2_urgency * 0.05;
         }
         // Action 3 (merge attempt) shaping — tạo sharp gradient hướng policy về quyết định merge:
-        //   - Trong zone + gap an toàn: bonus +25 → +50 (scale theo urgency, cap chung +60).
+        //   - Trong zone + gap an toàn: bonus +50 → +25 (scale NGHỊCH theo urgency — merge SỚM
+        //     thưởng cao hơn). Đúng thực tế làn tăng tốc: lấy gap an toàn ĐẦU TIÊN, không đi đến
+        //     cuối zone (cuối = deadline/gore, gap muộn ít cơ hội hơn). Trước đây dùng
+        //     `+ m2_urgency*25` -> thưởng merge MUỘN gấp đôi -> policy học "đi đến cuối mới merge".
         //   - Trong zone + gap không an toàn: -2 (phạt nhẹ, đủ để học "chọn đúng gap" mà
         //     không khiến PPO né tránh hoàn toàn action 3 → policy collapse).
         //   - Ngoài zone: -0.5 (signal "merge chỉ trong zone").
         if (action_rl = 3) {
             if (in_accel_zone) {
                 if (obs_gap_safe >= 1.0) {
-                    reward_cache <- reward_cache + 25.0 + m2_urgency * 25.0;
+                    reward_cache <- reward_cache + 25.0 + (1.0 - m2_urgency) * 25.0;
                 } else {
                     reward_cache <- reward_cache - 2.0;
                 }
