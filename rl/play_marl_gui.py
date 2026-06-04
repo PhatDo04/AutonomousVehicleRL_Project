@@ -1,4 +1,4 @@
-﻿"""Demo MARL tren GAMA UI."""
+"""Demo MARL tren GAMA UI."""
 from __future__ import annotations
 import argparse, asyncio, os, sys
 from collections import Counter
@@ -16,48 +16,72 @@ patch_gama_gymnasium()
 from gama_pettingzoo.gama_parallel_env import GamaParallelEnv
 
 async def run(args):
-    model = load_marl_model(args.algo, args.model)
-    pe = GamaParallelEnv(str(MODEL_PATH), args.experiment, args.host, args.port)
-    env_ss = AgentIndicatorParallelWrapper(pe, type_only=False)
-    obs, _ = env_ss.reset(seed=args.seed)
-    infos = {}
-    det = not args.stochastic
+    # --scenario va nb_cars_max vao file GAML truoc khi load. GAMA reload doc lai file tu dia
+    # moi episode -> mat do giu nguyen (tham so chinh tay tren GUI bi mat khi reload). Khoi phuc o finally.
+    if args.scenario:
+        from rl.scenario_utils import apply_scenario_to_gaml
+        apply_scenario_to_gaml(args.scenario)
     try:
-        for ep in range(1, args.episodes + 1):
-            if ep > 1:
-                await asyncio.sleep(args.pause_between_episodes)
-                obs, _ = reset_marl_episode(env_ss, args.seed + ep)
-            done, step, hist = set(), 0, Counter()
-            while step < args.max_steps and "merging_0" not in done:
-                actions = {}
-                for aid in MARL_AGENTS:
-                    if aid in done: continue
-                    o = obs.get(aid)
-                    if o is None: done.add(aid); continue
-                    arr = np.asarray(o, dtype=np.float32)
-                    if arr.shape != (19,):
-                        raise RuntimeError(f"{aid}: obs {arr.shape}, can 19")
-                    actions[aid] = _predict_marl_action(model, arr, agent_id=aid, deterministic=det, eval_mask=not args.no_eval_mask)
-                    if aid == "merging_0": hist[actions[aid]] += 1
-                if not actions: break
-                obs, _, term, trunc, infos = env_ss.step(actions)
-                step += 1
-                for aid in actions:
-                    if term.get(aid) or trunc.get(aid): done.add(aid)
-                if args.step_delay > 0: await asyncio.sleep(args.step_delay)
-            print(f"ep{ep} steps={step} outcome={(infos or {}).get('merging_0', {}).get('outcome')} hist={dict(hist)}")
+        model = load_marl_model(args.algo, args.model)
+        pe = GamaParallelEnv(
+            gaml_experiment_path=str(MODEL_PATH),
+            gaml_experiment_name=args.experiment,
+            gama_ip_address=args.host,
+            gama_port=args.port,
+        )
+        print(f"[debug] post-load experiment_id={pe.experiment_id!r} type={type(pe.experiment_id).__name__}", flush=True)
+        env_ss = AgentIndicatorParallelWrapper(pe, type_only=False)
+        obs, _ = env_ss.reset(seed=args.seed)
+        print(f"[debug] post-reset experiment_id={pe.experiment_id!r} agents={pe.agents}", flush=True)
+        infos = {}
+        det = not args.stochastic
+        try:
+            for ep in range(1, args.episodes + 1):
+                if ep > 1:
+                    await asyncio.sleep(args.pause_between_episodes)
+                    obs, _ = reset_marl_episode(env_ss, args.seed + ep)
+                done, step, hist = set(), 0, Counter()
+                while step < args.max_steps and "merging_0" not in done:
+                    actions = {}
+                    for aid in MARL_AGENTS:
+                        if aid in done: continue
+                        o = obs.get(aid)
+                        if o is None: done.add(aid); continue
+                        arr = np.asarray(o, dtype=np.float32)
+                        if arr.shape != (19,):
+                            raise RuntimeError(f"{aid}: obs {arr.shape}, can 19")
+                        actions[aid] = _predict_marl_action(model, arr, agent_id=aid, deterministic=det, eval_mask=not args.no_eval_mask)
+                        if aid == "merging_0": hist[actions[aid]] += 1
+                    if not actions: break
+                    obs, _, term, trunc, infos = env_ss.step(actions)
+                    step += 1
+                    for aid in actions:
+                        if term.get(aid) or trunc.get(aid): done.add(aid)
+                    if args.step_delay > 0: await asyncio.sleep(args.step_delay)
+                print(f"ep{ep} steps={step} outcome={(infos or {}).get('merging_0', {}).get('outcome')} hist={dict(hist)}")
+        finally:
+            env_ss.close()
     finally:
-        env_ss.close()
+        if args.scenario:
+            from rl.scenario_utils import restore_gaml_backup
+            restore_gaml_backup()
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--algo", default="ppo")
     p.add_argument("--model", required=True)
     p.add_argument("--episodes", type=int, default=1)
+    p.add_argument("--host", default="localhost")
     p.add_argument("--port", type=int, default=1000)
     p.add_argument("--experiment", default="TrafficSimulation")
+    p.add_argument("--scenario", choices=["low", "medium", "high"], default=None,
+                   help="Va nb_cars_max vao GAML (low=20/medium=45/high=70) de khop mat do model da train. Khoi phuc sau khi chay.")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--max-steps", type=int, default=500)
     p.add_argument("--step-delay", type=float, default=0.35)
+    p.add_argument("--pause-between-episodes", type=float, default=1.0)
     p.add_argument("--stochastic", action="store_true")
+    p.add_argument("--no-eval-mask", action="store_true")
     asyncio.run(run(p.parse_args()))
 
 if __name__ == "__main__":
