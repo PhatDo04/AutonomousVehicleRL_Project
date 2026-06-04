@@ -26,27 +26,29 @@ Kiến trúc học áp dụng **CTDE** (Centralized Training, Decentralized Exec
 
 ## Kết quả chính
 
-Thiết lập: kịch bản `medium` (~45 xe), 5 hạt giống × 200k bước huấn luyện × 50 episode đánh giá (stochastic), traffic biến thiên theo seed.
+Ma trận đầy đủ: **3 mật độ** (low ~20 xe / medium ~45 / high ~70) × **2 chế độ khiên** (ON/OFF) × **4 chính sách**. Mỗi chính sách học: 5 hạt giống × 200k bước × 50 episode đánh giá (stochastic), traffic biến thiên theo seed.
 
-**Khiên ON (môi trường có lưới an toàn):**
+**SUCCESS % — định dạng `khiên ON | khiên OFF`** (RL: mean ± std qua 5 seed):
 
-| Policy | Success | Collision | Ghi chú |
-|---|---|---|---|
-| **MAA2C** (CTDE) | **89.2% ± 1.6** ⭐ | 10.8% | Cao + ổn định nhất |
-| **MAPPO** (CTDE) | 83.6% ± 8.6 | 16.0% | Variance lớn hơn |
-| Greedy (baseline) | 96% | 0% | Tham lam, dựa vào khiên |
-| Random (sàn) | 0% | 100% | — |
+| Mật độ | MAA2C | MAPPO | Greedy | Random |
+|---|---|---|---|---|
+| low | 86.4±3.9 \| 87.2±4.1 | 83.6±11.8 \| 75.2±22.8 | 96 \| 82 | 0 \| 0 |
+| medium | **89.2±1.6** \| 84.8±3.0 | 83.6±8.6 \| 76.8±17.9 | 96 \| 2 | 0 \| 0 |
+| high | 82.8±4.3 \| 85.2±5.2 | 68.4±7.1 \| 69.6±9.4 | 74 \| **0** | 0 \| 0 |
 
-**A/B — gỡ khiên (`--shield off`, sát thực tế hơn):**
+**COLLISION % (`ON | OFF`):**
 
-| Policy | Success ON → OFF | Δ |
-|---|---|---|
-| **MAA2C** | 89.2% → **85%** | −4 (bền) |
-| **MAPPO** | 83.6% → 77% | −7 (seed lẻ mất ổn định) |
-| **Greedy** | 96% → **2%** | **−94 (sụp)** |
-| Random | 0% → 0% | — |
+| Mật độ | MAA2C | MAPPO | Greedy | Random |
+|---|---|---|---|---|
+| low | 13.6 \| 12.8 | 16.0 \| 21.6 | 4 \| 18 | 100 |
+| medium | 10.8 \| 15.2 | 16.0 \| 22.4 | 0 \| **98** | 100 |
+| high | 16.4 \| 14.8 | 31.2 \| 30.4 | 22 \| **100** | 100 |
 
-> **Luận điểm:** "năng lực" của greedy là **vay mượn từ khiên môi trường** — gỡ khiên là vô dụng (96%→2%, va chạm 98%). Ngược lại, chính sách **học** đã nội hóa hành vi lái an toàn nên **bền vững** (MAA2C 89→85%). Khi cùng điều kiện không-lưới-an-toàn, **RL thắng greedy áp đảo**. Đây là minh chứng giá trị của học so với luật tham lam tĩnh. MAA2C cũng ổn định hơn MAPPO (khiên còn giúp MAPPO ổn định lúc huấn luyện).
+### Ba kết luận chính
+
+1. **MAA2C mạnh + ổn định nhất** — 82–89% thành công ở MỌI cấu hình, std chỉ 1.6–5.2%. Vượt MAPPO cả độ chính xác lẫn độ ổn định (MAPPO std nổ tới ±23% khi không khiên).
+2. **Năng lực của Greedy là "vay mượn" từ khiên môi trường.** Có khiên: 96/96/74%. **Gỡ khiên: sụp theo mật độ → 82 / 2 / 0%** (va chạm 18/98/100%). RL thì *nội hóa* an toàn → bền (MAA2C 86→87, 89→85, 83→85%). Cùng điều kiện không-khiên, **RL thắng Greedy áp đảo** (medium 85% vs 2%, high 85% vs 0%) → đây là minh chứng giá trị của học.
+3. **Tầm quan trọng của khiên tăng theo mật độ** — low còn tha thứ (Greedy-off 82%), high thì luật tĩnh vô dụng (0%). Random = sàn 0%/100% mọi nơi.
 
 ---
 
