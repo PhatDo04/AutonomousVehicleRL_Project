@@ -318,15 +318,16 @@ global {
         // Quy dao ramp: x tang dan (khong lui x), cong vao tam lane tang toc -> thang -> cheo nhap lane (nhu line do).
         float ramp_dy_drop <- accel_lane_y - bottom_lane_y;
         float ramp_outer_y <- offset_y + number_of_lanes * lane_width + lane_width;
+        // Option C (active-merge): làn tăng tốc chạy SONG SONG trên accel_lane_y suốt
+        // [accel_start_x, merge_x] — KHÔNG còn đoạn chéo tự rót xe vào bottom_lane_y.
+        // Việc lách sang làn chính giờ CHỈ do action 3 (execute_merge → Y-blend), không hình học.
         ramp_waypoints <- [
             {12.0, ramp_outer_y - 0.15},
             {28.0, accel_lane_y + lane_width * 0.38},
             {40.0, accel_lane_y + lane_width * 0.10},
             {accel_start_x, accel_lane_y},
             {accel_end_x,   accel_lane_y},
-            {accel_end_x + (merge_x - accel_end_x) * 0.38, accel_lane_y - ramp_dy_drop * 0.45},
-            {accel_end_x + (merge_x - accel_end_x) * 0.72, accel_lane_y - ramp_dy_drop * 0.82},
-            {merge_x, bottom_lane_y}
+            {merge_x,       accel_lane_y}
         ];
 
         ramp_accel_waypoint_ix <- 0;
@@ -1488,7 +1489,7 @@ species car {
                         } else if (failed_merge) {
                             // Forced-merge len mainline nhung khong nhap lan duoc: failed_merge.
                             terminal_reason <- "failed_merge";
-                            reward_val <- -50.0;
+                            reward_val <- -100.0;
                             is_done <- true;
                             cumulative_reward <- cumulative_reward + reward_val;
                         }
@@ -2451,7 +2452,7 @@ species car {
                     // thong qua reflex die_if_out_of_road -> rl_agent failed_merge.
                     // Khong reward terminal ngay o day — cho xe chay het cao toc.
                 } else {
-                    reward_val <- -50.0;
+                    reward_val <- -100.0;
                     terminal_reason <- "failed_merge";
                     failed_merge <- true;
                     merge_mode <- 0;
@@ -2850,9 +2851,8 @@ species car {
         move_next_y <- p0.y + t_proj * coll_scan_dy;
         float remain_seg <- (1.0 - t_proj) * coll_scan_dist;
         float step_along <- speed;
-        if (seg_ix >= 5) {
-            step_along <- min(step_along, 0.52);
-        }
+        // Option C: bỏ cap 0.52 trên đoạn cuối (trước là đường chéo merge cần hãm). Làn song song
+        // giờ để agent tự điều khiển tốc độ dọc toàn bộ accel lane (canh gap trước khi lách).
         if (step_along > remain_seg) { step_along <- remain_seg; }
         if (step_along < 0.0) { step_along <- 0.0; }
         location <- {move_next_x + ux * step_along, move_next_y + uy * step_along};
@@ -2897,11 +2897,12 @@ species car {
         // Reset phạt tạm thời ở mỗi tick để reward chỉ phản ánh action vừa thực hiện.
         action_penalty <- 0.0;
 
-        // Cập nhật cờ vùng tăng tốc theo toạ độ x (không chỉ 1 waypoint) — khớp heuristic Python.
+        // Option C: vùng merge-eligible = TOÀN BỘ làn song song [accel_start_x, merge_x) (trước
+        // dừng ở accel_end_x=162). Agent được phép lách (action 3) bất kỳ đâu trên làn tăng tốc.
         in_accel_zone <- false;
         if (location != nil) {
             if (location.x >= accel_start_x) {
-                if (location.x < accel_end_x) {
+                if (location.x < merge_x) {
                     in_accel_zone <- true;
                 }
             }
@@ -3042,21 +3043,16 @@ species car {
         speed <- min(speed, max_allowed_speed);
         speed <- max(rl_ramp_creep_min, min(speed_max, speed));
 
-        // Di chuyển dọc theo polyline ramp; RL chỉ điều khiển tốc độ và quyết định nhập làn.
+        // Di chuyển dọc theo làn tăng tốc SONG SONG; RL điều khiển tốc độ (canh gap) + quyết định
+        // lách bằng action 3. Option C: ĐÃ BỎ auto-fallback merge ở cuối polyline — tới merge_x mà
+        // chưa lách thì check_merging_terminal_state() báo failed_merge (-100, = collision: bỏ "nơi
+        // trú ẩn không-merge" để buộc policy commit action 3). Merge giờ CHỈ qua action 3.
         if (ramp_waypoints != nil) {
             if (location != nil) {
                 do sync_ramp_waypoint_ahead();
             }
             if (waypoint_index < length(ramp_waypoints)) {
                 do step_along_ramp_polyline();
-            }
-            if (waypoint_index >= length(ramp_waypoints)) {
-                if (is_merge_gap_safe()) {
-                    do execute_merge();
-                    merge_success <- true;
-                    failed_merge <- false;
-                    merge_step    <- episode_step;
-                }
             }
         }
 
@@ -3249,7 +3245,7 @@ species car {
         if (is_merging) {
             if (location != nil) {
                 if (location.x >= merge_x - 1.0) {
-                    reward_val <- -50.0;
+                    reward_val <- -100.0;
                     terminal_reason <- "failed_merge";
                     failed_merge <- true;
                     is_done <- true;
@@ -3262,7 +3258,7 @@ species car {
         if (merge_mode = 1) {
             if (location != nil) {
                 if (location.x >= merge_x + 2.0) {
-                    reward_val <- -50.0;
+                    reward_val <- -100.0;
                     terminal_reason <- "failed_merge";
                     failed_merge <- true;
                     is_done <- true;
@@ -3995,7 +3991,8 @@ species car {
         float speed_denom <- max(0.001, speed_max);
         float obs_denom <- max(1.0, observation_max);
         float norm_speed <- min(1.0, max(0.0, speed / speed_denom));
-        float accel_len <- max(1.0, accel_end_x - accel_start_x);
+        // Option C: progress/urgency obs trải đủ làn song song [accel_start_x, merge_x].
+        float accel_len <- max(1.0, merge_x - accel_start_x);
         float norm_progress <- 0.0;
         float norm_dist_to_merge <- 1.0;
         float norm_lateral <- 1.0;
@@ -4214,7 +4211,8 @@ species car {
         if (m2_merge_gap_front >= 999.0) {
             m2_merge_gap_front <- ahead_gap_dx;
         }
-        m2_accel_len <- max(1.0, accel_end_x - accel_start_x);
+        // Option C: urgency trải đủ làn song song [accel_start_x, merge_x] (trước dùng accel_end_x).
+        m2_accel_len <- max(1.0, merge_x - accel_start_x);
         m2_urgency <- min(1.0, max(0.0, (move_next_x - accel_start_x) / m2_accel_len));
         if (enable_merging_gap_reward) {
             // Chỉ thưởng nhẹ khi gap an toàn (không phạt per-tick gap nhỏ — sẽ tạo reward
@@ -4267,7 +4265,9 @@ species car {
         if (action_rl = 3) {
             if (in_accel_zone) {
                 if (obs_gap_safe >= 1.0) {
-                    reward_cache <- reward_cache + 25.0 + (1.0 - m2_urgency) * 25.0;
+                    // Option C: tăng bonus (+35→+60) để action-3-khi-an-toàn là argmax rõ rệt
+                    // (trước +25→+50, policy không commit deterministic). Scale nghịch urgency: merge sớm thưởng cao.
+                    reward_cache <- reward_cache + 35.0 + (1.0 - m2_urgency) * 25.0;
                 } else {
                     reward_cache <- reward_cache - 2.0;
                 }
