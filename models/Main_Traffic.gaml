@@ -79,12 +79,12 @@ global {
     bool enable_reward_collision_check <- true;
     bool enable_highway_ttc_reward <- true;
     bool enable_merging_gap_reward <- true;
-    bool enable_marl_coop_reward <- false;
+    bool enable_marl_coop_reward <- true;   // PlanB: bật để khôi phục động lực NHƯỜNG, đối trọng flow reward
     // Flow-aware highway reward (thử nghiệm Plan V1 §10): bù việc xe highway phanh thừa → giữ lưu lượng.
     // ON  = thưởng giữ tốc cao + TTC penalty nhẹ hơn (gap<12, coef 0.8).
     // OFF = baseline hiện tại (speed*0.04, TTC gap<20 coef 1.2). Để A/B sạch.
     // GHI CHÚ: bật ON phá merging (highway hết nhường → ramp đâm). highway chậm = cooperative yield. Giữ OFF.
-    bool enable_highway_flow_reward <- false;
+    bool enable_highway_flow_reward <- true;   // PlanB: bật chống highway phanh-thừa/đứng-im (kết hợp oppcost + coop). Cảnh báo cũ "phá merging" là khi CHƯA có oppcost+coop — đo merge_step/collision để kiểm.
     // false = chi merge khi policy/heuristic goi action 3 + gap an toan (KPI eval co y nghia).
     bool enable_curriculum_merge_assist <- false;
 
@@ -4230,6 +4230,22 @@ species car {
         // sớm thay vì chờ đến cuối zone (vùng "merge muộn" có ít cơ hội tìm gap an toàn).
         if (in_accel_zone) {
             reward_cache <- reward_cache - m2_urgency * 0.05;
+        }
+        // OPPORTUNITY-COST penalty (đòn bẩy chính trị merge-muộn) — đang trong zone + gap AN TOÀN
+        // nhưng VẪN trên ramp (merge_mode=1, chưa nhập) ⇒ agent BỎ LỠ một gap có thể merge ngay.
+        // Phạt tăng dần theo urgency: -1.0 đầu zone → -3.0 cuối zone. Lý do: bonus success +200
+        // (behave reflex ~2473) được trao BẤT KỂ merge sớm/muộn hay qua action 3 / auto-fallback
+        // cuối ramp (rl_merging_behavior ~3052), nên reward action-3 đơn lẻ KHÔNG có đòn bẩy —
+        // policy học "creep tới cuối rồi tự merge" (eval: action 3 = 0%, merge_step cụm ~239).
+        // Khi mỗi step ngồi-trên-gap-an-toàn bị tính phí, lấy gap ĐẦU TIÊN (action 3) trở thành
+        // advantage dương rõ rệt. Nếu execute_merge chạy trong step này thì in_accel_zone đã <-
+        // false (execute_merge ~3079) ⇒ điều kiện dưới tự loại step merge, chỉ phạt step BỎ LỠ.
+        if (merge_mode = 1) {
+            if (in_accel_zone) {
+                if (obs_gap_safe >= 1.0) {
+                    reward_cache <- reward_cache - (1.0 + m2_urgency * 2.0);
+                }
+            }
         }
         // Action 3 (merge attempt) shaping — tạo sharp gradient hướng policy về quyết định merge:
         //   - Trong zone + gap an toàn: bonus +50 → +25 (scale NGHỊCH theo urgency — merge SỚM
