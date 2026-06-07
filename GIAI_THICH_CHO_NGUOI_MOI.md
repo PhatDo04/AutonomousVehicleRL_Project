@@ -193,6 +193,7 @@ Và so cả hai với **2 chuẩn không học** (không tập, chỉ làm theo 
 - **Mỗi lần "tập lại" là tập từ đầu**, không phải học tiếp bộ não cũ. Làm vậy để mỗi thí nghiệm khách quan, lặp lại được.
 - **Chế độ đánh giá có 2 kiểu:** *deterministic* (luôn chọn nước tốt nhất) cho số cao nhưng "dễ"; báo cáo dùng *stochastic* (có ngẫu nhiên) — khắt khe, thực tế hơn (vì vậy số ~82–89% chứ không phải 100%).
 - **Greedy nhìn cao (96%) khi CÓ khiên KHÔNG có nghĩa AI thua** — đó là vì Greedy ăn theo lưới an toàn. Bỏ lưới ra (nhất là đường đông), Greedy sụp về 0% còn AI vẫn ~85%. Phải so ở **cùng điều kiện** mới công bằng.
+- **Biểu đồ kết quả chỉ tính từ "vòng thi" cuối (đánh giá), không trộn lúc đang tập** — nếu trộn cả lúc còn đang học (xe còn vụng) thì số sẽ bị nhiễu/ảo. Vì thế biểu đồ và bảng số luôn khớp nhau. Riêng chỉ số "nhập làn nhanh/chậm" chỉ đếm trên những ván **thực sự nhập được** (ván không nhập thì không tính, kẻo bị hiểu nhầm là "nhập ngay tức thì").
 
 ---
 

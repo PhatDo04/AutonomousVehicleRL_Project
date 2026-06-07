@@ -156,8 +156,35 @@ class MARLEpisodeCSVCallback(BaseCallback):
 # Model builders
 # ---------------------------------------------------------------------------
 
-def build_marl_model(algo: str, env, seed: int, tensorboard_log: str):
-    """Tạo SB3 on-policy model MARL với centralized critic (MAPPO / MAA2C)."""
+class EntCoefAnnealCallback(BaseCallback):
+    """Giảm dần entropy coefficient theo tiến trình train (cách B — anneal trong 1 run từ đầu).
+
+    ent_coef = start + (end - start) * (num_timesteps / total). Early entropy CAO (explore, học
+    action-3); late entropy THẤP (nhọn → action-3 thành argmax → deterministic chạy sạch).
+    Loss của A2C/PPO đọc self.ent_coef mỗi update nên cập nhật ở đây có hiệu lực ngay."""
+
+    def __init__(self, ent_start: float, ent_end: float, total_timesteps: int, hold_frac: float = 0.0):
+        super().__init__()
+        self.ent_start = ent_start
+        self.ent_end = ent_end
+        self.total = max(1, total_timesteps)
+        self.hold_frac = max(0.0, min(0.99, hold_frac))  # giữ entropy cao tới mốc này rồi mới giảm
+
+    def _on_step(self) -> bool:
+        frac = min(1.0, self.num_timesteps / self.total)
+        if frac <= self.hold_frac:
+            self.model.ent_coef = self.ent_start          # GIỮ cao (explore, học action-3)
+        else:
+            t = (frac - self.hold_frac) / (1.0 - self.hold_frac)  # giảm trong phần còn lại
+            self.model.ent_coef = self.ent_start + (self.ent_end - self.ent_start) * t
+        return True
+
+
+def build_marl_model(algo: str, env, seed: int, tensorboard_log: str, ent_coef: float | None = None):
+    """Tạo SB3 on-policy model MARL với centralized critic (MAPPO / MAA2C).
+
+    ent_coef=None → dùng mặc định (PPO 0.01 / A2C 0.05). Truyền giá trị để override
+    (vd fine-tune entropy thấp 0.003 → policy nhọn lại → deterministic/argmax chọn action-3)."""
     if algo not in MARL_ALGORITHMS:
         raise ValueError(
             f"Thuật toán '{algo}' không được hỗ trợ trong MARL. "
@@ -174,7 +201,7 @@ def build_marl_model(algo: str, env, seed: int, tensorboard_log: str):
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.01,
+            ent_coef=(0.01 if ent_coef is None else ent_coef),
             vf_coef=0.5,
             tensorboard_log=tensorboard_log,
             seed=seed,
@@ -189,7 +216,7 @@ def build_marl_model(algo: str, env, seed: int, tensorboard_log: str):
             n_steps=64,
             gamma=0.99,
             gae_lambda=0.95,
-            ent_coef=0.05,
+            ent_coef=(0.05 if ent_coef is None else ent_coef),
             tensorboard_log=tensorboard_log,
             seed=seed,
             verbose=1,
@@ -212,10 +239,46 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-episode-steps", type=int, default=300)
     parser.add_argument("--run-name", default=None)
     parser.add_argument(
+        "--resume-from",
+        default=None,
+        help="Đường dẫn .zip model để train tiếp. None = train mới từ đầu.",
+    )
+    parser.add_argument(
+        "--resume-mode",
+        choices=("continue", "warmstart"),
+        default="continue",
+        help=(
+            "continue = PPO/A2C.load (khôi phục cả optimizer + counter, train tiếp liền mạch). "
+            "warmstart = chỉ nạp weights (set_parameters) lên model mới — dùng cho curriculum/đổi cấu hình."
+        ),
+    )
+    parser.add_argument(
         "--checkpoint-interval",
         type=int,
         default=0,
         help="Nếu >0, lưu checkpoint mỗi N timesteps để chọn best model sau train.",
+    )
+    parser.add_argument(
+        "--ent-coef",
+        type=float,
+        default=None,
+        help="Override entropy coefficient. None = mặc định (PPO 0.01 / A2C 0.05). "
+             "Đặt thấp (vd 0.003) để policy nhọn lại → deterministic/argmax chọn action-3.",
+    )
+    parser.add_argument(
+        "--ent-coef-end",
+        type=float,
+        default=None,
+        help="Nếu đặt, ANNEAL entropy từ --ent-coef (đầu, cao) về giá trị này (cuối, thấp) theo "
+             "tiến trình train. Cách B: 1 run từ đầu — explore sớm rồi nhọn cuối (deterministic sạch). "
+             "Vd: --ent-coef 0.05 --ent-coef-end 0.002.",
+    )
+    parser.add_argument(
+        "--ent-anneal-hold",
+        type=float,
+        default=0.0,
+        help="Phần train GIỮ entropy ở --ent-coef trước khi giảm (0-1). Vd 0.65 = giữ cao tới 65%% "
+             "(action-3 học vững) rồi 35%% cuối mới giảm về --ent-coef-end (làm nhọn). Tránh sụp sớm.",
     )
     parser.add_argument(
         "--scenario",
@@ -266,8 +329,27 @@ async def async_main(args: argparse.Namespace) -> None:
     env = make_marl_vec_env(config)
 
     try:
-        model = build_marl_model(args.algo, env, args.seed, tensorboard_log)
+        reset_counter = True
+        if args.resume_from:
+            resume_path = Path(args.resume_from)
+            if not resume_path.exists():
+                raise FileNotFoundError(f"--resume-from không tồn tại: {resume_path}")
+            if args.resume_mode == "continue":
+                algo_cls = PPO if args.algo == "ppo" else A2C
+                model = algo_cls.load(str(resume_path), env=env, tensorboard_log=tensorboard_log)
+                reset_counter = False  # train tiếp liền mạch (giữ step counter + optimizer)
+                print(f"  [resume] CONTINUE từ {resume_path.name} — khôi phục optimizer + counter.")
+            else:  # warmstart: model mới, chỉ nạp weights
+                model = build_marl_model(args.algo, env, args.seed, tensorboard_log, ent_coef=args.ent_coef)
+                model.set_parameters(str(resume_path))
+                print(f"  [resume] WARM-START từ {resume_path.name} — chỉ nạp weights (optimizer mới).")
+        else:
+            model = build_marl_model(args.algo, env, args.seed, tensorboard_log, ent_coef=args.ent_coef)
         callbacks = [MARLEpisodeCSVCallback(args.algo, args.seed, metric_path)]
+        if args.ent_coef_end is not None:
+            ent_start = args.ent_coef if args.ent_coef is not None else (0.01 if args.algo == "ppo" else 0.05)
+            callbacks.append(EntCoefAnnealCallback(ent_start, args.ent_coef_end, args.timesteps, args.ent_anneal_hold))
+            print(f"  [ent-anneal] entropy {ent_start} → {args.ent_coef_end} (giữ cao tới {args.ent_anneal_hold:.0%}) qua {args.timesteps:,} steps")
         if args.checkpoint_interval > 0:
             # SB3 callback ``n_calls`` tăng theo VecEnv step (=1 step VecEnv tương ứng
             # ``n_envs`` transitions). Chia interval cho num_envs để checkpoint đúng theo
@@ -291,6 +373,7 @@ async def async_main(args: argparse.Namespace) -> None:
             total_timesteps=args.timesteps,
             callback=callback,
             tb_log_name=run_name,
+            reset_num_timesteps=reset_counter,
         )
         model.save(model_path)
         print(f"\nĐã lưu model      : {model_path}")

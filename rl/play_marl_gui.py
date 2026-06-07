@@ -17,7 +17,8 @@ from gama_pettingzoo.gama_parallel_env import GamaParallelEnv
 
 async def run(args):
     model = load_marl_model(args.algo, args.model)
-    pe = GamaParallelEnv(str(MODEL_PATH), args.experiment, args.host, args.port)
+    pe = GamaParallelEnv(str(MODEL_PATH), args.experiment,
+                         gama_ip_address=args.host, gama_port=args.port)
     env_ss = AgentIndicatorParallelWrapper(pe, type_only=False)
     obs, _ = env_ss.reset(seed=args.seed)
     infos = {}
@@ -54,10 +55,15 @@ def main():
     p.add_argument("--algo", default="ppo")
     p.add_argument("--model", required=True)
     p.add_argument("--episodes", type=int, default=1)
+    p.add_argument("--host", default="localhost")
     p.add_argument("--port", type=int, default=1000)
     p.add_argument("--experiment", default="TrafficSimulation")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--max-steps", type=int, default=300)
+    p.add_argument("--pause-between-episodes", type=float, default=2.0)
     p.add_argument("--step-delay", type=float, default=0.35)
     p.add_argument("--stochastic", action="store_true")
+    p.add_argument("--no-eval-mask", action="store_true")
     asyncio.run(run(p.parse_args()))
 
 if __name__ == "__main__":

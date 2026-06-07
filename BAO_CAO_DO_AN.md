@@ -209,6 +209,8 @@ Ma trận thực nghiệm: **3 mật độ** (`low` ~20 xe, `medium` ~45 xe, `hi
 
 Chỉ số chính: **success rate** (nhập làn xong + hoàn thành lộ trình), **collision rate**, kèm các chỉ số phụ (timeout, throughput, mean speed, shockwave).
 
+Mọi biểu đồ và bảng tổng hợp được tính **chỉ trên các episode đánh giá (eval) và baseline** — mỗi dòng tương ứng một episode hoàn chỉnh — tách biệt khỏi rollout trong quá trình huấn luyện (vốn có thể bị bộ bao vector hóa môi trường đánh dấu sai thành "episode" và gây thống kê ảo); đường cong học dùng riêng dữ liệu huấn luyện. Riêng chỉ số "tốc độ nhập làn" trên biểu đồ radar và bước nhập làn trung bình chỉ tính trên các episode **nhập làn thành công**, tránh sai lệch khi một chính sách gần như không nhập được (bước nhập mặc định bằng 0 dễ bị diễn giải nhầm thành "nhập tức thì"). Nhờ vậy biểu đồ luôn nhất quán với bảng so sánh định lượng.
+
 ### 5.2. Kết quả tổng hợp — Tỷ lệ thành công (%)
 
 Định dạng ô: `khiên ON | khiên OFF`; chính sách học ghi `trung bình ± độ lệch chuẩn` trên 5 hạt giống.

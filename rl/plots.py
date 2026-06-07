@@ -154,7 +154,8 @@ def plot_throughput(df: pd.DataFrame, out_dir: Path) -> None:
     ax.set_title("Thông lượng nhập làn trung bình (Throughput)")
     ax.set_xlabel("Thuật toán")
     ax.set_ylabel("Throughput (tỷ lệ merge thành công / tổng xe ramp)")
-    ax.set_ylim(0.0, 1.0)
+    # Throughput có thể >1 → không ép trần, để seaborn tự co trục.
+    ax.set_ylim(bottom=0.0)
     ax.grid(axis="y", alpha=0.3)
     plt.tight_layout()
     plt.savefig(out_dir / "throughput.png", dpi=160)
@@ -162,26 +163,37 @@ def plot_throughput(df: pd.DataFrame, out_dir: Path) -> None:
 
 
 def write_summary_table(df: pd.DataFrame, out_dir: Path) -> None:
-    """Write a compact CSV table for the thesis result section."""
-    agg_dict: dict = {
-        "episodes": ("episode", "count"),
-        "success_rate": ("success", "mean"),
-        "collision_rate": ("collision", "mean"),
-        "failed_merge_rate": ("failed_merge", "mean"),
-        "timeout_rate": ("timeout", "mean"),
-        "avg_reward": ("reward", "mean"),
-        "avg_steps": ("length", "mean"),
-        "avg_merge_step": ("merge_step", "mean"),
-        "avg_mean_speed": ("mean_speed", "mean"),
-        "avg_min_front_gap": ("min_front_gap", "mean"),
-        "avg_min_rear_gap": ("min_rear_gap", "mean"),
-    }
-    if "throughput" in df.columns:
-        agg_dict["avg_throughput"] = ("throughput", "mean")
-    if "shockwave_index" in df.columns:
-        agg_dict["avg_shockwave_index"] = ("shockwave_index", "mean")
-    summary = df.groupby("algorithm").agg(**agg_dict).reset_index()
-    summary.to_csv(out_dir / "summary_metrics.csv", index=False)
+    """Write a compact CSV table for the thesis result section.
+
+    Khớp quy ước analysis.py: merge_step CHỈ tính trên episode success (>0), gap bỏ sentinel 999.
+    """
+    rows = []
+    for algo, g in df.groupby("algorithm"):
+        succ = as_bool_series(g["success"])
+        merge_steps = g.loc[succ.values, "merge_step"]
+        merge_steps = merge_steps[merge_steps > 0]
+        front = g["min_front_gap"].replace(999.0, float("nan"))
+        rear = g["min_rear_gap"].replace(999.0, float("nan"))
+        row = {
+            "algorithm": algo,
+            "episodes": len(g),
+            "success_rate": round(succ.mean(), 4),
+            "collision_rate": round(as_bool_series(g["collision"]).mean(), 4),
+            "failed_merge_rate": round(as_bool_series(g["failed_merge"]).mean(), 4),
+            "timeout_rate": round(as_bool_series(g["timeout"]).mean(), 4),
+            "avg_reward": round(g["reward"].mean(), 2),
+            "avg_steps": round(g["length"].mean(), 2),
+            "avg_merge_step": round(merge_steps.mean(), 2) if not merge_steps.empty else float("nan"),
+            "avg_mean_speed": round(g["mean_speed"].mean(), 4),
+            "avg_min_front_gap": round(front.mean(), 4) if front.notna().any() else float("nan"),
+            "avg_min_rear_gap": round(rear.mean(), 4) if rear.notna().any() else float("nan"),
+        }
+        if "throughput" in g.columns:
+            row["avg_throughput"] = round(g["throughput"].mean(), 4)
+        if "shockwave_index" in g.columns:
+            row["avg_shockwave_index"] = round(g["shockwave_index"].mean(), 4)
+        rows.append(row)
+    pd.DataFrame(rows).sort_values("algorithm").to_csv(out_dir / "summary_metrics.csv", index=False)
 
 
 # ---------------------------------------------------------------------------
@@ -219,15 +231,17 @@ def plot_smoothed_reward(df: pd.DataFrame, out_dir: Path, window: int = 20) -> N
     plt.close(fig)
 
 
-def plot_boxplot_final(df: pd.DataFrame, out_dir: Path, last_n: int = 50) -> None:
-    """Box plot phần thưởng của N episode cuối mỗi thuật toán.
+def plot_boxplot_final(df: pd.DataFrame, out_dir: Path, last_n: int | None = None) -> None:
+    """Box plot phân phối phần thưởng mỗi thuật toán.
 
-    Cho thấy phân phối hiệu năng sau khi chính sách đã ổn định, không bị ảnh
-    hưởng bởi giai đoạn khám phá đầu.
+    last_n=None: dùng TOÀN BỘ rows được truyền (khi gọi với dữ liệu eval đã hội tụ —
+    đúng nghĩa "hiệu năng sau khi ổn định"). last_n=N: chỉ lấy N episode cuối (khi
+    truyền dữ liệu training để cắt giai đoạn khám phá đầu).
     """
     frames = []
     for algo, group in df.groupby("algorithm"):
-        tail = group.sort_values("episode").tail(last_n).copy()
+        g = group.sort_values("episode")
+        tail = (g.tail(last_n) if last_n else g).copy()
         tail["algo_label"] = algo.upper()
         frames.append(tail)
 
@@ -238,7 +252,7 @@ def plot_boxplot_final(df: pd.DataFrame, out_dir: Path, last_n: int = 50) -> Non
     fig, ax = plt.subplots(figsize=(9, 5))
     order = sorted(plot_df["algo_label"].unique())
     sns.boxplot(data=plot_df, x="algo_label", y="reward", order=order, ax=ax)
-    ax.set_title(f"Phân phối phần thưởng ({last_n} episode cuối)")
+    ax.set_title("Phân phối phần thưởng episode" + (f" ({last_n} cuối)" if last_n else " (đánh giá)"))
     ax.set_xlabel("Thuật toán")
     ax.set_ylabel("Tổng phần thưởng episode")
     ax.grid(axis="y", alpha=0.3)
@@ -265,7 +279,8 @@ def plot_radar(df: pd.DataFrame, out_dir: Path) -> None:
             success_rate=("success", "mean"),
             collision_rate=("collision", "mean"),
             avg_reward=("reward", "mean"),
-            avg_merge_step=("merge_step", "mean"),
+            # Chỉ tính trên episode thật sự nhập (merge_step>0); algo không nhập → NaN → fillna(_ms_max) = điểm thấp nhất.
+            avg_merge_step=("merge_step", lambda s: s[s > 0].mean()),
             avg_min_front_gap=("min_front_gap", "mean"),
         )
         .reset_index()
@@ -317,29 +332,66 @@ def plot_radar(df: pd.DataFrame, out_dir: Path) -> None:
     plt.close(fig)
 
 
+_BASELINE_ALGOS = {"random", "greedy", "heuristic", "base_rule"}
+
+
+def _phase_of(source: str) -> str:
+    """Phân loại 1 CSV theo tên file (khớp analysis.py). eval/baseline = KPI thật;
+    training = rollout giữa train; highway/checkpoint = không dùng cho KPI merge."""
+    n = str(source).lower()
+    if "highway" in n:
+        return "highway"
+    if "_steps_eval" in n:       # eval checkpoint giữa chừng — không phải KPI
+        return "checkpoint"
+    if "_eval" in n:
+        return "eval"
+    if "baseline" in n:
+        return "baseline"
+    return "training"
+
+
+def split_phases(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Trả (df_kpi, df_curve). df_kpi = eval+baseline (đã loại highway) để vẽ rate/radar/
+    throughput/merge_step. df_curve = training rollouts để vẽ đường cong học. Có fallback cho
+    trường hợp chọn lẻ vài CSV (Results tab) không suy được phase."""
+    src = df["source"] if "source" in df.columns else pd.Series([""] * len(df), index=df.index)
+    phase = src.map(_phase_of)
+    algo_l = df["algorithm"].astype(str).str.lower()
+    is_baseline = algo_l.isin(_BASELINE_ALGOS)
+    is_highway = phase.eq("highway") | algo_l.str.contains("highway")
+    df_kpi = df[(phase.isin(["eval", "baseline"]) | is_baseline) & ~is_highway].copy()
+    df_curve = df[phase.eq("training") & ~is_baseline & ~is_highway].copy()
+    if df_kpi.empty:                       # fallback: chọn lẻ CSV không rõ phase
+        df_kpi = df[~is_highway].copy()
+    if df_curve.empty:                     # không có training rollouts → dùng luôn KPI cho curve
+        df_curve = df_kpi
+    return df_kpi, df_curve
+
+
 def main() -> None:
     """Create all plots needed for the first experimental report."""
     args = parse_args()
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     df = ensure_metric_columns(load_metrics(args.csv))
+    df_kpi, df_curve = split_phases(df)
 
-    # Biểu đồ cơ bản
-    plot_reward_curve(df, out_dir)
-    plot_episode_length(df, out_dir)
-    plot_rate(df, out_dir, "success",      "Tỷ lệ nhập làn thành công",    "success_rate.png")
-    plot_rate(df, out_dir, "collision",    "Tỷ lệ va chạm",                 "collision_rate.png")
-    plot_rate(df, out_dir, "failed_merge", "Tỷ lệ thất bại nhập làn",      "failed_merge_rate.png")
-    plot_rate(df, out_dir, "timeout",      "Tỷ lệ hết giờ (timeout)",       "timeout_rate.png")
-    plot_merge_step(df, out_dir)
-    write_summary_table(df, out_dir)
+    # Đường cong học: dùng dữ liệu TRAINING (tiến trình theo episode).
+    plot_reward_curve(df_curve, out_dir)
+    plot_episode_length(df_curve, out_dir)
+    plot_smoothed_reward(df_curve, out_dir)
 
-    # Biểu đồ nâng cao
-    plot_smoothed_reward(df, out_dir)
-    plot_boxplot_final(df, out_dir)
-    plot_radar(df, out_dir)
-    plot_throughput(df, out_dir)
-    plot_shockwave(df, out_dir)
+    # KPI tổng hợp: dùng EVAL+BASELINE (khớp comparison_table.csv), KHÔNG trộn training/highway.
+    plot_rate(df_kpi, out_dir, "success",      "Tỷ lệ nhập làn thành công",    "success_rate.png")
+    plot_rate(df_kpi, out_dir, "collision",    "Tỷ lệ va chạm",                 "collision_rate.png")
+    plot_rate(df_kpi, out_dir, "failed_merge", "Tỷ lệ thất bại nhập làn",      "failed_merge_rate.png")
+    plot_rate(df_kpi, out_dir, "timeout",      "Tỷ lệ hết giờ (timeout)",       "timeout_rate.png")
+    plot_merge_step(df_kpi, out_dir)
+    write_summary_table(df_kpi, out_dir)
+    plot_boxplot_final(df_kpi, out_dir)   # last_n=None → toàn bộ eval (đã hội tụ)
+    plot_radar(df_kpi, out_dir)
+    plot_throughput(df_kpi, out_dir)
+    plot_shockwave(df_kpi, out_dir)
 
     print(f"saved plots to: {out_dir}")
 

@@ -296,6 +296,29 @@ COLLISION %:
 
 > **Đọc kết quả:** (1) **MAA2C** cao + ổn định nhất mọi cấu hình (std 1.6–5.2), vượt MAPPO (std nổ tới ±23 khi không khiên). (2) **A/B khiên** là phát hiện chính: Greedy có khiên 96% nhưng gỡ khiên sụp theo mật độ (82→2→0%) → "năng lực" của nó là vay mượn từ lưới an toàn; RL nội hóa an toàn nên bền (MAA2C 86→87, 89→85, 83→85%). (3) Cùng điều kiện không-khiên, RL thắng Greedy áp đảo (medium 85% vs 2%). Eval **stochastic** (sampling) cho số thực tế có phương sai; deterministic (argmax) cho số cao hơn nhưng dễ ảo.
 
+### 8.1. Tính đúng đắn của pipeline biểu đồ & bảng
+
+Biểu đồ và bảng sinh từ cùng tập CSV nhưng **tách theo "phase"** để KPI không bị nhiễu (`split_phases` trong `rl/plots.py`, khớp `_classify_phase` trong `rl/analysis.py`):
+
+- **KPI** (success/collision/failed_merge/timeout, radar, throughput, shockwave, merge_step, boxplot, `summary_metrics.csv`) chỉ dùng **eval + baseline** — mỗi dòng là một episode hoàn chỉnh. Loại bỏ:
+  - **training rollouts** (`*_episodes.csv`): trong VecEnv mỗi bước có thể bị đánh dấu thành một "episode" giả → success ảo.
+  - **`*_highway*`**: metrics tác tử dòng chính, không phải KPI nhập làn.
+  - **`*_steps_eval`**: eval ở checkpoint giữa chừng (chưa hội tụ).
+- **Đường cong học** (reward, episode length, smoothed) dùng **training rollouts** (tiến trình theo episode).
+
+Ba điểm tính metric dễ sai đã chuẩn hóa khớp `analysis.py`:
+
+- **Radar "Tốc độ nhập làn"** = `1 − chuẩn_hóa(merge_step)`, **chỉ tính trên episode nhập thành công** (`merge_step > 0`). Episode không nhập ghi `merge_step = 0`; nếu lấy trung bình toàn bộ thì baseline gần như không nhập (≈ 0) bị diễn giải sai thành "nhập ở bước 0 = nhanh nhất". Algo không bao giờ nhập → điểm thấp nhất.
+- **`merge_step` trong bảng/summary** chỉ lấy trên episode success; **gap** bỏ sentinel `999.0` (episode kết thúc trước khi đo được).
+- **Throughput** không ép trục `[0,1]` (giá trị thực có thể > 1, vd baseline ~1.5–1.8) để không cắt mất cột.
+
+### 8.2. Bảng điều khiển Streamlit (`app_streamlit.py` + `rl/controller.py`)
+
+Giao diện điều khiển toàn pipeline (Config/GAMA/Train/Monitor/Evaluate/Experiments/Results/Play GUI), chạy bằng venv riêng (`.venv-ui`) do xung đột `websockets` giữa `streamlit` (≥12) và `gama-client` (~10.3); UI chỉ gọi `.venv` chính qua subprocess. Điểm đáng lưu ý:
+
+- **Results**: chỉ hiện PNG của đúng lần chạy đang chọn (không trộn run khác); ảnh dạng thumbnail, bấm 🔍 mở dialog phóng to vừa khung.
+- **Monitor**: thanh tiến trình co giãn theo `timesteps` mục tiêu thật; log eval/play gắn timestamp (không ghi đè lần trước).
+
 ---
 
 ## 9. Phạm vi & hạn chế (cho Discussion)
