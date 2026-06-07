@@ -124,6 +124,11 @@ def _predict_marl_action(
     speed = float(obs_arr[0])
     in_accel = float(obs_arr[4]) > 0.5
     gap_safe = float(obs_arr[9]) > 0.5
+    # Option C decode: trong làn tăng tốc + gap an toàn ⇒ LÁCH (action 3). Quyết định merge =
+    # "khi RL điều khiển tốc độ đã tạo/đạt gap an toàn thì commit". Bật qua EVAL_FORCE_MERGE=1.
+    if os.environ.get("EVAL_FORCE_MERGE", "0") == "1":
+        if in_accel and gap_safe:
+            return 3
     masked = probs.copy()
     if in_accel:
         if speed < 0.35:

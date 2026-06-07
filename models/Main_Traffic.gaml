@@ -17,7 +17,7 @@ global {
     float speed_min            <- 0.0;
     float acceleration         <- 0.05;
     float deceleration         <- 0.1;
-    int   nb_cars_max          <- 20;   // GUI mac dinh nhe hon 45 de giam gridlock; headless co the tang qua tham so / Python
+    int   nb_cars_max          <- 70;   // GUI mac dinh nhe hon 45 de giam gridlock; headless co the tang qua tham so / Python
     float observation_distance <- 10.0;
 
     list<point> ramp_waypoints <- [];
@@ -79,20 +79,31 @@ global {
     bool enable_reward_collision_check <- true;
     bool enable_highway_ttc_reward <- true;
     bool enable_merging_gap_reward <- true;
-    bool enable_marl_coop_reward <- false;
+    bool enable_marl_coop_reward <- true;   // PlanB: bật để khôi phục động lực NHƯỜNG, đối trọng flow reward
     // Flow-aware highway reward (thử nghiệm Plan V1 §10): bù việc xe highway phanh thừa → giữ lưu lượng.
     // ON  = thưởng giữ tốc cao + TTC penalty nhẹ hơn (gap<12, coef 0.8).
     // OFF = baseline hiện tại (speed*0.04, TTC gap<20 coef 1.2). Để A/B sạch.
     // GHI CHÚ: bật ON phá merging (highway hết nhường → ramp đâm). highway chậm = cooperative yield. Giữ OFF.
-    bool enable_highway_flow_reward <- false;
+    bool enable_highway_flow_reward <- true;   // PlanB: bật chống highway phanh-thừa/đứng-im (kết hợp oppcost + coop). Cảnh báo cũ "phá merging" là khi CHƯA có oppcost+coop — đo merge_step/collision để kiểm.
     // false = chi merge khi policy/heuristic goi action 3 + gap an toan (KPI eval co y nghia).
     bool enable_curriculum_merge_assist <- false;
+    // CURRICULUM (#2): force_action3_only=true tắt auto-merge cuối ramp → success CHỈ qua action-3.
+    // merge_gap_relax (cho merging_0): <1 nới gap dễ học action-3 (stage 1), =1 ngặt như thật (stage 2).
+    bool  force_action3_only <- true;
+    float merge_gap_relax    <- 1.0;
+    // COMMIT-TO-MERGE (#B targeted): action-3 = CAM KẾT nhập (quyết định THÔ, cửa sổ rộng) → môi
+    // trường thực thi merge ở tick gap-an-toàn kế tiếp + thưởng +200 NGAY tại tick merge. Biến quyết
+    // định "tinh-thời-điểm" (không học nổi) thành "thô" (học được), trị đúng bài credit-assignment.
+    bool  commit_to_merge    <- true;
+    // AN TOÀN KHÔNG CẦN SHIELD: commit-to-merge LUÔN chờ gap THẬT an toàn mới thực thi (gate gap
+    // thật được tách khỏi cờ shield) → merge tự an toàn dù enable_safety_shield=false.
+    bool  commit_gate_real   <- true;
 
     // KHIEN AN TOAN GAMA (gate is_merge_gap_safe + safety-shield M3c). Mac dinh ON.
     // A/B thuc nghiem: run_experiments --shield off se va GAML enable_safety_shield<-false cho CA RUN
     // (greedy/random/PPO/A2C deu khong khien) -> so cong bang anh huong cua khien len tung thuat toan.
     // Bypass chi tac dung headless (dashboard="Python/SB3 model"); demo GUI Heuristic LUON giu khien.
-    bool enable_safety_shield <- true;
+    bool enable_safety_shield <- false;
 
     // FIX seed traffic: Python set bien nay (rl/gama_episode_reset.set_sim_seed) qua _execute_expression
     // SAU reset -> bootstrap reseed `seed <- pz_sim_seed` o SIMULATION-scope -> traffic bien thien theo
@@ -830,7 +841,7 @@ global {
     reflex spawn_ramp_tickup {
         spawn_ramp_tick <- spawn_ramp_tick + 1;
         spawn_ramp_due <- false;
-        if (spawn_ramp_tick >= 25) {
+        if (spawn_ramp_tick >= 3) {
             spawn_ramp_tick <- 0;
             if (ramp_wp0_ready) {
                 spawn_ramp_due <- true;
@@ -1504,7 +1515,8 @@ species car {
                         } else if (failed_merge) {
                             // Forced-merge len mainline nhung khong nhap lan duoc: failed_merge.
                             terminal_reason <- "failed_merge";
-                            reward_val <- -50.0;
+                            // force_action3_only: phạt nặng -150 (vs -50) để "không merge" thành thảm họa.
+                            reward_val <- (force_action3_only ? -150.0 : -50.0);
                             is_done <- true;
                             cumulative_reward <- cumulative_reward + reward_val;
                         }
@@ -1574,6 +1586,7 @@ species car {
     float       obs_target_rear_gap <- 1.0;
     float       obs_front_gap_raw <- 999.0;
     float       obs_rear_gap_raw <- 999.0;
+    float       obs_front_speed_raw <- 1.0;   // persist tốc độ xe dẫn làn đích cho merger speed-match
     float       obs_scan_dx <- 0.0;
     float       obs_required_front <- 0.0;
     float       obs_required_rear <- 0.0;
@@ -1652,6 +1665,7 @@ species car {
     float       min_rear_gap <- 999.0;
     string      terminal_reason <- "running";
     bool        merge_success <- false;
+    bool        merge_committed <- false;   // commit-to-merge: đã bấm action-3 cam kết nhập, chờ gap an toàn
     bool        collision_event <- false;
     bool        failed_merge <- false;
 	
@@ -2051,9 +2065,9 @@ species car {
         // M3: Lane change cho highway agents
         // action 3 = lane left (giam lane_index), 4 = lane right (tang). Hot path INLINE,
         // khong goi `do execute_lane_change()` de tranh DoStatement.getContext NPE.
-        // Cho phép chuyển làn nếu xe đã ở trên cao tốc (merge_mode != 1)
-        // Kể cả highway_0 hay merging_0 (sau khi nhập làn xong) đều được chuyển
-        if (merge_mode != 1) {
+        // Lane change cho xe đã ở cao tốc (merge_mode != 1). Xe ramp đã merge (merge_success) thì khóa:
+        // action-3 với merging = "merge" nên không để handler này diễn giải thành lane-left rời làn liền kề.
+        if (merge_mode != 1 and not merge_success) {
             // Cooldown gate: trong N tick sau lane change, action 3/4 KHONG thuc thi (chong xe "lac").
             // ChỈ áp cho NPC + heuristic — RL Python mode KHONG cooldown de policy tu hoc "khong spam".
             // Tranh anh huong training: RL agent van nhan tin hieu reward/penalty day du moi tick.
@@ -2481,6 +2495,17 @@ species car {
         // merging_0: success sau khi da nhap lane va chay gan het mainline (khong ket thuc ngay luc merge).
         if (rl_agent_id = "merging_0") {
             if (merge_success) {
+                // COMMIT-TO-MERGE: +200 NGAY tại tick merge (credit assignment sắc cho action-3),
+                // không đợi tới cuối mainline (GAE chiết khấu ~100 tick làm loãng tín hiệu commit).
+                if (commit_to_merge and merge_mode != 1) {
+                    reward_val <- 200.0;
+                    terminal_reason <- "success";
+                    is_done <- true;
+                    pz_block_merging_respawn <- true;
+                    cumulative_reward <- cumulative_reward + reward_val;
+                    speed_sum <- speed_sum + speed;
+                    return;
+                }
                 if (merge_mode != 1) {
                     if (move_next_x >= road_length - 6.0) {
                         // Terminal success bonus lớn (+200) tạo signal mạnh để RL converge tới
@@ -2927,6 +2952,17 @@ species car {
             }
         }
 
+        // COMMIT-TO-MERGE: đã cam kết (bấm action-3 trước đó) + giờ gap an toàn → môi trường THỰC THI
+        // merge ngay (mọi tick, không cần action-3 lại). Biến quyết định tinh-thời-điểm thành thô.
+        if (commit_to_merge and merge_committed and merge_mode = 1) {
+            if (is_merge_gap_safe()) {
+                do execute_merge();
+                merge_success <- true;
+                failed_merge  <- false;
+                merge_step    <- episode_step;
+            }
+        }
+
         // Mặc định là giữ tốc nếu Python chưa kịp gửi action trong tick đầu tiên.
         if (action_rl < 0) {
             action_rl <- 1;
@@ -2957,23 +2993,24 @@ species car {
         // Sua bug: truoc day gate `x >= merge_x-14` khien action 3 vo dung trong toan bo accel zone [48,162],
         // mau thuan voi heuristic / reward shaping (+2.5 cho action 3 + in_accel + gap_safe).
         else if (action_rl = 3) {
+            // CHÚ Ý: reward/penalty cho action 3 được tính TẬP TRUNG trong calculate_merging_reward()
+            // (gọi ở cuối reflex, dòng ~3065 qua `reward_val <- calculate_reward()`). KHÔNG ghi
+            // reward_val ở đây vì nó sẽ bị ghi đè. Nhánh này chỉ thực thi side-effect merge + flag.
             if (location != nil) {
                 if (in_accel_zone or location.x >= merge_x - 14.0) {
+                    if (commit_to_merge) {
+                        merge_committed <- true;   // CAM KẾT nhập — env thực thi ở tick gap-an-toàn kế tiếp
+                    }
                     if (is_merge_gap_safe()) {
                         do execute_merge();
                         merge_success <- true;
                         failed_merge <- false;
                         merge_step    <- episode_step;
-                        reward_val    <- reward_val + 40.0;
-                    } else {
-                        // Action 3 trong zone với gap KHÔNG an toàn: thưởng nhẹ (+0.5) để agent
-                        // không bị disincentive khi thử merge. Phạt action-3-sai sẽ làm policy
-                        // collapse vào low-variance "wait/keep" do giảm động lực thử.
-                        reward_val    <- reward_val + 0.5;
                     }
+                    // Gap không an toàn: không merge; phạt -2 do calculate_merging_reward xử lý.
                 } else {
                     // Action 3 NGOÀI zone: penalty rất nhẹ (-0.01) — đủ để agent không spam
-                    // action 3 trước khi vào zone, không tạo gradient phụ làm mất focus.
+                    // action 3 trước khi vào zone. Đặt qua action_penalty (được reward cộng vào).
                     action_penalty <- action_penalty - 0.01;
                 }
             }
@@ -3068,7 +3105,8 @@ species car {
                 do step_along_ramp_polyline();
             }
             if (waypoint_index >= length(ramp_waypoints)) {
-                if (is_merge_gap_safe()) {
+                // CURRICULUM: force_action3_only tắt auto-merge cuối ramp → ép success qua action-3.
+                if (not force_action3_only and is_merge_gap_safe()) {
                     do execute_merge();
                     merge_success <- true;
                     failed_merge <- false;
@@ -3481,7 +3519,7 @@ species car {
     action is_merge_gap_safe type: bool {
         // KHIEN OFF (A/B): coi nhu luon an toan -> merge bat chap gap. Chi headless Python;
         // Heuristic GUI (dashboard != Python) LUON giu gate -> demo khong dinh.
-        if (not enable_safety_shield and dashboard_policy = "Python/SB3 model") { return true; }
+        if (not enable_safety_shield and not commit_gate_real and dashboard_policy = "Python/SB3 model") { return true; }
         // Lấy xe trước và xe sau ở làn mục tiêu để đánh giá khoảng trống nhập làn.
         car lead_car <- get_target_lane_ahead();
         car lag_car  <- get_target_lane_behind();
@@ -3517,6 +3555,11 @@ species car {
         float required_front <- max(floor_front, car_length * 1.15 + speed * k_front);
         // Xe phía sau chạy nhanh cần gap sau lớn hơn để tránh bị tông khi nhập làn.
         float required_rear  <- max(floor_rear,  car_length * 1.15 + speed * k_rear);
+        // CURRICULUM: nới gap cho merging_0 (relax<1 = dễ hơn ở stage 1; =1 = ngặt thật ở stage 2).
+        if (rl_agent_id = "merging_0") {
+            required_front <- required_front * merge_gap_relax;
+            required_rear  <- required_rear  * merge_gap_relax;
+        }
 
         if (gap_front >= required_front) {
             if (gap_rear >= required_rear) {
@@ -4031,7 +4074,7 @@ species car {
         }
         obs_front_gap_raw <- 999.0;
         obs_rear_gap_raw <- 999.0;
-        float obs_front_speed_raw <- speed_max;
+        obs_front_speed_raw <- speed_max;
         float obs_rear_speed_raw <- 0.0;
         float ramp_front_gap_raw <- 999.0;
         float ramp_front_speed_raw <- speed_max;
@@ -4249,15 +4292,47 @@ species car {
         if (in_accel_zone) {
             reward_cache <- reward_cache - m2_urgency * 0.05;
         }
+        // OPPORTUNITY-COST penalty (đòn bẩy chính trị merge-muộn) — đang trong zone + gap AN TOÀN
+        // nhưng VẪN trên ramp (merge_mode=1, chưa nhập) ⇒ agent BỎ LỠ một gap có thể merge ngay.
+        // Phạt tăng dần theo urgency: -1.0 đầu zone → -3.0 cuối zone. Lý do: bonus success +200
+        // (behave reflex ~2473) được trao BẤT KỂ merge sớm/muộn hay qua action 3 / auto-fallback
+        // cuối ramp (rl_merging_behavior ~3052), nên reward action-3 đơn lẻ KHÔNG có đòn bẩy —
+        // policy học "creep tới cuối rồi tự merge" (eval: action 3 = 0%, merge_step cụm ~239).
+        // Khi mỗi step ngồi-trên-gap-an-toàn bị tính phí, lấy gap ĐẦU TIÊN (action 3) trở thành
+        // advantage dương rõ rệt. Nếu execute_merge chạy trong step này thì in_accel_zone đã <-
+        // false (execute_merge ~3079) ⇒ điều kiện dưới tự loại step merge, chỉ phạt step BỎ LỠ.
+        if (merge_mode = 1) {
+            // ĐÓNG CỬA THOÁT (chỉ khi force_action3_only): phạt MỖI step còn trên ramp chưa merge,
+            // KHÔNG điều kiện → "bò chờ timeout" thành rất đắt → ép policy phải bấm action-3 để nhập.
+            if (force_action3_only) {
+                reward_cache <- reward_cache - 0.5;
+            }
+            if (in_accel_zone) {
+                if (obs_gap_safe >= 1.0) {
+                    reward_cache <- reward_cache - (1.0 + m2_urgency * 2.0);
+                    // MERGER SPEED-MATCH (PlanB-2, giảm merger collision 27%) — chỉ kích KHI GAP AN
+                    // TOÀN (sắp nhập): phạt NHẸ phần vượt tốc so với xe dẫn làn đích. Merger floor
+                    // accel (~0.9) lách vào gap mà highway giờ chạy ~0.54 → đâm đuôi xe dẫn lúc lách.
+                    // K=0.7 + gate gap_safe. K=1.5 quá mạnh → merger rụt rè → timeout 47%. Hạ xuống
+                    // 0.7 để vừa giảm va chạm vừa không làm merger chậm tới mức không nhập kịp.
+                    if (speed > obs_front_speed_raw) {
+                        reward_cache <- reward_cache - (speed - obs_front_speed_raw) * 0.7;
+                    }
+                }
+            }
+        }
         // Action 3 (merge attempt) shaping — tạo sharp gradient hướng policy về quyết định merge:
-        //   - Trong zone + gap an toàn: bonus +25 → +50 (scale theo urgency, cap chung +60).
+        //   - Trong zone + gap an toàn: bonus +50 → +25 (scale NGHỊCH theo urgency — merge SỚM
+        //     thưởng cao hơn). Đúng thực tế làn tăng tốc: lấy gap an toàn ĐẦU TIÊN, không đi đến
+        //     cuối zone (cuối = deadline/gore, gap muộn ít cơ hội hơn). Trước đây dùng
+        //     `+ m2_urgency*25` -> thưởng merge MUỘN gấp đôi -> policy học "đi đến cuối mới merge".
         //   - Trong zone + gap không an toàn: -2 (phạt nhẹ, đủ để học "chọn đúng gap" mà
         //     không khiến PPO né tránh hoàn toàn action 3 → policy collapse).
         //   - Ngoài zone: -0.5 (signal "merge chỉ trong zone").
         if (action_rl = 3) {
             if (in_accel_zone) {
                 if (obs_gap_safe >= 1.0) {
-                    reward_cache <- reward_cache + 25.0 + m2_urgency * 25.0;
+                    reward_cache <- reward_cache + 25.0 + (1.0 - m2_urgency) * 25.0;
                 } else {
                     reward_cache <- reward_cache - 2.0;
                 }
@@ -4518,6 +4593,8 @@ experiment TrafficSimulation type: gui {
                             at: {15 #px, 318 #px} color: #white font: font("Arial", 21, #plain);
                         draw ("Ramp front gap: " + (tracked.get_ramp_front_gap() with_precision 2) + " | In accel zone: " + tracked.in_accel_zone)
                             at: {15 #px, 353 #px} color: #white font: font("Arial", 21, #plain);
+                        draw ("Tốc độ dòng chính TB: " + (sw_mean with_precision 2) + " (thấp=kẹt) | Sóng lùi (CV): " + (tracked.info_shockwave_index with_precision 3))
+                            at: {15 #px, 388 #px} color: (sw_mean < 0.4 ? rgb(255,140,0) : #white) font: font("Arial", 21, #plain);
                         }
                     }
 

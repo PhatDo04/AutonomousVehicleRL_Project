@@ -87,12 +87,13 @@ def _apply_scenario_to_path(scenario_name: str, gaml_path: Path) -> None:
     scenario = SCENARIO_PRESETS[scenario_name]
     bak_path = _backup_path(gaml_path)
 
-    # Tạo backup từ bản gốc nếu chưa có.
+    # Backup bản gốc (để restore_gaml_backup() cuối pipeline trả lại nguyên trạng).
     if not bak_path.exists():
         shutil.copy2(gaml_path, bak_path)
 
-    # Luôn đọc từ backup để tránh compound patching.
-    content = bak_path.read_text(encoding="utf-8")
+    # Đọc từ file hiện tại (không từ .bak) để giữ mọi chỉnh tay; an toàn vì 2 regex dưới
+    # idempotent (chỉ thay con số sau '<-'/'>=', vá lại nhiều lần vẫn ra đúng giá trị scenario).
+    content = gaml_path.read_text(encoding="utf-8")
 
     def _sub_checked(pattern: str, replacement: str, text: str, label: str) -> str:
         """re.sub với cảnh báo nếu không khớp (0 thay thế → GAML có thể đã thay đổi cú pháp)."""

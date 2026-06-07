@@ -23,6 +23,7 @@ Kiến trúc học áp dụng **CTDE** (Centralized Training, Decentralized Exec
 - **Pipeline thực nghiệm tự động**: một lệnh chạy trọn bộ huấn luyện → đánh giá đa hạt giống → biểu đồ + bảng so sánh có CI95%.
 - **Traffic tái lập theo seed**: mỗi episode (baseline + eval) sinh giao thông khác nhau nhưng tái lập được và **paired** (cùng seed → cùng tình huống cho mọi policy).
 - **Bộ chỉ số đầy đủ**: tỷ lệ thành công, va chạm, thông lượng, tốc độ dòng chính, chỉ số sóng lùi (shockwave).
+- **Bảng điều khiển Streamlit**: giao diện web điều khiển toàn bộ pipeline (train/eval/experiment/theo dõi/xem kết quả/demo) — thay cho gõ lệnh tay.
 
 ## Kết quả chính
 
@@ -203,6 +204,20 @@ Tùy chọn: `--scenario low|medium|high` (mật độ) · `--shield on|off` (kh
 
 **Tách output theo từng lần chạy (mặc định):** mỗi lần chạy tự sinh thư mục riêng theo timestamp `<preset>_YYYYmmdd_HHMMSS` (hoặc tên `--run-tag`) cho cả model, log và plots — không bao giờ đè kết quả lần trước.
 
+## Bảng điều khiển (UI Streamlit)
+
+Thay cho gõ lệnh tay, có thể điều khiển toàn bộ pipeline qua giao diện web: cấu hình đường dẫn, bật/tắt GAMA, train/eval, chạy experiment, theo dõi tiến trình, xem biểu đồ kết quả, và demo model trên GAMA Desktop.
+
+Do `streamlit` xung đột `websockets` với `gama-client`, UI chạy bằng **venv riêng** (`app_streamlit.py` chỉ gọi `.venv` chính qua subprocess nên không vướng xung đột):
+
+```powershell
+python -m venv .venv-ui
+.venv-ui\Scripts\pip install streamlit
+.venv-ui\Scripts\streamlit run app_streamlit.py
+```
+
+Tab **Results** hiển thị biểu đồ của đúng lần chạy đang chọn (ảnh thu nhỏ, bấm để phóng to).
+
 ## Phân tích kết quả
 
 `run_experiments.py` tự sinh biểu đồ + bảng cuối pipeline. Output (trong thư mục theo lần chạy):
@@ -211,6 +226,8 @@ Tùy chọn: `--scenario low|medium|high` (mật độ) · `--shield on|off` (kh
 - **Bảng**: `comparison_table.csv` (mean±std mọi metric), `latex_table.tex` (copy vào báo cáo), `summary_metrics.csv`, `learning_efficiency.csv`.
 
 Có thể chạy thủ công: `python rl/plots.py <csv...> --out-dir <dir>` và `python rl/analysis.py <csv...> --out-dir <dir>`.
+
+> **Lưu ý:** các chỉ số/biểu đồ KPI được tính trên episode **đánh giá (eval) + baseline** (không trộn rollout huấn luyện) nên luôn khớp `comparison_table.csv`.
 
 ### Các chỉ số
 

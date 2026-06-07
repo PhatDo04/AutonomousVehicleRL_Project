@@ -45,6 +45,10 @@ def _classify_phase(filename: str) -> str:
       `heuristic_baseline_*.csv`      → "baseline" (chính sách cố định, mỗi row là 1 episode thật)
     """
     name = filename.lower()
+    if "highway" in name:
+        return "highway"            # metrics agent dòng chính, không phải KPI merge
+    if "_steps_eval" in name:
+        return "checkpoint"         # eval checkpoint giữa chừng, không phải KPI
     if "_eval" in name:
         return "eval"
     if "baseline" in name:

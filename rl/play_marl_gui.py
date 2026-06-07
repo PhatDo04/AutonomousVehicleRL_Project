@@ -17,7 +17,7 @@ from gama_pettingzoo.gama_parallel_env import GamaParallelEnv
 
 async def run(args):
     # --scenario va nb_cars_max vao file GAML truoc khi load. GAMA reload doc lai file tu dia
-    # moi episode -> mat do giu nguyen (tham so chinh tay tren GUI bi mat khi reload). Khoi phuc o finally.
+    # moi episode -> mat do giu nguyen. Khoi phuc o finally.
     if args.scenario:
         from rl.scenario_utils import apply_scenario_to_gaml
         apply_scenario_to_gaml(args.scenario)
