@@ -17,6 +17,14 @@ global {
     float speed_min            <- 0.0;
     float acceleration         <- 0.05;
     float deceleration         <- 0.1;
+    // IDM (Intelligent Driver Model — Treiber 2000) cho xe NPC/HDV. Tham số scaled về đơn vị sim
+    // (speed∈[0,1]/cycle, x theo mét), KHÔNG phải giây thật. time_headway theo cycle.
+    float idm_time_headway     <- 4.0;   // T: desired gap = s0 + v*T → v=0.5 ⇒ net gap ~4m (≈spawn 8.3m)
+    float idm_min_gap          <- 2.0;   // s0: bumper gap tối thiểu (mét)
+    // MOBIL (Kesting/Treiber 2007) cho đổi làn HDV: an toàn + lợi ích + politeness.
+    float idm_politeness       <- 0.3;   // p: mức quan tâm tới phanh ép lên xe sau làn đích
+    float idm_b_safe           <- 0.2;   // b_safe: giảm tốc tối đa cho phép ép lên xe sau khi cắt vào
+    float idm_lc_threshold     <- 0.12;  // ngưỡng lợi ích tối thiểu mới đổi làn (Kesting 2007 Δa_th; 0.01 quá thấp → NPC đổi làn vô cớ; nâng ~0.12 so b_safe=0.2 → chỉ đổi khi lợi ích thật)
     int   nb_cars_max          <- 70;   // GUI mac dinh nhe hon 45 de giam gridlock; headless co the tang qua tham so / Python
     float observation_distance <- 10.0;
 
@@ -42,6 +50,10 @@ global {
     float accel_start_x <- 48.0;
     float accel_end_x   <- 162.0;
     float merge_x       <- 180.0;
+    // Khoảng cách spawn giữa 3 xe highway RL (làn nhập). 22m (cũ) → khe luôn đủ rộng để merger
+    // slot vào mà 3 xe KHÔNG cần nhường → không học được hợp tác. Siết xuống để tạo "tường" thật,
+    // buộc merger phải chờ/né hoặc highway RL phải giảm tốc mở khe. Dùng ở 2 chỗ: spawn RL + skip NPC.
+    float hw_rl_spacing <- 22.0;
 
     float gap_front_max <- 7.0;
     float gap_front_min <- 8.0;
@@ -72,7 +84,8 @@ global {
 
     // Legacy restore flags: bat tung nhom logic cu co kiem soat, tranh bat dong loat gay NPE/timeout headless.
     bool enable_rl_respawn <- true;
-    bool enable_highway_rl_respawn <- true;
+    bool enable_highway_rl_respawn <- false;   // C: xe highway chạy hết đường thì RỜI, KHÔNG hồi sinh về x=0
+                                               // (bỏ cảnh teleport→tăng tốc đâm đuôi). Merge sớm nên không mất tương tác nhường.
     bool enable_balance_traffic <- true;
     bool enable_collision_neighbor_scan <- true;
     // Mesh ramp (polygon + joint + vach giua): luon tinh mot lan trong global init — khong dung co bat/tat.
@@ -80,6 +93,13 @@ global {
     bool enable_highway_ttc_reward <- true;
     bool enable_merging_gap_reward <- true;
     bool enable_marl_coop_reward <- true;   // PlanB: bật để khôi phục động lực NHƯỜNG, đối trọng flow reward
+    // GLOBAL/REGIONAL reward coef (MARL4AV local+global): thưởng highway theo flow dòng chính (sw_mean).
+    // Chống gridlock attractor (gridlock→sw_mean=0→mất thưởng). Đặt 0 để tắt.
+    float global_flow_coef <- 0.3;
+    // SVO/REGIONAL reward (MARL4AV — cơ chế cooperation chính): highway nhận PHẦN reward của merger
+    // khi merger GẦN (trong merge zone). merger merge thành công (+200) gần highway nào → highway đó
+    // hưởng social_coef×200 → việc NHƯỜNG (mở khe để merger merge gần mình) trở nên tự-lợi → goal 2.
+    float idm_social_coef <- 0.25;   // GOAL 2 retry trên headless SẠCH (research-backed local+global flow reward)
     // Flow-aware highway reward (thử nghiệm Plan V1 §10): bù việc xe highway phanh thừa → giữ lưu lượng.
     // ON  = thưởng giữ tốc cao + TTC penalty nhẹ hơn (gap<12, coef 0.8).
     // OFF = baseline hiện tại (speed*0.04, TTC gap<20 coef 1.2). Để A/B sạch.
@@ -97,18 +117,24 @@ global {
     bool  commit_to_merge    <- true;
     // AN TOÀN KHÔNG CẦN SHIELD: commit-to-merge LUÔN chờ gap THẬT an toàn mới thực thi (gate gap
     // thật được tách khỏi cờ shield) → merge tự an toàn dù enable_safety_shield=false.
-    bool  commit_gate_real   <- true;
+    // 2026-06-07: TẮT gate (false) → bỏ lưới đỡ cho MỌI policy (greedy+RL công bằng). Merge thực thi
+    // theo quyết định agent; sai khe → đâm thật. RL phải TỰ học merge đúng lúc (không dựa env crutch).
+    bool  commit_gate_real   <- false;
 
-    // KHIEN AN TOAN GAMA (gate is_merge_gap_safe + safety-shield M3c). Mac dinh ON.
-    // A/B thuc nghiem: run_experiments --shield off se va GAML enable_safety_shield<-false cho CA RUN
-    // (greedy/random/PPO/A2C deu khong khien) -> so cong bang anh huong cua khien len tung thuat toan.
-    // Bypass chi tac dung headless (dashboard="Python/SB3 model"); demo GUI Heuristic LUON giu khien.
+    // KHIEN AN TOAN GAMA. Mac dinh OFF: theo huong "bo shield de RL hoc that". Merge van an toan
+    // nho commit_gate_real (doc lap voi co nay). Rear-end cua highway phai tri bang REWARD + train lai
+    // (phat car-following), KHONG che bang shield. A/B thuc nghiem: run_experiments --shield on/off.
     bool enable_safety_shield <- false;
 
     // FIX seed traffic: Python set bien nay (rl/gama_episode_reset.set_sim_seed) qua _execute_expression
     // SAU reset -> bootstrap reseed `seed <- pz_sim_seed` o SIMULATION-scope -> traffic bien thien theo
     // seed Python (reproducible + paired). -1 = chua set (giu hanh vi cu, khong reseed).
     float pz_sim_seed <- -1.0;
+    // EVAL-ONLY post-merge: =1 → merger KHÔNG kết thúc tại merge mà chạy tiếp tới cuối làn (post-merge IDM)
+    // → đo SÓNG LÙI trọn vẹn sau merge. CHỈ bật khi EVAL (Python set qua expression). Train giữ =0
+    // (terminate-at-merge, ổn định — post-merge-continue lúc TRAIN làm merger né-merge, đã xác nhận yt22).
+    float pz_eval_continue <- 0.0;
+    float pz_postmerge_window <- 50.0;   // EVAL-continue: chạy tiếp pz_postmerge_window tick sau merge để đo đuôi sóng lùi rồi end success (tránh chạy tới cuối đường → gridlock do highway chậm + tích lũy xe)
 
     // Throughput counters: đếm tổng số xe ramp đã cố merge và số lần merge thành công.
     int total_ramp_attempts <- 0;   // Tăng khi xe ramp vào acceleration zone
@@ -118,6 +144,9 @@ global {
     // Mỗi đầu cycle global reflex `apply_pz_python_each_cycle` giảm TTL — merge set TTL=3 → bao phủ ~2–3 cycle sau khi merge.
     int    recent_merge_coop_ticks <- 0;
     float  recent_merge_x          <- -1.0;   // Vị trí x merge gần nhất
+    // Vị trí x của merger ĐANG trong accel-lane chờ nhập (cập nhật mỗi cycle qua reflex track_active_merger).
+    // Dùng để THƯỞNG NHƯỜNG TRƯỚC merge: highway giảm tốc khi merger gần phía trước → mở khe. -1 = không có.
+    float  active_merger_x         <- -1.0;
 
     // Xe hỏng: giới hạn số xe hỏng đồng thời trên làn chạy (port từ NetLogo damaged-nb-cars-inlane).
     int damaged_nb_cars_inlane <- 0;  // Số xe hỏng đang chiếm làn chạy
@@ -129,6 +158,12 @@ global {
     int    sw_n      <- 0;      // Số mẫu đã thu thập
     float  sw_mean   <- 0.0;   // Running mean (Welford)
     float  sw_M2     <- 0.0;   // Running sum of squared deviations (Welford)
+    // SÓNG LÙI đúng chuẩn (literature: "emergency braking events"; plan_v1 Cách 3): đếm phanh gấp
+    // ở dòng chính vùng merge / tổng (xe×mẫu). Đo TRONG episode (merger tiếp cận+merge gây phanh)
+    // → KHÔNG cần post-merge-continue. braking_event_rate = braking_events / sw_car_ticks.
+    int    braking_events    <- 0;
+    int    sw_car_ticks      <- 0;
+    float  hard_brake_thresh <- 0.15;   // drop tốc giữa 2 mẫu (5 cycle) > ngưỡng ⇒ 1 lần phanh gấp
 
     car selected_car <- nil;
     // Con tro tam khi nap pz_actions -> action_rl (global action, 1 loop) — tranh (c as car) lap trong bieu thuc -> TempVariable.
@@ -188,6 +223,8 @@ global {
             sw_n <- 0;
             sw_mean <- 0.0;
             sw_M2 <- 0.0;
+            braking_events <- 0;
+            sw_car_ticks <- 0;
             recent_merge_coop_ticks <- 0;
             recent_merge_x <- -1.0;
             damaged_nb_cars_inlane <- 0;
@@ -200,6 +237,28 @@ global {
         // trong global reflex. Giu cache non-nil; cac diem dung safe_cars da guard nil/dead.
         if (safe_cars = nil) {
             safe_cars <- [];
+        }
+    }
+
+    // NHUONG: tim merger dang trong accel-lane cho nhap -> set active_merger_x (x lon nhat = gan merge nhat).
+    // Highway reward dung gia tri nay de thuong giam toc (mo khe) khi merger gan phia truoc.
+    reflex track_active_merger {
+        active_merger_x <- -1.0;
+        if (safe_cars != nil) {
+            loop c over: safe_cars {
+                if (c != nil) {
+                    car cc <- c as car;
+                    if (not dead(cc)) {
+                        if (cc.merge_mode = 1) {
+                            if (cc.in_accel_zone) {
+                                if (cc.move_next_x > active_merger_x) {
+                                    active_merger_x <- cc.move_next_x;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -646,7 +705,7 @@ global {
         }
         create PzBridgeAgent number: 1 {
             // MARL: 1 xe nhập làn (merging_0) + 3 xe cao tốc làn dưới (highway_0/1/2) cùng học chính sách.
-            possible_agents    <- ["merging_0", "highway_0", "highway_1", "highway_2"];
+            possible_agents    <- ["merging_0", "highway_0", "highway_1", "highway_2", "highway_3", "highway_4", "highway_5"];
             agents             <- copy(possible_agents);
             observations       <- [];
             rewards            <- [];
@@ -660,45 +719,66 @@ global {
                 "merging_0"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"],
                 "highway_0"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"],
                 "highway_1"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"],
-                "highway_2"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"]
+                "highway_2"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"],
+                "highway_3"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"],
+                "highway_4"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"],
+                "highway_5"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"]
             ];
             // 5 action dùng chung: merging_0=(0 giảm,1 giữ,2 tăng,3 nhập làn,4 chờ); highway=(0 tăng,1 giữ,2 giảm,3 rẽ trái,4 rẽ phải).
             action_spaces      <- [
                 "merging_0"  :: ["type"::"Discrete", "n"::5],
                 "highway_0"  :: ["type"::"Discrete", "n"::5],
                 "highway_1"  :: ["type"::"Discrete", "n"::5],
-                "highway_2"  :: ["type"::"Discrete", "n"::5]
+                "highway_2"  :: ["type"::"Discrete", "n"::5],
+                "highway_3"  :: ["type"::"Discrete", "n"::5],
+                "highway_4"  :: ["type"::"Discrete", "n"::5],
+                "highway_5"  :: ["type"::"Discrete", "n"::5]
             ];
             // Bootstrap payload de Python reset dau tien luon thay du agent keys, tranh RuntimeError got [].
             observations <- [
                 "merging_0"::list_with(15, 0.0),
                 "highway_0"::list_with(15, 0.0),
                 "highway_1"::list_with(15, 0.0),
-                "highway_2"::list_with(15, 0.0)
+                "highway_2"::list_with(15, 0.0),
+                "highway_3"::list_with(15, 0.0),
+                "highway_4"::list_with(15, 0.0),
+                "highway_5"::list_with(15, 0.0)
             ];
             rewards <- [
                 "merging_0"::0.0,
                 "highway_0"::0.0,
                 "highway_1"::0.0,
-                "highway_2"::0.0
+                "highway_2"::0.0,
+                "highway_3"::0.0,
+                "highway_4"::0.0,
+                "highway_5"::0.0
             ];
             terminations <- [
                 "merging_0"::false,
                 "highway_0"::false,
                 "highway_1"::false,
-                "highway_2"::false
+                "highway_2"::false,
+                "highway_3"::false,
+                "highway_4"::false,
+                "highway_5"::false
             ];
             truncations <- [
                 "merging_0"::false,
                 "highway_0"::false,
                 "highway_1"::false,
-                "highway_2"::false
+                "highway_2"::false,
+                "highway_3"::false,
+                "highway_4"::false,
+                "highway_5"::false
             ];
             infos <- [
                 "merging_0"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false],
                 "highway_0"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false],
                 "highway_1"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false],
-                "highway_2"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false]
+                "highway_2"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false],
+                "highway_3"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false],
+                "highway_4"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false],
+                "highway_5"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false]
             ];
             data <- [
                 "Observations"::observations,
@@ -722,7 +802,10 @@ global {
             "merging_0"::["type"::"Discrete", "n"::5],
             "highway_0"::["type"::"Discrete", "n"::5],
             "highway_1"::["type"::"Discrete", "n"::5],
-            "highway_2"::["type"::"Discrete", "n"::5]
+            "highway_2"::["type"::"Discrete", "n"::5],
+            "highway_3"::["type"::"Discrete", "n"::5],
+            "highway_4"::["type"::"Discrete", "n"::5],
+            "highway_5"::["type"::"Discrete", "n"::5]
         ];
         // Khong sync bridge trong init de tranh context local chua on dinh (NPE this.local).
     }
@@ -741,20 +824,31 @@ global {
         float spacing_boot <- road_length / (cars_per_lane_boot + 1);
         loop i from: 0 to: number_of_lanes - 1 {
             loop j from: 0 to: cars_per_lane_boot - 1 {
-                create car number: 1 {
-                    speed              <- rnd(0.4, speed_max);
-                    color              <- rgb(200 + rnd(55), 200 + rnd(55), 200 + rnd(55));
-                    is_merging         <- false;
-                    in_accel_zone      <- false;
-                    current_lane_index <- i;
-                    target_lane_index  <- i;
-                    location           <- {10.0 + j * spacing_boot + rnd(-3.0, 3.0), offset_y + (i * lane_width) + (lane_width / 2.0)};
-                    move_next_x        <- location.x;
-                    move_next_y        <- location.y;
-                    direction          <- 1;
-                    heading            <- 0.0;
-                    is_rl_agent        <- false;
-                    rl_agent_id        <- "";
+                // Né vị trí dành cho 3 xe RL highway (làn đáy, x=8/30/52):
+                // nếu spawn NPC đè lên RL → start là va chạm → NPC biến mất. Bỏ qua slot trùng.
+                float nx_boot  <- 10.0 + j * spacing_boot;
+                bool  skip_npc <- false;
+                if (i = number_of_lanes - 1) {
+                    loop hw_k from: 0 to: 5 {
+                        if (abs(nx_boot - (8.0 + hw_k * hw_rl_spacing)) < 9.0) { skip_npc <- true; }
+                    }
+                }
+                if (not skip_npc) {
+                    create car number: 1 {
+                        speed              <- rnd(0.4, speed_max);
+                        color              <- rgb(200 + rnd(55), 200 + rnd(55), 200 + rnd(55));
+                        is_merging         <- false;
+                        in_accel_zone      <- false;
+                        current_lane_index <- i;
+                        target_lane_index  <- i;
+                        location           <- {nx_boot + rnd(-3.0, 3.0), offset_y + (i * lane_width) + (lane_width / 2.0)};
+                        move_next_x        <- location.x;
+                        move_next_y        <- location.y;
+                        direction          <- 1;
+                        heading            <- 0.0;
+                        is_rl_agent        <- false;
+                        rl_agent_id        <- "";
+                    }
                 }
             }
         }
@@ -771,6 +865,8 @@ global {
                         terminal_reason    <- "running";
                         is_done            <- false;
                         merge_success      <- false;
+                        merge_reward_given <- false;
+                        merge_bonus_tick   <- false;
                         failed_merge       <- false;
                         collision_event    <- false;
                         episode_step       <- 0;
@@ -794,11 +890,14 @@ global {
             }
         }
 
-        // --- 3. KHỞI TẠO 3 XE RL TRÊN LÀN DƯỚI CÙNG ---
-        list<string> hw_ids_boot <- ["highway_0", "highway_1", "highway_2"];
+        // --- 3. KHỞI TẠO 6 XE RL TRÊN LÀN DƯỚI CÙNG (tăng penetration cho goal 2) ---
+        list<string> hw_ids_boot <- ["highway_0", "highway_1", "highway_2", "highway_3", "highway_4", "highway_5"];
         float bottom_y_boot <- offset_y + (number_of_lanes - 1) * lane_width + lane_width / 2.0;
-        loop hw_k from: 0 to: 2 {
-            float hw_x_boot <- road_length * (0.25 + hw_k * 0.25);
+        loop hw_k from: 0 to: 5 {
+            // NHƯỜNG: spawn UPSTREAM (x=8/30/52, trước/đầu accel_start=48) + tốc CHẬM hơn → xe RL highway
+            // còn ở trong vùng merge ĐÚNG LÚC merger (xuất phát ramp, chậm) tới → có cơ hội học nhường.
+            // (Trước: 50/100/150 + nhanh → trôi qua/ra khỏi đường trước khi merger đến → "đi quá".)
+            float hw_x_boot <- 8.0 + hw_k * hw_rl_spacing;
             create car number: 1 {
                 is_merging         <- false;
                 in_accel_zone      <- false;
@@ -809,7 +908,7 @@ global {
                 move_next_y        <- bottom_y_boot;
                 direction          <- 1;
                 heading            <- 0.0;
-                speed              <- rnd(0.5, speed_max);
+                speed              <- rnd(0.35, 0.55);
                 color              <- #cyan;
                 is_rl_agent        <- true;
                 rl_agent_id        <- hw_ids_boot[hw_k];
@@ -962,6 +1061,8 @@ global {
                                 sw_n                     <- 0;
                                 sw_mean                  <- 0.0;
                                 sw_M2                    <- 0.0;
+                                braking_events           <- 0;
+                                sw_car_ticks             <- 0;
                                 recent_merge_coop_ticks  <- 0;
                                 recent_merge_x           <- -1.0;
                                 create car number: 1 {
@@ -1014,8 +1115,11 @@ global {
     reflex respawn_highway_rl_agents when: enable_highway_rl_respawn {
         try {
             if (not initial_cars_created) { return; }
-            list<string> hw_ids <- ["highway_0", "highway_1", "highway_2"];
+            list<string> hw_ids <- ["highway_0", "highway_1", "highway_2", "highway_3", "highway_4", "highway_5"];
             float bottom_y <- offset_y + (number_of_lanes - 1) * lane_width + lane_width / 2.0;
+            // CHỈ respawn 1 xe / tick: safe_cars là snapshot cache → xe vừa tạo chưa có trong list,
+            // nếu tạo >=2 xe cùng tick chúng chồng lên x=0 → đâm nhau → die → loop hồi sinh liên tục.
+            bool did_respawn <- false;
             // Dùng safe_cars thay vì loop trực tiếp lên population car để tránh CME
             loop hid over: hw_ids {
                 bool hw_alive <- false;
@@ -1045,7 +1149,8 @@ global {
                                             // physical_lane: tranh "ma xe" khi xe vua action 3/4 sang lane n-1.
                                             if (c_car.physical_lane = number_of_lanes - 1) {
                                                 if (not c_car.is_merging) {
-                                                    if (c_car.location.x < 8.0) {
+                                                    // Cần runway trống >=18u (8u quá ngắn → respawn đâm xe chậm phía trước).
+                                                    if (c_car.location.x < 18.0) {
                                                         is_safe <- false;
                                                     }
                                                 }
@@ -1056,7 +1161,7 @@ global {
                             }
                         }
                     }
-                    if (is_safe) {
+                    if (is_safe and not did_respawn) {
                         create car number: 1 {
                             is_merging         <- false;
                             in_accel_zone      <- false;
@@ -1067,11 +1172,12 @@ global {
                             move_next_y        <- bottom_y;
                             direction          <- 1;
                             heading            <- 0.0;
-                            speed              <- 0.58;
+                            speed              <- 0.35;   // spawn chậm để không lao vào xe chậm phía trước
                             color              <- #cyan;
                             is_rl_agent        <- true;
                             rl_agent_id        <- hid;
                         }
+                        did_respawn <- true;   // chặn tạo xe thứ 2 cùng tick (tránh chồng x=0 → đâm → loop)
                         // Khong goi sync bridge o day de tranh local context null.
                     }
                 }
@@ -1118,6 +1224,16 @@ global {
                                                     sw_mean <- sw_mean + sw_delta_cache / sw_n;
                                                     sw_delta2_cache <- c_car.speed - sw_mean;
                                                     sw_M2 <- sw_M2 + sw_delta_cache * sw_delta2_cache;
+                                                    // PHANH GẤP: drop tốc so mẫu trước > ngưỡng ⇒ 1 braking event.
+                                                    // (`ask c_car` đã xác nhận VÔ CAN với gridlock — thủ phạm là
+                                                    // headless degrade, không phải dòng này; re-add để đo braking đúng.)
+                                                    sw_car_ticks <- sw_car_ticks + 1;
+                                                    if (c_car.prev_speed_sw >= 0.0) {
+                                                        if (c_car.prev_speed_sw - c_car.speed > hard_brake_thresh) {
+                                                            braking_events <- braking_events + 1;
+                                                        }
+                                                    }
+                                                    ask c_car { prev_speed_sw <- speed; }
                                                 }
                                             }
                                         }
@@ -1389,33 +1505,28 @@ species petz_collect_tick {
     action tick_sync_from_world {
         map pz_rewards <- [
             "merging_0"::0.0,
-            "highway_0"::0.0,
-            "highway_1"::0.0,
-            "highway_2"::0.0
+            "highway_0"::0.0, "highway_1"::0.0, "highway_2"::0.0,
+            "highway_3"::0.0, "highway_4"::0.0, "highway_5"::0.0
         ];
         map pz_terminations <- [
             "merging_0"::false,
-            "highway_0"::false,
-            "highway_1"::false,
-            "highway_2"::false
+            "highway_0"::false, "highway_1"::false, "highway_2"::false,
+            "highway_3"::false, "highway_4"::false, "highway_5"::false
         ];
         map pz_truncations <- [
             "merging_0"::false,
-            "highway_0"::false,
-            "highway_1"::false,
-            "highway_2"::false
+            "highway_0"::false, "highway_1"::false, "highway_2"::false,
+            "highway_3"::false, "highway_4"::false, "highway_5"::false
         ];
         pz_infos <- [
             "merging_0"::tick_default_info("running"),
-            "highway_0"::tick_default_info("running"),
-            "highway_1"::tick_default_info("running"),
-            "highway_2"::tick_default_info("running")
+            "highway_0"::tick_default_info("running"), "highway_1"::tick_default_info("running"), "highway_2"::tick_default_info("running"),
+            "highway_3"::tick_default_info("running"), "highway_4"::tick_default_info("running"), "highway_5"::tick_default_info("running")
         ];
         pz_observations <- [
             "merging_0"::list_with(15, 0.0),
-            "highway_0"::list_with(15, 0.0),
-            "highway_1"::list_with(15, 0.0),
-            "highway_2"::list_with(15, 0.0)
+            "highway_0"::list_with(15, 0.0), "highway_1"::list_with(15, 0.0), "highway_2"::list_with(15, 0.0),
+            "highway_3"::list_with(15, 0.0), "highway_4"::list_with(15, 0.0), "highway_5"::list_with(15, 0.0)
         ];
         pz_agents <- [];
 
@@ -1428,9 +1539,19 @@ species petz_collect_tick {
             if (not rc0.is_done) { pz_agents << "merging_0"; }
         }
 
+        // REGIONAL/SVO: lấy reward + vị trí merger để chia phần cho highway gần.
+        float mrg_rwd <- 0.0;
+        float mrg_x   <- -1.0;
+        if (rc0 != nil) {
+            mrg_rwd <- rc0.reward_val;
+            if (rc0.location != nil) { mrg_x <- rc0.move_next_x; }
+        }
+
         car rc1 <- tick_find_rl_car("highway_0");
         if (rc1 != nil) {
-            pz_rewards << "highway_0"::rc1.reward_val;
+            float reg1 <- rc1.reward_val;
+            if (mrg_x >= 0.0 and rc1.location != nil) { if (abs(rc1.move_next_x - mrg_x) < 35.0) { reg1 <- reg1 + idm_social_coef * mrg_rwd; } }
+            pz_rewards << "highway_0"::reg1;
             pz_terminations << "highway_0"::rc1.is_done;
             pz_observations << "highway_0"::rc1.get_current_state();
             pz_infos << "highway_0"::rc1.get_episode_info();
@@ -1439,7 +1560,9 @@ species petz_collect_tick {
 
         car rc2 <- tick_find_rl_car("highway_1");
         if (rc2 != nil) {
-            pz_rewards << "highway_1"::rc2.reward_val;
+            float reg2 <- rc2.reward_val;
+            if (mrg_x >= 0.0 and rc2.location != nil) { if (abs(rc2.move_next_x - mrg_x) < 35.0) { reg2 <- reg2 + idm_social_coef * mrg_rwd; } }
+            pz_rewards << "highway_1"::reg2;
             pz_terminations << "highway_1"::rc2.is_done;
             pz_observations << "highway_1"::rc2.get_current_state();
             pz_infos << "highway_1"::rc2.get_episode_info();
@@ -1448,11 +1571,46 @@ species petz_collect_tick {
 
         car rc3 <- tick_find_rl_car("highway_2");
         if (rc3 != nil) {
-            pz_rewards << "highway_2"::rc3.reward_val;
+            float reg3 <- rc3.reward_val;
+            if (mrg_x >= 0.0 and rc3.location != nil) { if (abs(rc3.move_next_x - mrg_x) < 35.0) { reg3 <- reg3 + idm_social_coef * mrg_rwd; } }
+            pz_rewards << "highway_2"::reg3;
             pz_terminations << "highway_2"::rc3.is_done;
             pz_observations << "highway_2"::rc3.get_current_state();
             pz_infos << "highway_2"::rc3.get_episode_info();
             if (not rc3.is_done) { pz_agents << "highway_2"; }
+        }
+
+        car rc4 <- tick_find_rl_car("highway_3");
+        if (rc4 != nil) {
+            float reg4 <- rc4.reward_val;
+            if (mrg_x >= 0.0 and rc4.location != nil) { if (abs(rc4.move_next_x - mrg_x) < 35.0) { reg4 <- reg4 + idm_social_coef * mrg_rwd; } }
+            pz_rewards << "highway_3"::reg4;
+            pz_terminations << "highway_3"::rc4.is_done;
+            pz_observations << "highway_3"::rc4.get_current_state();
+            pz_infos << "highway_3"::rc4.get_episode_info();
+            if (not rc4.is_done) { pz_agents << "highway_3"; }
+        }
+
+        car rc5 <- tick_find_rl_car("highway_4");
+        if (rc5 != nil) {
+            float reg5 <- rc5.reward_val;
+            if (mrg_x >= 0.0 and rc5.location != nil) { if (abs(rc5.move_next_x - mrg_x) < 35.0) { reg5 <- reg5 + idm_social_coef * mrg_rwd; } }
+            pz_rewards << "highway_4"::reg5;
+            pz_terminations << "highway_4"::rc5.is_done;
+            pz_observations << "highway_4"::rc5.get_current_state();
+            pz_infos << "highway_4"::rc5.get_episode_info();
+            if (not rc5.is_done) { pz_agents << "highway_4"; }
+        }
+
+        car rc6 <- tick_find_rl_car("highway_5");
+        if (rc6 != nil) {
+            float reg6 <- rc6.reward_val;
+            if (mrg_x >= 0.0 and rc6.location != nil) { if (abs(rc6.move_next_x - mrg_x) < 35.0) { reg6 <- reg6 + idm_social_coef * mrg_rwd; } }
+            pz_rewards << "highway_5"::reg6;
+            pz_terminations << "highway_5"::rc6.is_done;
+            pz_observations << "highway_5"::rc6.get_current_state();
+            pz_infos << "highway_5"::rc6.get_episode_info();
+            if (not rc6.is_done) { pz_agents << "highway_5"; }
         }
 
         pz_data <- [
@@ -1665,6 +1823,9 @@ species car {
     float       min_rear_gap <- 999.0;
     string      terminal_reason <- "running";
     bool        merge_success <- false;
+    bool        merge_reward_given <- false;   // one-shot: +200 chỉ trao 1 lần tại tick merge
+    bool        merge_bonus_tick   <- false;   // transient: cờ cộng +200 sau calculate_reward (tick merge)
+    float       prev_speed_sw <- -1.0;         // tốc độ mẫu shockwave trước (-1=chưa mẫu) — đếm phanh gấp
     bool        merge_committed <- false;   // commit-to-merge: đã bấm action-3 cam kết nhập, chờ gap an toàn
     bool        collision_event <- false;
     bool        failed_merge <- false;
@@ -1979,14 +2140,9 @@ species car {
                     }
                 }
             } else {
-                // NPC cars
-                if (driving_policy = "Greedy") {
-                    action_rl <- get_heuristic_highway_action();
-                } else if (flip(exp_rate / (1 + exp_decay * cycle))) {
-                    action_rl <- rnd(0, 4);
-                } else {
-                    action_rl <- 1;
-                }
+                // NPC = HDV: đổi làn theo MOBIL (tốc độ theo IDM ở khối dưới). action_rl chỉ mang
+                // tín hiệu lane-change (3/4) cho khối lane-change; longitudinal do IDM quyết định.
+                action_rl <- mobil_decision();
             }
         } else {
             if (rl_agent_id != "") {
@@ -1994,14 +2150,8 @@ species car {
                     action_rl <- 1;
                 }
             } else {
-                // NPC cars in Python mode also need actions
-                if (driving_policy = "Greedy") {
-                    action_rl <- get_heuristic_highway_action();
-                } else if (flip(exp_rate / (1 + exp_decay * cycle))) {
-                    action_rl <- rnd(0, 4);
-                } else {
-                    action_rl <- 1;
-                }
+                // NPC = HDV (Python mode): đổi làn theo MOBIL; tốc độ theo IDM (khối dưới).
+                action_rl <- mobil_decision();
             }
         }
 
@@ -2011,17 +2161,12 @@ species car {
         // M3c phia duoi (ahead_gap_dx < 12) van ep giam toc lai neu xe truoc qua gan -> khong va cham.
         if (rl_agent_id = "merging_0") {
             if (merge_mode != 1) {
-                if (action_rl = 0) {
-                    speed <- max(speed_min, speed - deceleration);
-                } else if (action_rl = 2) {
-                    speed <- min(speed_max, speed + acceleration);
-                } else {
-                    if (speed < 0.05) {
-                        speed <- min(speed_max, speed + acceleration);
-                    } else {
-                        speed <- min(speed_max, max(speed_min, speed));
-                    }
-                }
+                // POST-MERGE: merger ĐÃ nhập làn → lái bằng IDM (an toàn, collision-free) thay vì RL.
+                // FIX COLLAPSE: trước đây RL điều khiển post-merge → lúc train explore lái bậy → đâm
+                // sau merge (-100) → policy học "merge = xấu" → né merge hoàn toàn (yield_test10:
+                // 100% accel, 0% merge). Cho IDM lái post-merge → merging luôn net-dương (+200, ko đâm)
+                // → merger học merge lại. Episode vẫn chạy tiếp tới cuối đường → ĐO sóng lùi sau merge.
+                speed <- min(speed_max, max(0.0, speed + idm_acc(speed, ahead_gap_dx, ahead_speed_other)));
             }
         } else if (rl_agent_id != "") {
             if (action_rl = 0) {
@@ -2036,23 +2181,10 @@ species car {
                 }
             }
         } else {
-            // NPC cars execution
+            // NPC cars execution — HDV: longitudinal = IDM (mượt, collision-free, KHÔNG nhường
+            // chủ động merger). action_rl (MOBIL) chỉ dùng cho lane-change ở khối dưới.
             if (merge_mode != 1) {
-                if (action_rl = 0) {
-                    speed <- min(speed_max, speed + acceleration);
-                } else if (action_rl = 2) {
-                    // NetLogo `slow-down-car` guard: chi giam khi speed > deceleration -> tranh NPC ket o speed=0
-                    // do heuristic spam decelerate. RL agent KHONG anh huong (path rieng).
-                    if (speed > deceleration) {
-                        speed <- speed - deceleration;
-                    }
-                } else {
-                    if (speed < 0.05) {
-                        speed <- min(speed_max, speed + acceleration);
-                    } else {
-                        speed <- min(speed_max, max(speed_min, speed));
-                    }
-                }
+                speed <- min(speed_max, max(0.0, speed + idm_acc(speed, ahead_gap_dx, ahead_speed_other)));
             } else {
                 if (speed < 0.05) {
                     speed <- min(speed_max, speed + acceleration);
@@ -2083,9 +2215,17 @@ species car {
             if (can_lane_change) {
                 if (action_rl = 3) {
                     if (current_lane_index > 0) {
+                        // Phạt đổi làn cơ bản -0.3 (nhẹ → vẫn cho phép đổi làn NÉ một lần dưới argmax,
+                        // tránh xe chỉ phanh rồi rear-end). Nếu đang còn trong cooldown lần đổi trước
+                        // (lane_change_cooldown>0) → đây là ĐỔI LÀN LẶP = "đánh lái trái-phải": phạt nặng
+                        // -2.1 để giết flip-flop (RL Python ko bị engine gate cooldown). Nhắm trúng spam, không bóp né.
+                        if (lane_change_cooldown > 0) {
+                            action_penalty <- action_penalty - 2.1;
+                        } else {
+                            action_penalty <- action_penalty - 0.3;
+                        }
                         target_lane_index <- current_lane_index - 1;
                         current_lane_index <- target_lane_index;
-                        action_penalty <- action_penalty - 0.05;
                         lane_change_cooldown <- 25;
                         is_merging_transition <- true;
                     } else {
@@ -2093,9 +2233,13 @@ species car {
                     }
                 } else if (action_rl = 4) {
                     if (current_lane_index < number_of_lanes - 1) {
+                        if (lane_change_cooldown > 0) {
+                            action_penalty <- action_penalty - 2.1;
+                        } else {
+                            action_penalty <- action_penalty - 0.3;
+                        }
                         target_lane_index <- current_lane_index + 1;
                         current_lane_index <- target_lane_index;
-                        action_penalty <- action_penalty - 0.05;
                         lane_change_cooldown <- 25;
                         is_merging_transition <- true;
                     } else {
@@ -2110,6 +2254,8 @@ species car {
         // TTC kip sua. Dung ahead_gap_dx/ahead_speed_other tu scan tick truoc de ep
         // mainline car giam toc truoc movement, khong ap dung cho xe ramp merge_mode=1.
         // KHIEN OFF (A/B): tat shield M3c o headless -> xe dam duoi / di sat bat chap. GUI giu shield.
+        // 2026-06-07: NPC giờ dùng IDM (tự phanh collision-free) → KHÔNG cần khiên M3c nữa.
+        // RL agent vẫn không khiên ở Python mode → tự học phanh. Khiên chỉ còn cho GUI Heuristic.
         if (merge_mode != 1 and (enable_safety_shield or dashboard_policy != "Python/SB3 model")) {
             if (ahead_gap_dx < 12.0) {
                 if (speed > ahead_speed_other) {
@@ -2495,22 +2641,16 @@ species car {
         // merging_0: success sau khi da nhap lane va chay gan het mainline (khong ket thuc ngay luc merge).
         if (rl_agent_id = "merging_0") {
             if (merge_success) {
-                // COMMIT-TO-MERGE: +200 NGAY tại tick merge (credit assignment sắc cho action-3),
-                // không đợi tới cuối mainline (GAE chiết khấu ~100 tick làm loãng tín hiệu commit).
+                // +200 tại tick merge + KẾT THÚC ván (terminate-at-merge). REVERT post-merge-continue:
+                // 3 lần thử continue (yt10/yt11 collapse train + yt9 mislabel eval) cho thấy nó đụng độ
+                // kiến trúc episode merger-centric. Giữ terminate-at-merge = trạng thái chạy được (85%/0%).
+                // Đo sóng lùi sau-merge cần giải pháp kiến trúc riêng (đang research) — KHÔNG ép ở đây.
+                // TERMINATE-AT-MERGE (chuẩn). post-merge-continue ĐÃ BỎ HẲN: yt22 (fresh headless) xác nhận
+                // nó làm merger né-merge (5% succ / 95% TO) — lỗi LOGIC thật, không phải headless. Goal 3 đo
+                // bằng braking_event_rate (in-episode), không cần chạy tiếp sau merge.
                 if (commit_to_merge and merge_mode != 1) {
-                    reward_val <- 200.0;
-                    terminal_reason <- "success";
-                    is_done <- true;
-                    pz_block_merging_respawn <- true;
-                    cumulative_reward <- cumulative_reward + reward_val;
-                    speed_sum <- speed_sum + speed;
-                    return;
-                }
-                if (merge_mode != 1) {
-                    if (move_next_x >= road_length - 6.0) {
-                        // Terminal success bonus lớn (+200) tạo signal mạnh để RL converge tới
-                        // hành vi merge an toàn. Cân bằng với reward shaping per-step (đa số nhỏ)
-                        // để giảm variance + tránh bias về chiến lược "delay đến cuối".
+                    if (pz_eval_continue < 0.5) {
+                        // TRAIN: terminate-at-merge (ổn định).
                         reward_val <- 200.0;
                         terminal_reason <- "success";
                         is_done <- true;
@@ -2518,12 +2658,33 @@ species car {
                         cumulative_reward <- cumulative_reward + reward_val;
                         speed_sum <- speed_sum + speed;
                         return;
+                    } else {
+                        // EVAL: +200 one-shot, chạy tiếp CỬA SỔ CỐ ĐỊNH (pz_postmerge_window tick) rồi end
+                        // success → đo SÓNG LÙI sau merge (đuôi sóng lan trong ~vài chục tick). KHÔNG chạy
+                        // tới cuối đường (gây gridlock do highway chậm + tích lũy xe → đo bẩn).
+                        if (not merge_reward_given) {
+                            merge_reward_given <- true;
+                            merge_bonus_tick   <- true;
+                            pz_block_merging_respawn <- true;
+                        }
+                        if (episode_step - merge_step >= int(pz_postmerge_window)) {
+                            terminal_reason <- "success";
+                            is_done <- true;
+                            pz_block_merging_respawn <- true;
+                            cumulative_reward <- cumulative_reward + reward_val;
+                            speed_sum <- speed_sum + speed;
+                            return;
+                        }
                     }
                 }
             }
         }
 
         reward_val <- calculate_reward();
+        if (merge_bonus_tick) {
+            reward_val <- reward_val + 200.0;
+            merge_bonus_tick <- false;
+        }
         cumulative_reward <- cumulative_reward + reward_val;
         speed_sum <- speed_sum + speed;
     }
@@ -2955,7 +3116,7 @@ species car {
         // COMMIT-TO-MERGE: đã cam kết (bấm action-3 trước đó) + giờ gap an toàn → môi trường THỰC THI
         // merge ngay (mọi tick, không cần action-3 lại). Biến quyết định tinh-thời-điểm thành thô.
         if (commit_to_merge and merge_committed and merge_mode = 1) {
-            if (is_merge_gap_safe()) {
+            if (merge_gate_open()) {
                 do execute_merge();
                 merge_success <- true;
                 failed_merge  <- false;
@@ -3001,7 +3162,7 @@ species car {
                     if (commit_to_merge) {
                         merge_committed <- true;   // CAM KẾT nhập — env thực thi ở tick gap-an-toàn kế tiếp
                     }
-                    if (is_merge_gap_safe()) {
+                    if (merge_gate_open()) {
                         do execute_merge();
                         merge_success <- true;
                         failed_merge <- false;
@@ -3106,7 +3267,7 @@ species car {
             }
             if (waypoint_index >= length(ramp_waypoints)) {
                 // CURRICULUM: force_action3_only tắt auto-merge cuối ramp → ép success qua action-3.
-                if (not force_action3_only and is_merge_gap_safe()) {
+                if (not force_action3_only and merge_gate_open()) {
                     do execute_merge();
                     merge_success <- true;
                     failed_merge <- false;
@@ -3174,12 +3335,8 @@ species car {
             if (action_rl < 0) {
                 action_rl <- 1;
             }
-        } else if (driving_policy = "Greedy") {
-            action_rl <- get_heuristic_highway_action();
-        } else if (flip(exp_rate / (1 + exp_decay * cycle))) {
-            action_rl <- rnd(0, 4); // Random thám hiểm đủ 5 action
         } else {
-            action_rl <- 1; // Gắn mô hình predict vào đây sau
+            action_rl <- get_heuristic_highway_action();   // NPC luôn heuristic Greedy (đã bỏ random)
         }
 
         // Thực thi dứt khoát theo Action của RL
@@ -3340,7 +3497,7 @@ species car {
                 target_lane_index <- new_lane;
                 current_lane_index <- new_lane;
                 patience <- 100;
-                action_penalty <- action_penalty - 0.05;
+                action_penalty <- action_penalty - 0.3;   // đồng bộ behave: phạt đổi làn cơ bản nhẹ (cho phép né 1 lần); flip-flop bị -2.1 ở behave
             } else {
                 action_penalty <- action_penalty - 2.0;
             }
@@ -3516,10 +3673,21 @@ species car {
         return closest_target_behind;
     }
 
+    // CỔNG THỰC THI merge — TÁCH khỏi is_merge_gap_safe() để hàm đó luôn báo gap THẬT cho
+    // observation / reward / dashboard. Cổng mở khi: gap thật an toàn, HOẶC gate đã tắt
+    // (Python mode, shield off) → cho merge bất chấp (baseline công bằng, RL tự học an toàn).
+    // Heuristic GUI (dashboard != Python) LUÔN giữ cổng theo gap thật → demo không đâm.
+    action merge_gate_open type: bool {
+        if (is_merge_gap_safe()) { return true; }
+        // Cổng merge CHỈ phụ thuộc commit_gate_real (KHÔNG còn dính enable_safety_shield — đã tách
+        // để bật khiên car-following cho NPC mà không bật lại cổng merge). Heuristic GUI giữ cổng.
+        if (not commit_gate_real and dashboard_policy = "Python/SB3 model") { return true; }
+        return false;
+    }
+
     action is_merge_gap_safe type: bool {
-        // KHIEN OFF (A/B): coi nhu luon an toan -> merge bat chap gap. Chi headless Python;
-        // Heuristic GUI (dashboard != Python) LUON giu gate -> demo khong dinh.
-        if (not enable_safety_shield and not commit_gate_real and dashboard_policy = "Python/SB3 model") { return true; }
+        // LUÔN tính gap THẬT (không short-circuit). Việc "merge bất chấp khi gate off" do
+        // merge_gate_open() xử lý ở chỗ thực thi — nhờ vậy obs_gap_safe/reward/dashboard trung thực.
         // Lấy xe trước và xe sau ở làn mục tiêu để đánh giá khoảng trống nhập làn.
         car lead_car <- get_target_lane_ahead();
         car lag_car  <- get_target_lane_behind();
@@ -3727,14 +3895,9 @@ species car {
             //   (c) Xe truoc CHAM hon dang ke (< self.speed - 0.15) — khong overtake xe cung speed
             // Bonus: chi chuyen sang lane co LOI (lead_left/right vang hoac nhanh hon ahead_same).
             // Truoc day: nguong gap < safe+8=20m + khong check speed diff -> chuyen lan vu vo.
+            // BỎ overtake tuỳ ý cho xe heuristic (NPC): không đổi làn để vượt xe chậm — chỉ bám đuôi/giảm tốc.
+            // Vẫn giữ escape khi xe trước DỪNG hẳn (ahead_stopped ở trên). Tránh "đổi làn ngu" trong demo.
             bool need_passing <- false;
-            if (gap_same < safe_distance) {
-                if (speed < speed_max * 0.8) {
-                    if (ahead_same.speed < speed - 0.15) {
-                        need_passing <- true;
-                    }
-                }
-            }
             if (need_passing and (not block_lane_change)) {
                 // Thử sang trái (làn nhanh hơn)
                 if (current_lane_index > 0) {
@@ -3989,6 +4152,11 @@ species car {
         if (sw_mean > 0.001) {
             info_shockwave_index <- info_sw_std / sw_mean;
         }
+        // braking_event_rate = số lần phanh gấp / tổng (xe×mẫu) — sóng lùi đúng chuẩn (literature).
+        float info_braking_rate <- 0.0;
+        if (sw_car_ticks > 0) {
+            info_braking_rate <- braking_events / sw_car_ticks;
+        }
 
         return [
             "outcome"::terminal_reason,
@@ -4009,7 +4177,8 @@ species car {
             "total_ramp_attempts"::total_ramp_attempts,
             "total_merge_success"::total_merge_success,
             "shockwave_index"::info_shockwave_index,
-            "mainline_mean_speed"::sw_mean
+            "mainline_mean_speed"::sw_mean,
+            "braking_event_rate"::info_braking_rate
         ];
     }
 
@@ -4154,6 +4323,62 @@ species car {
         ];
     }
 
+    // ─── HDV (NPC) car-following + lane-change: IDM + MOBIL ───
+    // IDM (Treiber 2000): gia toc doc theo leader cung lan. Tham so scaled don vi sim
+    // (speed in [0,1]/cycle, x theo met). gap_center = khoang cach tam-den-tam toi leader.
+    action idm_acc(float v, float gap_center, float lead_v) type: float {
+        float v0 <- max(0.001, speed_max);
+        float a0 <- max(0.001, acceleration);
+        float b0 <- max(0.001, deceleration);
+        float vr <- v / v0;
+        float free_term <- 1.0 - vr * vr * vr * vr;
+        float interaction <- 0.0;
+        if (gap_center < observation_max) {
+            float s <- gap_center - car_length;          // net bumper gap
+            if (s < 0.1) { s <- 0.1; }
+            float dv <- v - lead_v;                       // approach rate
+            float s_star <- idm_min_gap + v * idm_time_headway + (v * dv) / (2.0 * sqrt(a0 * b0));
+            if (s_star < idm_min_gap) { s_star <- idm_min_gap; }
+            float ratio <- s_star / s;
+            interaction <- ratio * ratio;
+        }
+        float acc <- a0 * (free_term - interaction);
+        if (acc > a0) { acc <- a0; }
+        if (acc < -0.6) { acc <- -0.6; }                  // floor phanh khan cap
+        return acc;
+    }
+
+    // MOBIL (Kesting/Treiber 2007): doi lan khi AN TOAN (xe sau lan dich khong bi ep phanh > b_safe)
+    // VA LOI ICH (gia toc tang vuot nguong, tru phi politeness). Tra 1=giu, 3=trai, 4=phai.
+    // Dung scratch radar ahead/behind_gap_left/right precompute trong reflex behave (1-tick stale, OK).
+    action mobil_decision type: int {
+        if (lane_change_cooldown > 0) { return 1; }
+        float a_cur <- idm_acc(speed, ahead_gap_dx, ahead_speed_other);
+        int best <- 1;
+        float best_gain <- idm_lc_threshold;
+        if (current_lane_index > 0) {
+            float a_me_l <- idm_acc(speed, ahead_gap_left, ahead_speed_left);
+            float a_nf_l <- idm_acc(behind_speed_left, behind_gap_left, speed);
+            if (a_nf_l >= (0.0 - idm_b_safe)) {
+                float dec_l <- 0.0;
+                if (a_nf_l < 0.0) { dec_l <- 0.0 - a_nf_l; }
+                float gain_l <- (a_me_l - a_cur) - idm_politeness * dec_l;
+                if (gain_l > best_gain) { best_gain <- gain_l; best <- 3; }
+            }
+        }
+        if (current_lane_index < number_of_lanes - 1) {
+            float a_me_r <- idm_acc(speed, ahead_gap_right, ahead_speed_right);
+            float a_nf_r <- idm_acc(behind_speed_right, behind_gap_right, speed);
+            if (a_nf_r >= (0.0 - idm_b_safe)) {
+                float dec_r <- 0.0;
+                if (a_nf_r < 0.0) { dec_r <- 0.0 - a_nf_r; }
+                float gain_r <- (a_me_r - a_cur) - idm_politeness * dec_r;
+                if (gain_r > best_gain) { best_gain <- gain_r; best <- 4; }
+            }
+        }
+        return best;
+    }
+
     action get_safe_distance type: float {
         // Tốc độ cao cần khoảng cách phanh dài hơn để mô hình RL không bị phạt oan
         if (speed <= 0.4) { return 8.0; }        // ~ Tốc độ chậm
@@ -4183,17 +4408,41 @@ species car {
         if (speed < speed_max * 0.2) {
             reward_cache <- reward_cache - 0.05;
         }
+        // ANTI-CRAWL: đường THOÁNG (gap>15) + KHÔNG có merger gần phía trước + đi chậm (<50% max)
+        // -> PHẠT MẠNH để phá "bò chậm vô cớ". Khoanh vùng: KHÔNG phạt khi đang nhường merger gần.
+        if (ahead_gap_dx > 22.0) {   // chỉ "đường thoáng THẬT" (>22) mới ép nhanh; vùng <20 nhường car-following phanh
+            bool merger_near_ac <- false;
+            if (active_merger_x >= 0.0) {
+                if (move_next_x < active_merger_x) {
+                    if ((active_merger_x - move_next_x) < 25.0) { merger_near_ac <- true; }
+                }
+            }
+            if (not merger_near_ac) {
+                if (speed < speed_max * 0.5) {
+                    reward_cache <- reward_cache - 0.5;
+                }
+            }
+        }
         // Flow-aware (Plan V1 §10): thưởng giữ tốc cao + PHẠT GIẢM TỐC THỪA -> chống highway "phanh thừa".
         if (enable_highway_flow_reward) {
             reward_cache <- reward_cache + speed * 0.06;
             if (speed >= speed_max * 0.7) {
                 reward_cache <- reward_cache + 0.05;
             }
-            // ③ Phạt phanh khi đường THOÁNG: highway action 2 = giảm tốc; nếu ahead_gap > 15m
-            // (không có lý do an toàn để phanh) -> phạt -0.3 để dịch phân phối khỏi "luôn giảm tốc".
+            // ③ TARGETED YIELD: phạt GIẢM TỐC (action 2) khi đường thoáng VÀ KHÔNG có merger gần →
+            // highway chỉ nhường ĐÚNG LÚC merger tới, giữ flow khi vắng merger (mainline không chậm
+            // constant → goal 3 sạch). Khi merger gần thì coop +0.4 thắng (không vào nhánh phạt này).
             if (action_rl = 2) {
                 if (ahead_gap_dx > 15.0) {
-                    reward_cache <- reward_cache - 0.3;
+                    bool merger_near_yld <- false;
+                    if (active_merger_x >= 0.0) {
+                        if (move_next_x < active_merger_x) {
+                            if ((active_merger_x - move_next_x) < 35.0) { merger_near_yld <- true; }
+                        }
+                    }
+                    if (not merger_near_yld) {
+                        reward_cache <- reward_cache - 0.6;   // phanh vô cớ (không merger) → phạt mạnh
+                    }
                 }
             }
         }
@@ -4201,9 +4450,11 @@ species car {
         // agent học "phanh khi gần". Flow mode: nhẹ hơn (gap<12, coef 0.8) để bớt phanh thừa.
         if (enable_highway_ttc_reward) {
             if (enable_highway_flow_reward) {
-                if (ahead_gap_dx < 12.0) {
+                // Siết: trigger SỚM hơn (gap<20, was 12) + coef mạnh hơn (1.3, was 0.8) → fast agent
+                // bắt đầu hãm từ xa, không chờ tới sát mới phanh (chống rear-end khi chạy nhanh 0.7+).
+                if (ahead_gap_dx < 20.0) {
                     if (speed > 0.15) {
-                        reward_cache <- reward_cache - ((12.0 - ahead_gap_dx) / 12.0) * speed * 0.8;
+                        reward_cache <- reward_cache - ((20.0 - ahead_gap_dx) / 20.0) * speed * 1.3;
                     }
                 }
             } else {
@@ -4218,8 +4469,8 @@ species car {
         //   action 0 = accelerate, action 1 = keep, action 2 = decelerate, 3/4 = lane change.
         // Phạt trực tiếp quyết định "accel khi gap quá gần" (TTC chung không đủ specific).
         if (action_rl = 0) {
-            if (ahead_gap_dx < 12.0) {
-                reward_cache <- reward_cache - 0.5;
+            if (ahead_gap_dx < 18.0) {
+                reward_cache <- reward_cache - 0.8;
             }
         }
         // Không thưởng "phanh khi gần" (đã thử dạng bonus per-tick) — tạo degenerate trap
@@ -4227,6 +4478,27 @@ species car {
         // Cooperative reward MARL: thuong khi gan diem merge thanh cong trong TTL `recent_merge_coop_ticks`.
         if (enable_marl_coop_reward) {
             if (rl_agent_id != "") {
+                // (a) NHƯỜNG TRƯỚC MERGE: có merger trong accel-lane gần ngay phía trước (highway đứng sau,
+                //     cách < 25u). Thưởng GIẢM TỐC (action 2 = mở khe cho merger), phạt TĂNG TỐC vượt qua.
+                // GOAL 2 (tăng mạnh để thắng slow-highway equilibrium): merger gần (<35u) → thưởng
+                // LỚN khi giảm tốc nhường (action 2), phạt LỚN khi tăng tốc vượt (action 0).
+                // GOAL 2 coop reward = ±0.4 (yt9 stable). ĐÃ THỬ 5 biến thể mạnh hơn (±0.7/±1.5/outcome-based/
+                // lane-change-yield) — TẤT CẢ rơi vào gridlock attractor (highway all-brake → mainline 0.000 →
+                // merger 100% timeout). Bất kỳ coop reward nào ≠ ±0.4 đều diverge shared-policy. Goal 2 (highway
+                // nhường chủ động) KHÔNG trị được bằng reward-tuning ở setup này → cần DESIGN DECISION (user).
+                // coop ±0.4 (±0.7 hại merger 60%/40% qua shared policy — yt21). Highway passive vì coop hiếm
+                // kích (merger nhập giữa IDM, ko gần RL highway) → goal 2 cần POSITIONING, không phải magnitude.
+                if (active_merger_x >= 0.0) {
+                    if (move_next_x < active_merger_x) {
+                        if ((active_merger_x - move_next_x) < 25.0) {
+                            if (action_rl = 2) {
+                                reward_cache <- reward_cache + 0.4;
+                            } else if (action_rl = 0) {
+                                reward_cache <- reward_cache - 0.4;
+                            }
+                        }
+                    }
+                }
                 if (recent_merge_coop_ticks > 0) {
                     if (recent_merge_x >= 0.0) {
                         if (abs(move_next_x - recent_merge_x) < 20.0) {
@@ -4236,6 +4508,12 @@ species car {
                 }
             }
         }
+        // GLOBAL/REGIONAL REWARD (MARL4AV local+global — research-backed chống gridlock): thưởng theo
+        // FLOW dòng chính (sw_mean = space-mean-speed mainline). Khác local-decel-reward (bị farm →
+        // gridlock yt12-15): gridlock ⇒ sw_mean→0 ⇒ MẤT thưởng này ⇒ KHÔNG còn là attractor. Khuyến
+        // khích highway giữ flow + hợp tác cho merge (merge thành công ⇒ thêm xe chảy ⇒ flow tăng).
+        // CHỈ áp cho highway (không đụng merger đang ổn) — shared net vẫn cân bằng qua reward riêng.
+        reward_cache <- reward_cache + global_flow_coef * sw_mean;
         return reward_cache;
     }
 
@@ -4593,7 +4871,7 @@ experiment TrafficSimulation type: gui {
                             at: {15 #px, 318 #px} color: #white font: font("Arial", 21, #plain);
                         draw ("Ramp front gap: " + (tracked.get_ramp_front_gap() with_precision 2) + " | In accel zone: " + tracked.in_accel_zone)
                             at: {15 #px, 353 #px} color: #white font: font("Arial", 21, #plain);
-                        draw ("Tốc độ dòng chính TB: " + (sw_mean with_precision 2) + " (thấp=kẹt) | Sóng lùi (CV): " + (tracked.info_shockwave_index with_precision 3))
+                        draw ("Tốc độ dòng chính TB: " + (sw_mean with_precision 2) + " (" + (sw_mean < 0.25 ? "KẸT" : "thông") + ") | Sóng lùi (CV): " + (tracked.info_shockwave_index with_precision 3))
                             at: {15 #px, 388 #px} color: (sw_mean < 0.4 ? rgb(255,140,0) : #white) font: font("Arial", 21, #plain);
                         }
                     }

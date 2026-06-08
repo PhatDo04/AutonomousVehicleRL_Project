@@ -44,14 +44,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--policy",
-        choices=["greedy", "random"],
+        choices=["greedy"],
         default="greedy",
         help=(
             "Baseline (non-learning) cho bảng so sánh với PPO/A2C: "
             "'greedy' = THAM LAM — tăng tốc + merge sớm + vượt làn; né va chạm dọc nhờ khiên môi trường "
             "(như move-forward-greedy của NetLogo). "
-            "'random' = action ngẫu nhiên (sàn tuyệt đối). "
-            "Lưu ý: demo GUI chế độ Heuristic dùng luật phía GAML (get_heuristic_*), KHÔNG phải file này."
+            "Lưu ý: 'random' đã BỎ (đề cương không dùng). demo GUI chế độ Heuristic dùng luật GAML (get_heuristic_*), KHÔNG phải file này."
         ),
     )
     parser.add_argument("--episodes", type=int, default=20)
@@ -111,14 +110,11 @@ def greedy_highway_action(obs: np.ndarray) -> int:
 
 
 def _choose_merging_action(policy: str, obs: np.ndarray, rng: np.random.Generator) -> int:
-    if policy == "random":
-        return int(rng.integers(0, 5))
+    # Dispatch theo policy (giữ chỗ cho baseline tương lai, vd 'idm'); hiện chỉ greedy.
     return greedy_merging_action(obs)
 
 
 def _choose_highway_action(policy: str, obs: np.ndarray, rng: np.random.Generator) -> int:
-    if policy == "random":
-        return int(rng.integers(0, 5))
     return greedy_highway_action(obs)
 
 
@@ -156,9 +152,6 @@ async def async_main(args: argparse.Namespace) -> None:
 
         for episode in range(1, args.episodes + 1):
             ep_seed = int(seed_rng.integers(1, 2**31 - 1))
-            if args.policy == "random":
-                rng = np.random.default_rng(ep_seed)
-
             obs_dict, _ = reset_marl_episode(env_ss, ep_seed)
             ep_reward = 0.0
             length = 0

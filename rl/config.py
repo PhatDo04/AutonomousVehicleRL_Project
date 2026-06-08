@@ -68,12 +68,17 @@ ACTION_MEANINGS_HIGHWAY = {
 # Alias backward-compatible (chỉ dùng để label file CSV/log — không dùng cho logic)
 ACTION_MEANINGS = ACTION_MEANINGS_MERGING
 
-# MARL: 4 agents — 1 xe nhập làn + 3 xe cao tốc làn dưới cùng.
-MARL_AGENTS: tuple[str, ...] = ("merging_0", "highway_0", "highway_1", "highway_2")
+# MARL: 7 agents — 1 xe nhập làn + 6 xe cao tốc (tăng penetration để goal-2: highway nhường CÓ NGHĨA).
+# Trước là 3 highway → quá ít giữa ~40 IDM → highway không phải nút thắt → không học nhường.
+MARL_AGENTS: tuple[str, ...] = (
+    "merging_0", "highway_0", "highway_1", "highway_2", "highway_3", "highway_4", "highway_5",
+)
 MARL_MERGING_AGENTS: tuple[str, ...] = ("merging_0",)
-MARL_HIGHWAY_AGENTS: tuple[str, ...] = ("highway_0", "highway_1", "highway_2")
-# SuperSuit agent_indicator_v0 nối one-hot agent ID vào obs: 15 sensor + 4 agents = 19D.
-MARL_OBS_DIM: int = 19
+MARL_HIGHWAY_AGENTS: tuple[str, ...] = (
+    "highway_0", "highway_1", "highway_2", "highway_3", "highway_4", "highway_5",
+)
+# SuperSuit agent_indicator nối one-hot agent ID vào obs: 15 sensor + 7 agents = 22D.
+MARL_OBS_DIM: int = 15 + len(MARL_AGENTS)
 MARL_BASE_OBS_DIM: int = 15
 
 

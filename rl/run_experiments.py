@@ -88,11 +88,10 @@ def run_baselines(
 ) -> list[Path]:
     """Chạy baseline greedy, trả về danh sách CSV đã sinh."""
     csv_files: list[Path] = []
-    # 2 baseline NON-LEARNING làm mốc so với PPO/A2C:
-    #   "greedy" = tham lam (tăng tốc + merge sớm + vượt làn; né va chạm dọc nhờ khiên môi trường),
-    #   "random" = action ngẫu nhiên (sàn tuyệt đối).
-    # base_rule (luật thận trọng) ĐÃ BỎ khỏi pipeline — demo GUI Heuristic dùng luật phía GAML.
-    for policy in ("greedy", "random"):
+    # Baseline NON-LEARNING làm mốc so với PPO/A2C:
+    #   "greedy" = tham lam (tăng tốc + merge sớm + vượt làn; né va chạm dọc nhờ khiên môi trường).
+    # "random" ĐÃ BỎ (đề cương không dùng random). base_rule cũng đã bỏ — demo GUI Heuristic dùng luật GAML.
+    for policy in ("greedy",):
         out_csv = logs_dir / f"{policy}_baseline_seed{seed}.csv"
         cmd = [
             _python(), str(ROOT / "rl" / "baselines.py"),
@@ -128,6 +127,7 @@ def run_training(
     checkpoint_interval: int = 0,
     run_tag: str | None = None,
     logs_dir: Path = LOG_DIR,
+    ent_anneal: bool = True,
 ) -> Path:
     """Huấn luyện MARL (shared policy) với một seed.
 
@@ -150,6 +150,8 @@ def run_training(
     ]
     if checkpoint_interval > 0:
         cmd.extend(["--checkpoint-interval", str(checkpoint_interval)])
+    if not ent_anneal:
+        cmd.append("--no-ent-anneal")
     if not dry_run:
         rc = _run(cmd, f"MARL Train: {algo.upper()} | seed={seed} | {timesteps} steps | scenario={scenario}")
         if rc != 0:
@@ -422,6 +424,16 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--no-ent-anneal",
+        dest="ent_anneal",
+        action="store_false",
+        default=True,
+        help=(
+            "TẮT entropy annealing khi train (giữ entropy cố định). MẶC ĐỊNH BẬT — "
+            "recipe a3_anneal2 (entropy 0.05→0.002, giữ 65%) cho policy deterministic sạch."
+        ),
+    )
+    parser.add_argument(
         "--run-tag",
         default=None,
         help=(
@@ -589,6 +601,7 @@ def _run_all_experiments(
                     checkpoint_interval=checkpoint_interval,
                     run_tag=run_tag,
                     logs_dir=logs_dir,
+                    ent_anneal=getattr(args, "ent_anneal", True),
                 )
                 all_csv.append(csv_path)
                 if args.select_best_checkpoint:

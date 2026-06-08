@@ -168,6 +168,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-episode-steps", type=int, default=300)
     parser.add_argument("--out", default=None, help="Tùy chọn đường dẫn CSV output.")
     parser.add_argument(
+        "--eval-continue",
+        action="store_true",
+        help=(
+            "EVAL-only: merger chạy tiếp tới cuối làn sau merge (KHÔNG end ván tại merge) để ĐO SÓNG LÙI "
+            "sau merge. success vẫn lấy từ merge_success. Train KHÔNG dùng cờ này (làm merger né-merge)."
+        ),
+    )
+    parser.add_argument(
+        "--postmerge-window",
+        type=float,
+        default=None,
+        help="(eval-continue) Số tick chạy tiếp sau merge trước khi end. Mặc định 50 (GAML). Đặt rất lớn (vd 99999) ≈ chạy tới cuối làn.",
+    )
+    parser.add_argument(
         "--stochastic",
         action="store_true",
         help="Predict với deterministic=False (lấy mẫu từ phân phối policy) thay vì argmax.",
@@ -261,9 +275,9 @@ async def async_main(args: argparse.Namespace) -> None:
     for agent_id in MARL_AGENTS:
         if agent_id in obs_dict:
             sh = np.asarray(obs_dict[agent_id], dtype=np.float32).shape
-            if sh != (19,):
+            if sh != (ACTOR_DIM,):
                 raise RuntimeError(
-                    f"{agent_id}: obs shape {sh} ≠ (19,) sau AgentIndicatorParallelWrapper."
+                    f"{agent_id}: obs shape {sh} ≠ ({ACTOR_DIM},) sau AgentIndicatorParallelWrapper."
                 )
 
     deterministic = not args.stochastic
@@ -303,7 +317,7 @@ async def async_main(args: argparse.Namespace) -> None:
                     )
                     await asyncio.sleep(args.pause_between_episodes)
                 ep_seed = int(seed_rng.integers(1, 2**31 - 1))
-                obs_dict, _ = reset_marl_episode(env_ss, ep_seed)
+                obs_dict, _ = reset_marl_episode(env_ss, ep_seed, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window)
             # Episode 1: dùng obs sau reset khởi tạo — tránh reset GAMA lần 2 ngay đầu (UI nháy thừa).
 
             ep_rewards: dict[str, float] = {a: 0.0 for a in MARL_AGENTS}
@@ -332,10 +346,10 @@ async def async_main(args: argparse.Namespace) -> None:
                         continue
                     obs_arr = np.asarray(obs, dtype=np.float32)
                     # Không dùng assert (bị tắt với python -O); raise rõ ràng nếu pipeline obs sai kích thước.
-                    if obs_arr.shape != (19,):
+                    if obs_arr.shape != (ACTOR_DIM,):
                         raise RuntimeError(
-                            f"{agent_id}: obs shape {obs_arr.shape} ≠ (19,). "
-                            f"Kiểm tra AgentIndicatorParallelWrapper / obs 19D trong evaluate_marl."
+                            f"{agent_id}: obs shape {obs_arr.shape} ≠ ({ACTOR_DIM},). "
+                            f"Kiểm tra AgentIndicatorParallelWrapper / obs {ACTOR_DIM}D trong evaluate_marl."
                         )
                     a_int = _predict_marl_action(
                         model,
@@ -366,7 +380,7 @@ async def async_main(args: argparse.Namespace) -> None:
                     )
                     await asyncio.sleep(3.0)
                     try:
-                        obs_dict, _ = reset_marl_episode(env_ss, ep_seed)
+                        obs_dict, _ = reset_marl_episode(env_ss, ep_seed, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window)
                     except GamaCommandError:
                         print("  [GAMA] Chua ket noi lai — dung Ctrl+C, Play GAMA, chay lai lenh Python.")
                         raise

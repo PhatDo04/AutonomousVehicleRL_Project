@@ -256,6 +256,7 @@ def launch_train(
     scenario: str = "medium", shield: str | None = None,
     patch_gaml_real: bool = False, checkpoint_interval: int = 0,
     resume_from: str | None = None, resume_mode: str = "continue",
+    ent_anneal: bool = True,
 ) -> tuple[Job, str]:
     """Trả (Job, msg). Nếu patch_gaml_real=True: vá GAML (density theo scenario + shield)
     TRƯỚC khi train — GAMA biên dịch lại GAML khi train_marl connect (không cần restart).
@@ -271,6 +272,8 @@ def launch_train(
     ]
     if checkpoint_interval and checkpoint_interval > 0:
         args += ["--checkpoint-interval", str(int(checkpoint_interval))]
+    if not ent_anneal:
+        args += ["--no-ent-anneal"]
     if resume_from:
         args += ["--resume-from", resume_from, "--resume-mode", resume_mode]
     job = _launch(cfg, args, f"train_{run_name.replace('/', '_')}.log", "train")
@@ -282,7 +285,7 @@ def launch_train_multiseed(
     cfg: dict, *, algo: str, timesteps: int, seeds: list[int], run_name: str,
     scenario: str = "medium", shield: str | None = None, patch_gaml_real: bool = False,
     checkpoint_interval: int = 0, resume_from: str | None = None,
-    resume_mode: str = "warmstart",
+    resume_mode: str = "warmstart", ent_anneal: bool = True,
 ) -> tuple[Job, str]:
     """Train NHIỀU seed TUẦN TỰ trong 1 job nền (chain powershell). Mỗi seed → run-name/seedN.
     resume: nên dùng warm-start (mỗi seed init từ cùng 1 zip; continue không hợp đa-seed vì
@@ -298,6 +301,8 @@ def launch_train_multiseed(
              f'--seed {int(s)} --port {port} --run-name "{run_name}/seed{int(s)}" --scenario {scenario}')
         if checkpoint_interval and checkpoint_interval > 0:
             a += f' --checkpoint-interval {int(checkpoint_interval)}'
+        if not ent_anneal:
+            a += ' --no-ent-anneal'
         if resume_from:
             a += f' --resume-from "{resume_from}" --resume-mode {resume_mode}'
         parts.append(a)
@@ -334,11 +339,13 @@ def launch_eval(cfg: dict, *, algo: str, model_zip: str, episodes: int,
 def launch_experiment(cfg: dict, *, preset: str, scenario: str, shield: str,
                       algos: list[str], skip_baselines: bool, run_tag: str | None = None,
                       eval_stochastic: bool = False, mode: str = "both",
-                      dry_run: bool = False) -> Job:
+                      dry_run: bool = False, ent_anneal: bool = True) -> Job:
     args = [
         "rl/run_experiments.py", "--preset", preset, "--scenario", scenario,
         "--shield", shield, "--port", str(cfg["gama_port"]), "--algos", *algos,
     ]
+    if not ent_anneal:
+        args.append("--no-ent-anneal")
     if skip_baselines:
         args.append("--skip-baselines")
     if run_tag:

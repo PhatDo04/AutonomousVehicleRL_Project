@@ -237,6 +237,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--host", default="localhost")
     parser.add_argument("--port", type=int, default=1001)
     parser.add_argument("--max-episode-steps", type=int, default=300)
+    parser.add_argument(
+        "--postmerge-window",
+        type=float,
+        default=None,
+        help=(
+            "THỬ NGHIỆM: train post-merge-bounded — sau merge chạy tiếp N tick (set pz_eval_continue=1) "
+            "rồi end, để học lái post-merge. None = terminate-at-merge (mặc định, ổn định). Cảnh báo: "
+            "post-merge-continue unbounded từng làm merger né-merge (yt22); window có-chặn là thử nghiệm mới."
+        ),
+    )
     parser.add_argument("--run-name", default=None)
     parser.add_argument(
         "--resume-from",
@@ -261,24 +271,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--ent-coef",
         type=float,
-        default=None,
-        help="Override entropy coefficient. None = mặc định (PPO 0.01 / A2C 0.05). "
-             "Đặt thấp (vd 0.003) để policy nhọn lại → deterministic/argmax chọn action-3.",
+        default=0.05,
+        help="Entropy coefficient ĐẦU (cao = explore). Mặc định 0.05 — đầu của lịch anneal (recipe a3_anneal2).",
     )
     parser.add_argument(
         "--ent-coef-end",
         type=float,
-        default=None,
-        help="Nếu đặt, ANNEAL entropy từ --ent-coef (đầu, cao) về giá trị này (cuối, thấp) theo "
-             "tiến trình train. Cách B: 1 run từ đầu — explore sớm rồi nhọn cuối (deterministic sạch). "
-             "Vd: --ent-coef 0.05 --ent-coef-end 0.002.",
+        default=0.002,
+        help="Entropy coefficient CUỐI (thấp = policy nhọn → deterministic sạch). Mặc định 0.002. "
+             "ANNEAL từ --ent-coef về giá trị này theo tiến trình train (1 run từ đầu, không cần BC).",
     )
     parser.add_argument(
         "--ent-anneal-hold",
         type=float,
-        default=0.0,
-        help="Phần train GIỮ entropy ở --ent-coef trước khi giảm (0-1). Vd 0.65 = giữ cao tới 65%% "
+        default=0.65,
+        help="Phần train GIỮ entropy ở --ent-coef trước khi giảm (0-1). Mặc định 0.65 = giữ cao tới 65%% "
              "(action-3 học vững) rồi 35%% cuối mới giảm về --ent-coef-end (làm nhọn). Tránh sụp sớm.",
+    )
+    parser.add_argument(
+        "--no-ent-anneal",
+        action="store_true",
+        help="TẮT entropy annealing (giữ --ent-coef cố định suốt train). Dùng khi muốn so sánh "
+             "thuần không-anneal; mặc định anneal BẬT (recipe a3_anneal2 cho deterministic sạch).",
     )
     parser.add_argument(
         "--scenario",
@@ -326,7 +340,10 @@ async def async_main(args: argparse.Namespace) -> None:
         simulation_seed=args.seed,
     )
 
-    env = make_marl_vec_env(config)
+    env = make_marl_vec_env(config, postmerge_window=args.postmerge_window)
+    if args.postmerge_window is not None:
+        print(f"  [post-merge-bounded] TRAIN chạy tiếp {args.postmerge_window:g} tick sau merge (pz_eval_continue=1). "
+              f"THỬ NGHIỆM — khác yt22 unbounded; theo dõi merge success kẻo collapse.")
 
     try:
         reset_counter = True
@@ -346,10 +363,12 @@ async def async_main(args: argparse.Namespace) -> None:
         else:
             model = build_marl_model(args.algo, env, args.seed, tensorboard_log, ent_coef=args.ent_coef)
         callbacks = [MARLEpisodeCSVCallback(args.algo, args.seed, metric_path)]
-        if args.ent_coef_end is not None:
+        if args.ent_coef_end is not None and not args.no_ent_anneal:
             ent_start = args.ent_coef if args.ent_coef is not None else (0.01 if args.algo == "ppo" else 0.05)
             callbacks.append(EntCoefAnnealCallback(ent_start, args.ent_coef_end, args.timesteps, args.ent_anneal_hold))
             print(f"  [ent-anneal] entropy {ent_start} → {args.ent_coef_end} (giữ cao tới {args.ent_anneal_hold:.0%}) qua {args.timesteps:,} steps")
+        elif args.no_ent_anneal:
+            print(f"  [ent-anneal] TẮT — entropy cố định {args.ent_coef} suốt train")
         if args.checkpoint_interval > 0:
             # SB3 callback ``n_calls`` tăng theo VecEnv step (=1 step VecEnv tương ứng
             # ``n_envs`` transitions). Chia interval cho num_envs để checkpoint đúng theo

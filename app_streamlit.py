@@ -177,6 +177,11 @@ with tabs[2]:
         "💾 Checkpoint mỗi N steps (0 = tắt)", value=40000, step=10000,
         help="Lưu zip định kỳ vào outputs/models/checkpoints/<run>/ → KILL giữa chừng không mất "
              "bản dở; checkpoint là model SB3 đầy đủ, dùng luôn 'Train tiếp từ zip' (continue) để chạy tiếp.")
+    ent_anneal = st.checkbox(
+        "🎯 Entropy annealing (deterministic sạch — recipe a3_anneal2)",
+        value=True,
+        help="BẬT (mặc định): entropy 0.05→0.002, giữ cao tới 65% rồi nhọn → policy chạy argmax sạch như "
+             "a3_anneal2 (1 run từ đầu, không cần BC). TẮT: entropy cố định, so sánh thuần — cần stochastic eval.")
     seeds = [int(x) for x in seeds_str.replace(" ", "").split(",") if x.lstrip("-").isdigit()]
     if len(seeds) > 1:
         st.success(f"🔁 MULTI-SEED: {len(seeds)} seed {seeds} sẽ train TUẦN TỰ (1 job nền) → run-name/seedN. "
@@ -195,7 +200,7 @@ with tabs[2]:
             job, pmsg = C.launch_train(cfg, algo=algo, timesteps=int(timesteps), seed=seeds[0],
                                        run_name=run_name, scenario=scenario, shield=shield,
                                        patch_gaml_real=patch_real, checkpoint_interval=int(ckpt),
-                                       resume_from=resume_from, resume_mode=resume_mode)
+                                       resume_from=resume_from, resume_mode=resume_mode, ent_anneal=ent_anneal)
             st.session_state.job = job
             if pmsg:
                 st.info(pmsg)
@@ -205,7 +210,7 @@ with tabs[2]:
             job, pmsg = C.launch_train_multiseed(cfg, algo=algo, timesteps=int(timesteps), seeds=seeds,
                                                  run_name=run_name, scenario=scenario, shield=shield,
                                                  patch_gaml_real=patch_real, checkpoint_interval=int(ckpt),
-                                                 resume_from=resume_from, resume_mode=resume_mode)
+                                                 resume_from=resume_from, resume_mode=resume_mode, ent_anneal=ent_anneal)
             st.session_state.job = job
             if pmsg:
                 st.info(pmsg)
@@ -292,6 +297,10 @@ with tabs[5]:
     ec1, ec2 = st.columns(2)
     sb = ec1.checkbox("Skip baselines (nhanh hơn)", value=True)
     estoch = ec2.checkbox("Eval stochastic (cho A/B shield)", value=False)
+    eanneal = st.checkbox(
+        "🎯 Entropy annealing (deterministic sạch — recipe a3_anneal2)", value=True,
+        help="BẬT (mặc định): mỗi seed train entropy 0.05→0.002 giữ cao 65% rồi nhọn → policy argmax sạch "
+             "như a3_anneal2. TẮT: entropy cố định (so sánh thuần, cần Eval stochastic).")
     edry = st.checkbox("Dry-run (chỉ in lệnh, không chạy)", value=False)
     st.caption("thesis = 5 seed × 200k + 50 eval (~vài giờ). Bộ số chính cho báo cáo.")
     if st.button("🧪 Chạy experiment", disabled=_job_running() or not al):
@@ -301,7 +310,8 @@ with tabs[5]:
             st.error("Mode eval: chưa chọn run để eval (hoặc chưa có run nào đã train).")
         else:
             job = C.launch_experiment(cfg, preset=p, scenario=sc, shield=sh, algos=al, skip_baselines=sb,
-                                      run_tag=run_tag_val, eval_stochastic=estoch, mode=emode, dry_run=edry)
+                                      run_tag=run_tag_val, eval_stochastic=estoch, mode=emode, dry_run=edry,
+                                      ent_anneal=eanneal)
             st.session_state.job = job
             st.success(f"Experiment ({emode}) launched (PID {job.pid}) — xem Monitor."
                        + (f" Folder: {run_tag_val}" if run_tag_val else " (folder: <preset>_<timestamp>)"))

@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 os.environ.setdefault("TENSORBOARD_NO_TENSORFLOW", "1")
 import numpy as np
-from rl.config import MARL_AGENTS, MODEL_PATH
+from rl.config import MARL_AGENTS, MARL_OBS_DIM, MODEL_PATH
 from rl.evaluate_marl import _predict_marl_action, load_marl_model
 from rl.gama_compat import patch_gama_gymnasium
 from rl.gama_episode_reset import reset_marl_episode
@@ -48,8 +48,8 @@ async def run(args):
                         o = obs.get(aid)
                         if o is None: done.add(aid); continue
                         arr = np.asarray(o, dtype=np.float32)
-                        if arr.shape != (19,):
-                            raise RuntimeError(f"{aid}: obs {arr.shape}, can 19")
+                        if arr.shape != (MARL_OBS_DIM,):
+                            raise RuntimeError(f"{aid}: obs {arr.shape}, can {MARL_OBS_DIM}")
                         actions[aid] = _predict_marl_action(model, arr, agent_id=aid, deterministic=det, eval_mask=not args.no_eval_mask)
                         if aid == "merging_0": hist[actions[aid]] += 1
                     if not actions: break

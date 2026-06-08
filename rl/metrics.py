@@ -31,12 +31,14 @@ class EpisodeMetric:
     merge_step: int = 0
     # Throughput: tỷ lệ xe merge thành công / tổng xe đã cố merge trong simulation (0–1).
     throughput: float = 0.0
-    # Shockwave index = std/mean tốc độ xe mainline vùng merge (Coefficient of Variation).
-    # LƯU Ý: CV KHÔNG phản ánh gridlock (mọi xe chậm đều nhau → std nhỏ → CV nhỏ "êm giả").
-    # Dùng làm chỉ số PHỤ; thước đo ùn tắc chính là mainline_mean_speed (thấp = kẹt) + completion.
+    # === GOAL 3 (hạn chế SÓNG LÙI) — đo bằng CẶP CV + mean speed (đọc CÙNG nhau) ===
+    # Shockwave index = std/mean tốc độ xe mainline đoạn vùng merge (Coefficient of Variation).
+    # Đây là thước đo OSCILLATION = stop-and-go: CV cao = giật cục = sóng lùi; CV thấp = tốc độ đều.
+    # ĐIỂM MÙ (bắt buộc đọc kèm mean speed): gridlock (mọi xe chậm ĐỀU) → std nhỏ → CV thấp "êm GIẢ".
+    # Vì vậy goal-3 chỉ đạt khi CV THẤP *VÀ* mean speed CAO (vừa không giật cục, vừa không kẹt).
     shockwave_index: float = 0.0
-    # Tốc độ trung bình dòng chính vùng merge (space-mean-speed, từ GAML sw_mean).
-    # THẤP = ùn tắc/kẹt, CAO = dòng chảy thông. Thước đo congestion robust (phân biệt được gridlock).
+    # Tốc độ trung bình ĐOẠN vùng nhập làn (section/regional mean speed; arithmetic mean, chuẩn hóa 0–1).
+    # Vai trò kép: (a) mức ùn tắc — THẤP=kẹt, CAO=thông; (b) GUARD chống điểm-mù-CV ở trên (gridlock).
     mainline_mean_speed: float = 0.0
 
 
