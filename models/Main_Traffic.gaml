@@ -705,7 +705,7 @@ global {
         }
         create PzBridgeAgent number: 1 {
             // MARL: 1 xe nhập làn (merging_0) + 3 xe cao tốc làn dưới (highway_0/1/2) cùng học chính sách.
-            possible_agents    <- ["merging_0", "highway_0", "highway_1", "highway_2", "highway_3", "highway_4", "highway_5"];
+            possible_agents    <- ["merging_0", "highway_0", "highway_1", "highway_2"];
             agents             <- copy(possible_agents);
             observations       <- [];
             rewards            <- [];
@@ -719,66 +719,45 @@ global {
                 "merging_0"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"],
                 "highway_0"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"],
                 "highway_1"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"],
-                "highway_2"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"],
-                "highway_3"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"],
-                "highway_4"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"],
-                "highway_5"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"]
+                "highway_2"  :: ["type"::"Box", "low"::0.0, "high"::1.0, "shape"::[15], "dtype"::"float"]
             ];
             // 5 action dùng chung: merging_0=(0 giảm,1 giữ,2 tăng,3 nhập làn,4 chờ); highway=(0 tăng,1 giữ,2 giảm,3 rẽ trái,4 rẽ phải).
             action_spaces      <- [
                 "merging_0"  :: ["type"::"Discrete", "n"::5],
                 "highway_0"  :: ["type"::"Discrete", "n"::5],
                 "highway_1"  :: ["type"::"Discrete", "n"::5],
-                "highway_2"  :: ["type"::"Discrete", "n"::5],
-                "highway_3"  :: ["type"::"Discrete", "n"::5],
-                "highway_4"  :: ["type"::"Discrete", "n"::5],
-                "highway_5"  :: ["type"::"Discrete", "n"::5]
+                "highway_2"  :: ["type"::"Discrete", "n"::5]
             ];
             // Bootstrap payload de Python reset dau tien luon thay du agent keys, tranh RuntimeError got [].
             observations <- [
                 "merging_0"::list_with(15, 0.0),
                 "highway_0"::list_with(15, 0.0),
                 "highway_1"::list_with(15, 0.0),
-                "highway_2"::list_with(15, 0.0),
-                "highway_3"::list_with(15, 0.0),
-                "highway_4"::list_with(15, 0.0),
-                "highway_5"::list_with(15, 0.0)
+                "highway_2"::list_with(15, 0.0)
             ];
             rewards <- [
                 "merging_0"::0.0,
                 "highway_0"::0.0,
                 "highway_1"::0.0,
-                "highway_2"::0.0,
-                "highway_3"::0.0,
-                "highway_4"::0.0,
-                "highway_5"::0.0
+                "highway_2"::0.0
             ];
             terminations <- [
                 "merging_0"::false,
                 "highway_0"::false,
                 "highway_1"::false,
-                "highway_2"::false,
-                "highway_3"::false,
-                "highway_4"::false,
-                "highway_5"::false
+                "highway_2"::false
             ];
             truncations <- [
                 "merging_0"::false,
                 "highway_0"::false,
                 "highway_1"::false,
-                "highway_2"::false,
-                "highway_3"::false,
-                "highway_4"::false,
-                "highway_5"::false
+                "highway_2"::false
             ];
             infos <- [
                 "merging_0"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false],
                 "highway_0"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false],
                 "highway_1"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false],
-                "highway_2"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false],
-                "highway_3"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false],
-                "highway_4"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false],
-                "highway_5"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false]
+                "highway_2"::["outcome"::"bootstrapping", "success"::false, "collision"::false, "failed_merge"::false]
             ];
             data <- [
                 "Observations"::observations,
@@ -802,10 +781,7 @@ global {
             "merging_0"::["type"::"Discrete", "n"::5],
             "highway_0"::["type"::"Discrete", "n"::5],
             "highway_1"::["type"::"Discrete", "n"::5],
-            "highway_2"::["type"::"Discrete", "n"::5],
-            "highway_3"::["type"::"Discrete", "n"::5],
-            "highway_4"::["type"::"Discrete", "n"::5],
-            "highway_5"::["type"::"Discrete", "n"::5]
+            "highway_2"::["type"::"Discrete", "n"::5]
         ];
         // Khong sync bridge trong init de tranh context local chua on dinh (NPE this.local).
     }
@@ -829,7 +805,7 @@ global {
                 float nx_boot  <- 10.0 + j * spacing_boot;
                 bool  skip_npc <- false;
                 if (i = number_of_lanes - 1) {
-                    loop hw_k from: 0 to: 5 {
+                    loop hw_k from: 0 to: 2 {
                         if (abs(nx_boot - (8.0 + hw_k * hw_rl_spacing)) < 9.0) { skip_npc <- true; }
                     }
                 }
@@ -891,9 +867,9 @@ global {
         }
 
         // --- 3. KHỞI TẠO 6 XE RL TRÊN LÀN DƯỚI CÙNG (tăng penetration cho goal 2) ---
-        list<string> hw_ids_boot <- ["highway_0", "highway_1", "highway_2", "highway_3", "highway_4", "highway_5"];
+        list<string> hw_ids_boot <- ["highway_0", "highway_1", "highway_2"];
         float bottom_y_boot <- offset_y + (number_of_lanes - 1) * lane_width + lane_width / 2.0;
-        loop hw_k from: 0 to: 5 {
+        loop hw_k from: 0 to: 2 {
             // NHƯỜNG: spawn UPSTREAM (x=8/30/52, trước/đầu accel_start=48) + tốc CHẬM hơn → xe RL highway
             // còn ở trong vùng merge ĐÚNG LÚC merger (xuất phát ramp, chậm) tới → có cơ hội học nhường.
             // (Trước: 50/100/150 + nhanh → trôi qua/ra khỏi đường trước khi merger đến → "đi quá".)
@@ -1115,7 +1091,7 @@ global {
     reflex respawn_highway_rl_agents when: enable_highway_rl_respawn {
         try {
             if (not initial_cars_created) { return; }
-            list<string> hw_ids <- ["highway_0", "highway_1", "highway_2", "highway_3", "highway_4", "highway_5"];
+            list<string> hw_ids <- ["highway_0", "highway_1", "highway_2"];
             float bottom_y <- offset_y + (number_of_lanes - 1) * lane_width + lane_width / 2.0;
             // CHỈ respawn 1 xe / tick: safe_cars là snapshot cache → xe vừa tạo chưa có trong list,
             // nếu tạo >=2 xe cùng tick chúng chồng lên x=0 → đâm nhau → die → loop hồi sinh liên tục.
@@ -1505,28 +1481,23 @@ species petz_collect_tick {
     action tick_sync_from_world {
         map pz_rewards <- [
             "merging_0"::0.0,
-            "highway_0"::0.0, "highway_1"::0.0, "highway_2"::0.0,
-            "highway_3"::0.0, "highway_4"::0.0, "highway_5"::0.0
+            "highway_0"::0.0, "highway_1"::0.0, "highway_2"::0.0
         ];
         map pz_terminations <- [
             "merging_0"::false,
-            "highway_0"::false, "highway_1"::false, "highway_2"::false,
-            "highway_3"::false, "highway_4"::false, "highway_5"::false
+            "highway_0"::false, "highway_1"::false, "highway_2"::false
         ];
         map pz_truncations <- [
             "merging_0"::false,
-            "highway_0"::false, "highway_1"::false, "highway_2"::false,
-            "highway_3"::false, "highway_4"::false, "highway_5"::false
+            "highway_0"::false, "highway_1"::false, "highway_2"::false
         ];
         pz_infos <- [
             "merging_0"::tick_default_info("running"),
-            "highway_0"::tick_default_info("running"), "highway_1"::tick_default_info("running"), "highway_2"::tick_default_info("running"),
-            "highway_3"::tick_default_info("running"), "highway_4"::tick_default_info("running"), "highway_5"::tick_default_info("running")
+            "highway_0"::tick_default_info("running"), "highway_1"::tick_default_info("running"), "highway_2"::tick_default_info("running")
         ];
         pz_observations <- [
             "merging_0"::list_with(15, 0.0),
-            "highway_0"::list_with(15, 0.0), "highway_1"::list_with(15, 0.0), "highway_2"::list_with(15, 0.0),
-            "highway_3"::list_with(15, 0.0), "highway_4"::list_with(15, 0.0), "highway_5"::list_with(15, 0.0)
+            "highway_0"::list_with(15, 0.0), "highway_1"::list_with(15, 0.0), "highway_2"::list_with(15, 0.0)
         ];
         pz_agents <- [];
 
@@ -1580,38 +1551,6 @@ species petz_collect_tick {
             if (not rc3.is_done) { pz_agents << "highway_2"; }
         }
 
-        car rc4 <- tick_find_rl_car("highway_3");
-        if (rc4 != nil) {
-            float reg4 <- rc4.reward_val;
-            if (mrg_x >= 0.0 and rc4.location != nil) { if (abs(rc4.move_next_x - mrg_x) < 35.0) { reg4 <- reg4 + idm_social_coef * mrg_rwd; } }
-            pz_rewards << "highway_3"::reg4;
-            pz_terminations << "highway_3"::rc4.is_done;
-            pz_observations << "highway_3"::rc4.get_current_state();
-            pz_infos << "highway_3"::rc4.get_episode_info();
-            if (not rc4.is_done) { pz_agents << "highway_3"; }
-        }
-
-        car rc5 <- tick_find_rl_car("highway_4");
-        if (rc5 != nil) {
-            float reg5 <- rc5.reward_val;
-            if (mrg_x >= 0.0 and rc5.location != nil) { if (abs(rc5.move_next_x - mrg_x) < 35.0) { reg5 <- reg5 + idm_social_coef * mrg_rwd; } }
-            pz_rewards << "highway_4"::reg5;
-            pz_terminations << "highway_4"::rc5.is_done;
-            pz_observations << "highway_4"::rc5.get_current_state();
-            pz_infos << "highway_4"::rc5.get_episode_info();
-            if (not rc5.is_done) { pz_agents << "highway_4"; }
-        }
-
-        car rc6 <- tick_find_rl_car("highway_5");
-        if (rc6 != nil) {
-            float reg6 <- rc6.reward_val;
-            if (mrg_x >= 0.0 and rc6.location != nil) { if (abs(rc6.move_next_x - mrg_x) < 35.0) { reg6 <- reg6 + idm_social_coef * mrg_rwd; } }
-            pz_rewards << "highway_5"::reg6;
-            pz_terminations << "highway_5"::rc6.is_done;
-            pz_observations << "highway_5"::rc6.get_current_state();
-            pz_infos << "highway_5"::rc6.get_episode_info();
-            if (not rc6.is_done) { pz_agents << "highway_5"; }
-        }
 
         pz_data <- [
             "Observations"::pz_observations,

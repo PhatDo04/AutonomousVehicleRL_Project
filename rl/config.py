@@ -71,13 +71,15 @@ ACTION_MEANINGS = ACTION_MEANINGS_MERGING
 # MARL: 7 agents — 1 xe nhập làn + 6 xe cao tốc (tăng penetration để goal-2: highway nhường CÓ NGHĨA).
 # Trước là 3 highway → quá ít giữa ~40 IDM → highway không phải nút thắt → không học nhường.
 MARL_AGENTS: tuple[str, ...] = (
-    "merging_0", "highway_0", "highway_1", "highway_2", "highway_3", "highway_4", "highway_5",
+    "merging_0", "highway_0", "highway_1", "highway_2",
 )
 MARL_MERGING_AGENTS: tuple[str, ...] = ("merging_0",)
 MARL_HIGHWAY_AGENTS: tuple[str, ...] = (
-    "highway_0", "highway_1", "highway_2", "highway_3", "highway_4", "highway_5",
+    "highway_0", "highway_1", "highway_2",
 )
-# SuperSuit agent_indicator nối one-hot agent ID vào obs: 15 sensor + 7 agents = 22D.
+# SuperSuit agent_indicator nối one-hot agent ID vào obs: 15 sensor + 4 agents = 19D.
+# 4-agent (về lại từ 7): nhường là CỤC BỘ tại điểm merge → 1-2 xe gần nhất đủ; thay vì rải nhiều
+# agent, thiết kế TIMING để highway_1 gặp merger tại merge_x (xem spawn trong Main_Traffic.gaml).
 MARL_OBS_DIM: int = 15 + len(MARL_AGENTS)
 MARL_BASE_OBS_DIM: int = 15
 
