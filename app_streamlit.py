@@ -393,6 +393,8 @@ with tabs[7]:
                                      "server Desktop nạp lại file khi play load_experiment → mật độ áp dụng.")
         pdelay = st.slider("Độ trễ mỗi bước (giây) — chậm để dễ nhìn", 0.0, 1.0, 0.35, 0.05)
         pstoch = st.checkbox("Stochastic (lấy mẫu thay vì argmax)", value=False, key="play_stoch")
+        pe2e = st.checkbox("🏁 Đi tới cuối (e2e: RL lái tiếp sau merge, không end ở merge)", value=False, key="play_e2e",
+                           help="Bật cho model train --rl-postmerge (vd goal2_e2e_300k): merger nhập làn xong CHẠY TIẾP tới ~cuối đường bằng RL + đo sóng lùi. TẮT = end ngay khi merge (terminate).")
         if st.button("▶️ Chạy Play GUI", type="primary", disabled=_job_running() or not pz):
             if not C.port_listening(int(pport)):
                 st.error(f"❌ Không có GAMA server ở port {int(pport)}. Mở **Gama.exe** → chạy experiment "
@@ -400,7 +402,7 @@ with tabs[7]:
             else:
                 job, pmsg = C.launch_play(cfg, algo=pa, model_zip=pz, episodes=int(pep),
                                           experiment=pexp, port=int(pport), step_delay=float(pdelay),
-                                          stochastic=pstoch, scenario=pscen)
+                                          stochastic=pstoch, scenario=pscen, e2e=pe2e)
                 st.session_state.job = job
                 if pmsg:
                     st.info(pmsg)

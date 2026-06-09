@@ -377,7 +377,8 @@ def kill_job(job: "Job | None") -> dict:
 def launch_play(cfg: dict, *, algo: str, model_zip: str, episodes: int,
                 experiment: str = "TrafficSimulation", port: int = 1000,
                 step_delay: float = 0.35, stochastic: bool = False,
-                scenario: str | None = None) -> tuple[Job, str]:
+                scenario: str | None = None,
+                e2e: bool = False, postmerge_window: float = 200.0) -> tuple[Job, str]:
     """Chạy play_marl_gui.py: Python load zip → điều khiển GAMA Desktop (port serve có hiển thị)
     chạy experiment GUI để XEM model. Nếu scenario != None: PATCH density GAML trước — play gọi
     load_experiment(gaml) nên server Desktop nạp lại file đã patch → mật độ xe áp dụng.
@@ -393,6 +394,9 @@ def launch_play(cfg: dict, *, algo: str, model_zip: str, episodes: int,
     # Lưu ý: play_marl_gui không có --scenario; mật độ đặt qua patch_gaml ở trên (server nạp lại file).
     if stochastic:
         args.append("--stochastic")
+    if e2e:
+        # e2e: merger chạy tiếp tới ~cuối đường bằng RL (không end ở merge, không IDM) — xem trọn hành trình.
+        args += ["--eval-continue", "--rl-postmerge", "--postmerge-window", str(float(postmerge_window))]
     job = _launch(cfg, args, f"play_{time.strftime('%Y%m%d_%H%M%S')}.log", "play")
     return job, patch_msg
 
