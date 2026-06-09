@@ -2192,7 +2192,9 @@ species car {
                         // penalty (shield_intervened → -1) để RL học gap-awareness. Khiên M3c (dưới) chỉ
                         // chặn DỌC (cap tốc độ làn hiện tại), KHÔNG chặn move NGANG → trước đây RL đổi-làn
                         // vào gap hẹp = đâm xe/đâm HDV-hỏng (shield bất lực với va chạm ngang).
-                        if (ahead_gap_left > 8.0 and behind_gap_left > 6.0) {
+                        // CHỈ áp cho RL (rl_agent_id != ""); NPC (rl_agent_id="") đã qua MOBIL gap-check
+                        // CẢ 2 HƯỚNG (a_nf_l/a_nf_r >= -b_safe, Kesting 2007) → giữ MOBIL thuần (citable).
+                        if (rl_agent_id = "" or (ahead_gap_left > 8.0 and behind_gap_left > 6.0)) {
                             // Phạt đổi làn cơ bản -0.3 (nhẹ → vẫn cho phép đổi làn NÉ một lần dưới argmax,
                             // tránh xe chỉ phanh rồi rear-end). Nếu đang còn trong cooldown lần đổi trước
                             // (lane_change_cooldown>0) → ĐỔI LÀN LẶP = "đánh lái trái-phải": phạt nặng -2.1
@@ -2214,7 +2216,8 @@ species car {
                     }
                 } else if (action_rl = 4) {
                     if (current_lane_index < number_of_lanes - 1) {
-                        if (ahead_gap_right > 8.0 and behind_gap_right > 6.0) {
+                        // CHỈ áp cho RL; NPC giữ MOBIL thuần (gap-check phải sẵn có, citable).
+                        if (rl_agent_id = "" or (ahead_gap_right > 8.0 and behind_gap_right > 6.0)) {
                             if (lane_change_cooldown > 0) {
                                 action_penalty <- action_penalty - 2.1;
                             } else {
