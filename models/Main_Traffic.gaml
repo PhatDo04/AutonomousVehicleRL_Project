@@ -2186,33 +2186,47 @@ species car {
             if (can_lane_change) {
                 if (action_rl = 3) {
                     if (current_lane_index > 0) {
-                        // Phạt đổi làn cơ bản -0.3 (nhẹ → vẫn cho phép đổi làn NÉ một lần dưới argmax,
-                        // tránh xe chỉ phanh rồi rear-end). Nếu đang còn trong cooldown lần đổi trước
-                        // (lane_change_cooldown>0) → đây là ĐỔI LÀN LẶP = "đánh lái trái-phải": phạt nặng
-                        // -2.1 để giết flip-flop (RL Python ko bị engine gate cooldown). Nhắm trúng spam, không bóp né.
-                        if (lane_change_cooldown > 0) {
-                            action_penalty <- action_penalty - 2.1;
+                        // KHIÊN NGANG (lateral shield): CHỈ đổi làn khi gap làn TRÁI đủ an toàn
+                        // (ahead_gap_left>8, behind_gap_left>6 — khớp ngưỡng force-escape anti-deadlock).
+                        // Thiếu gap (kể cả xe HỎNG đứng im trong làn trái) → CHẶN đổi làn + intervention
+                        // penalty (shield_intervened → -1) để RL học gap-awareness. Khiên M3c (dưới) chỉ
+                        // chặn DỌC (cap tốc độ làn hiện tại), KHÔNG chặn move NGANG → trước đây RL đổi-làn
+                        // vào gap hẹp = đâm xe/đâm HDV-hỏng (shield bất lực với va chạm ngang).
+                        if (ahead_gap_left > 8.0 and behind_gap_left > 6.0) {
+                            // Phạt đổi làn cơ bản -0.3 (nhẹ → vẫn cho phép đổi làn NÉ một lần dưới argmax,
+                            // tránh xe chỉ phanh rồi rear-end). Nếu đang còn trong cooldown lần đổi trước
+                            // (lane_change_cooldown>0) → ĐỔI LÀN LẶP = "đánh lái trái-phải": phạt nặng -2.1
+                            // để giết flip-flop (RL Python ko bị engine gate cooldown). Nhắm trúng spam.
+                            if (lane_change_cooldown > 0) {
+                                action_penalty <- action_penalty - 2.1;
+                            } else {
+                                action_penalty <- action_penalty - 0.3;
+                            }
+                            target_lane_index <- current_lane_index - 1;
+                            current_lane_index <- target_lane_index;
+                            lane_change_cooldown <- 25;
+                            is_merging_transition <- true;
                         } else {
-                            action_penalty <- action_penalty - 0.3;
+                            shield_intervened <- true;   // khiên ngang chặn đổi-làn-không-an-toàn
                         }
-                        target_lane_index <- current_lane_index - 1;
-                        current_lane_index <- target_lane_index;
-                        lane_change_cooldown <- 25;
-                        is_merging_transition <- true;
                     } else {
                         action_penalty <- action_penalty - 2.0;
                     }
                 } else if (action_rl = 4) {
                     if (current_lane_index < number_of_lanes - 1) {
-                        if (lane_change_cooldown > 0) {
-                            action_penalty <- action_penalty - 2.1;
+                        if (ahead_gap_right > 8.0 and behind_gap_right > 6.0) {
+                            if (lane_change_cooldown > 0) {
+                                action_penalty <- action_penalty - 2.1;
+                            } else {
+                                action_penalty <- action_penalty - 0.3;
+                            }
+                            target_lane_index <- current_lane_index + 1;
+                            current_lane_index <- target_lane_index;
+                            lane_change_cooldown <- 25;
+                            is_merging_transition <- true;
                         } else {
-                            action_penalty <- action_penalty - 0.3;
+                            shield_intervened <- true;   // khiên ngang chặn đổi-làn-không-an-toàn
                         }
-                        target_lane_index <- current_lane_index + 1;
-                        current_lane_index <- target_lane_index;
-                        lane_change_cooldown <- 25;
-                        is_merging_transition <- true;
                     } else {
                         action_penalty <- action_penalty - 2.0;
                     }
