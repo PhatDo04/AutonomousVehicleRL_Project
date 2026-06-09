@@ -367,10 +367,16 @@ async def async_main(args: argparse.Namespace) -> None:
                 model = algo_cls.load(str(resume_path), env=env, tensorboard_log=tensorboard_log)
                 reset_counter = False  # train tiếp liền mạch (giữ step counter + optimizer)
                 print(f"  [resume] CONTINUE từ {resume_path.name} — khôi phục optimizer + counter.")
-            else:  # warmstart: model mới, chỉ nạp weights
+            else:  # warmstart: model mới, CHỈ nạp POLICY weights (optimizer mới).
+                # set_parameters() nạp CẢ optimizer state → crash khi cross-algo (PPO Adam → A2C RMSprop:
+                # KeyError 'square_avg'). Warmstart đúng nghĩa = weights-only + optimizer mới. Load riêng
+                # params["policy"] (network state_dict) → hỗ trợ PPO↔A2C, và đúng hơn cho cả PPO→PPO.
                 model = build_marl_model(args.algo, env, args.seed, tensorboard_log, ent_coef=args.ent_coef)
-                model.set_parameters(str(resume_path))
-                print(f"  [resume] WARM-START từ {resume_path.name} — chỉ nạp weights (optimizer mới).")
+                from stable_baselines3.common.save_util import load_from_zip_file
+                _, _wparams, _ = load_from_zip_file(str(resume_path), device="cpu")
+                model.policy.load_state_dict(_wparams["policy"])
+                _opt = "RMSprop" if args.algo == "a2c" else "Adam"
+                print(f"  [resume] WARM-START từ {resume_path.name} — CHỈ nạp policy weights (optimizer {_opt} mới). Hỗ trợ cross-algo PPO↔A2C.")
         else:
             model = build_marl_model(args.algo, env, args.seed, tensorboard_log, ent_coef=args.ent_coef)
         callbacks = [MARLEpisodeCSVCallback(args.algo, args.seed, metric_path)]
