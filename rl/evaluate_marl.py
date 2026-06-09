@@ -552,7 +552,7 @@ async def async_main(args: argparse.Namespace) -> None:
             print(f"  VERIFY goal-2 | highway KHÔNG decel lần nào (total=0) — KHÔNG nhường, chỉ accel/keep")
         mxn = dbg_acc.get("merge_x_n", 0)
         if mxn > 0:
-            print(f"  VERIFY merge-x | merger merge ở x trung bình = {dbg_acc['merge_x_sum']/mxn:.1f}m (road=320, accel[48-162], merge_x=180, exit=320)")
+            print(f"  VERIFY merge-x | merger merge ở x trung bình = {dbg_acc['merge_x_sum']/mxn:.1f}m (road=240, accel[48-162], merge_x=180, exit=240)")
         if args.log_actions and merging_action_counter_total:
             for agent_id in MARL_AGENTS:
                 total_actions = sum(action_counter_total[agent_id].values())

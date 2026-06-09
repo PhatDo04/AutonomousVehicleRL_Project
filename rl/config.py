@@ -100,12 +100,12 @@ class ScenarioConfig:
     ramp_spawn_prob: float = 0.5
 
 
-# 2026-06: nb_cars_max scale ×1.6 (road_length 200→320) để GIỮ NGUYÊN mật độ (cars/đơn-vị) vùng merge.
-# low 20→32, medium 45→72, high 70→112. Mật độ vật lý không đổi — chỉ tổng số xe trên đường dài hơn.
+# 2026-06: nb_cars_max scale theo road_length=240 (×1.2 từ gốc 200) để GIỮ mật độ (cars/đơn-vị) vùng merge.
+# low 20→24, medium 45→54, high 70→84. (320 từng thử nhưng gridlock-bò → rút về 240.)
 SCENARIO_PRESETS: dict[str, ScenarioConfig] = {
-    "low":    ScenarioConfig(name="low",    nb_cars_max=32,  spawn_interval=10, ramp_spawn_prob=0.3),
-    "medium": ScenarioConfig(name="medium", nb_cars_max=72,  spawn_interval=5,  ramp_spawn_prob=0.5),
-    "high":   ScenarioConfig(name="high",   nb_cars_max=112, spawn_interval=3,  ramp_spawn_prob=0.7),
+    "low":    ScenarioConfig(name="low",    nb_cars_max=24, spawn_interval=10, ramp_spawn_prob=0.3),
+    "medium": ScenarioConfig(name="medium", nb_cars_max=54, spawn_interval=5,  ramp_spawn_prob=0.5),
+    "high":   ScenarioConfig(name="high",   nb_cars_max=84, spawn_interval=3,  ramp_spawn_prob=0.7),
 }
 
 
