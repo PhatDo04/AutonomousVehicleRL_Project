@@ -19,7 +19,7 @@ global {
     float deceleration         <- 0.1;
     // IDM (Intelligent Driver Model — Treiber 2000) cho xe NPC/HDV. Tham số scaled về đơn vị sim
     // (speed∈[0,1]/cycle, x theo mét), KHÔNG phải giây thật. time_headway theo cycle.
-    float idm_time_headway     <- 4.0;   // T: desired gap = s0 + v*T → v=0.5 ⇒ net gap ~4m (≈spawn 8.3m)
+    float idm_time_headway     <- 1.5;   // T scarce (khe ~6.25m << 17.5m merger cần → buộc nhường). Curriculum: warmstart từ nền headway-2.0 (yt35) để tránh sập-từ-đầu. IDM collision-free mọi T>0.
     float idm_min_gap          <- 2.0;   // s0: bumper gap tối thiểu (mét)
     // MOBIL (Kesting/Treiber 2007) cho đổi làn HDV: an toàn + lợi ích + politeness.
     float idm_politeness       <- 0.3;   // p: mức quan tâm tới phanh ép lên xe sau làn đích
@@ -53,7 +53,7 @@ global {
     // Khoảng cách spawn giữa 3 xe highway RL (làn nhập). 22m (cũ) → khe luôn đủ rộng để merger
     // slot vào mà 3 xe KHÔNG cần nhường → không học được hợp tác. Siết xuống để tạo "tường" thật,
     // buộc merger phải chờ/né hoặc highway RL phải giảm tốc mở khe. Dùng ở 2 chỗ: spawn RL + skip NPC.
-    float hw_rl_spacing <- 22.0;
+    float hw_rl_spacing <- 11.0;
 
     float gap_front_max <- 7.0;
     float gap_front_min <- 8.0;
@@ -806,7 +806,7 @@ global {
                 bool  skip_npc <- false;
                 if (i = number_of_lanes - 1) {
                     loop hw_k from: 0 to: 2 {
-                        if (abs(nx_boot - (8.0 + hw_k * hw_rl_spacing)) < 9.0) { skip_npc <- true; }
+                        if (abs(nx_boot - (35.0 + hw_k * hw_rl_spacing)) < 9.0) { skip_npc <- true; }
                     }
                 }
                 if (not skip_npc) {
@@ -873,7 +873,7 @@ global {
             // NHƯỜNG: spawn UPSTREAM (x=8/30/52, trước/đầu accel_start=48) + tốc CHẬM hơn → xe RL highway
             // còn ở trong vùng merge ĐÚNG LÚC merger (xuất phát ramp, chậm) tới → có cơ hội học nhường.
             // (Trước: 50/100/150 + nhanh → trôi qua/ra khỏi đường trước khi merger đến → "đi quá".)
-            float hw_x_boot <- 8.0 + hw_k * hw_rl_spacing;
+            float hw_x_boot <- 35.0 + hw_k * hw_rl_spacing;
             create car number: 1 {
                 is_merging         <- false;
                 in_accel_zone      <- false;
@@ -1765,6 +1765,11 @@ species car {
     bool        merge_reward_given <- false;   // one-shot: +200 chỉ trao 1 lần tại tick merge
     bool        merge_bonus_tick   <- false;   // transient: cờ cộng +200 sau calculate_reward (tick merge)
     float       prev_speed_sw <- -1.0;         // tốc độ mẫu shockwave trước (-1=chưa mẫu) — đếm phanh gấp
+    // VERIFY goal-2: phân biệt highway giảm tốc VÌ NHƯỜNG MERGER vs VÌ XE CÙNG CỤM (car-following).
+    int         dbg_decel_total <- 0;          // tổng lần chọn decel (action 2)
+    int         dbg_decel_mrg   <- 0;          //   có merger sát <35m phía trước = nhường thật
+    int         dbg_decel_ahead <- 0;          //   có xe sát <12m phía trước = phanh-cụm (không phải nhường)
+    float       dbg_merge_x_pos <- -1.0;       // vị trí x merger TẠI LÚC merge (căn đặt RL highway)
     bool        merge_committed <- false;   // commit-to-merge: đã bấm action-3 cam kết nhập, chờ gap an toàn
     bool        collision_event <- false;
     bool        failed_merge <- false;
@@ -2112,6 +2117,11 @@ species car {
                 speed <- min(speed_max, speed + acceleration);
             } else if (action_rl = 2) {
                 speed <- max(speed_min, speed - deceleration);
+                dbg_decel_total <- dbg_decel_total + 1;
+                if (active_merger_x >= 0.0 and move_next_x < active_merger_x and (active_merger_x - move_next_x) < 35.0) {
+                    dbg_decel_mrg <- dbg_decel_mrg + 1;
+                }
+                if (ahead_gap_dx < 12.0) { dbg_decel_ahead <- dbg_decel_ahead + 1; }
             } else {
                 if (speed < 0.05) {
                     speed <- min(speed_max, speed + acceleration);
@@ -2580,6 +2590,7 @@ species car {
         // merging_0: success sau khi da nhap lane va chay gan het mainline (khong ket thuc ngay luc merge).
         if (rl_agent_id = "merging_0") {
             if (merge_success) {
+                if (dbg_merge_x_pos < 0.0) { dbg_merge_x_pos <- move_next_x; }
                 // +200 tại tick merge + KẾT THÚC ván (terminate-at-merge). REVERT post-merge-continue:
                 // 3 lần thử continue (yt10/yt11 collapse train + yt9 mislabel eval) cho thấy nó đụng độ
                 // kiến trúc episode merger-centric. Giữ terminate-at-merge = trạng thái chạy được (85%/0%).
@@ -4068,7 +4079,10 @@ species car {
                 "min_rear_gap"::min_rear_gap,
                 "cumulative_reward"::cumulative_reward,
                 "speed"::speed,
-                "agent_role"::"highway"
+                "agent_role"::"highway",
+                "dbg_decel_total"::dbg_decel_total,
+                "dbg_decel_mrg"::dbg_decel_mrg,
+                "dbg_decel_ahead"::dbg_decel_ahead
             ];
             }
         }
@@ -4117,7 +4131,8 @@ species car {
             "total_merge_success"::total_merge_success,
             "shockwave_index"::info_shockwave_index,
             "mainline_mean_speed"::sw_mean,
-            "braking_event_rate"::info_braking_rate
+            "braking_event_rate"::info_braking_rate,
+            "merge_x_pos"::dbg_merge_x_pos
         ];
     }
 

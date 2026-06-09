@@ -182,6 +182,12 @@ def parse_args() -> argparse.Namespace:
         help="(eval-continue) Số tick chạy tiếp sau merge trước khi end. Mặc định 50 (GAML). Đặt rất lớn (vd 99999) ≈ chạy tới cuối làn.",
     )
     parser.add_argument(
+        "--highway-baseline",
+        type=int,
+        default=None,
+        help="(B) A/B: ép highway dùng action cố định (1=keep không hợp tác) thay vì policy, để đo đóng góp hệ thống của RL highway. None = highway dùng policy bình thường.",
+    )
+    parser.add_argument(
         "--stochastic",
         action="store_true",
         help="Predict với deterministic=False (lấy mẫu từ phân phối policy) thay vì argmax.",
@@ -296,6 +302,8 @@ async def async_main(args: argparse.Namespace) -> None:
     highway_stats: list[EpisodeMetric] = []
     merging_action_counter_total: Counter[int] = Counter()
     action_counter_total: dict[str, Counter[int]] = {agent_id: Counter() for agent_id in MARL_AGENTS}
+    # VERIFY goal-2: gom đếm decel của highway — nhường-merger vs phanh-cụm.
+    dbg_acc: dict[str, int] = {"total": 0, "mrg": 0, "ahead": 0}
 
     # Bug #4 fix: sinh seed lon, xao tron tot cho moi episode tu RNG goc co seed.
     # Truoc day truyen args.seed+episode = 1,2,3... -> GAMA `seed <- 1.0;` khong xao tron
@@ -351,13 +359,18 @@ async def async_main(args: argparse.Namespace) -> None:
                             f"{agent_id}: obs shape {obs_arr.shape} ≠ ({ACTOR_DIM},). "
                             f"Kiểm tra AgentIndicatorParallelWrapper / obs {ACTOR_DIM}D trong evaluate_marl."
                         )
-                    a_int = _predict_marl_action(
-                        model,
-                        obs_arr,
-                        agent_id=agent_id,
-                        deterministic=deterministic,
-                        eval_mask=eval_mask,
-                    )
+                    if args.highway_baseline is not None and agent_id != "merging_0":
+                        # (B) A/B: ép highway dùng action cố định (không hợp tác) thay vì policy.
+                        # 1=keep (giữ tốc, trung tính), 0=accel (hung hăng). Merger vẫn dùng policy.
+                        a_int = int(args.highway_baseline)
+                    else:
+                        a_int = _predict_marl_action(
+                            model,
+                            obs_arr,
+                            agent_id=agent_id,
+                            deterministic=deterministic,
+                            eval_mask=eval_mask,
+                        )
                     actions[agent_id] = a_int
                     actions_ep[agent_id][a_int] += 1
                     action_counter_total[agent_id][a_int] += 1
@@ -413,6 +426,11 @@ async def async_main(args: argparse.Namespace) -> None:
                 hit_step_limit=hit_step_limit,
             )
             outcome = str(m0_info.get("outcome", "timeout"))
+            if outcome == "success":
+                mxp = float(m0_info.get("merge_x_pos", -1.0))
+                if mxp >= 0.0:
+                    dbg_acc["merge_x_sum"] = dbg_acc.get("merge_x_sum", 0.0) + mxp
+                    dbg_acc["merge_x_n"] = dbg_acc.get("merge_x_n", 0) + 1
             is_term, is_trunc = classify_episode(outcome)
             rows.append(EpisodeMetric(
                 algorithm=f"marl_{args.algo}",
@@ -445,6 +463,9 @@ async def async_main(args: argparse.Namespace) -> None:
             hw_collisions = 0
             for agent_id in MARL_HIGHWAY_AGENTS:
                 hw_info = final_info.get(agent_id, {})
+                dbg_acc["total"] += int(hw_info.get("dbg_decel_total", 0) or 0)
+                dbg_acc["mrg"] += int(hw_info.get("dbg_decel_mrg", 0) or 0)
+                dbg_acc["ahead"] += int(hw_info.get("dbg_decel_ahead", 0) or 0)
                 hw_outcome = str(hw_info.get("outcome", "unknown"))
                 hw_r = ep_rewards.get(agent_id, 0.0)
                 hw_len = ep_lengths.get(agent_id, 0)
@@ -516,6 +537,17 @@ async def async_main(args: argparse.Namespace) -> None:
         print(f"  merging_0  | success={sr:.1%}  collision={cr:.1%}  failed_merge={fm:.1%}  timeout={to:.1%}")
         print(f"  merging_0  | avg_reward={avg_r:.2f}")
         print(f"  highway    | exit_rate={hw_exit_rate:.1%}  collision_rate={hw_coll_rate:.1%}  avg_reward={hw_avg_r:.2f}")
+        dt = dbg_acc["total"]
+        if dt > 0:
+            pct_mrg = 100.0 * dbg_acc["mrg"] / dt
+            pct_ahead = 100.0 * dbg_acc["ahead"] / dt
+            print(f"  VERIFY goal-2 | highway decel={dt} | NHƯỜNG-merger(<35m)={pct_mrg:.0f}%  PHANH-cụm(xe<12m)={pct_ahead:.0f}%")
+            print(f"                | → nhường THẬT nếu %nhường-merger CAO; artifact nếu %phanh-cụm chiếm phần lớn")
+        else:
+            print(f"  VERIFY goal-2 | highway KHÔNG decel lần nào (total=0) — KHÔNG nhường, chỉ accel/keep")
+        mxn = dbg_acc.get("merge_x_n", 0)
+        if mxn > 0:
+            print(f"  VERIFY merge-x | merger merge ở x trung bình = {dbg_acc['merge_x_sum']/mxn:.1f}m (road=200, accel[48-162], merge_x=180)")
         if args.log_actions and merging_action_counter_total:
             for agent_id in MARL_AGENTS:
                 total_actions = sum(action_counter_total[agent_id].values())
