@@ -2124,7 +2124,10 @@ species car {
                     else { if (speed < 0.05) { rl_acc_pm <- acceleration; } }
                     float safe_acc_pm <- idm_acc(speed, ahead_gap_dx, ahead_speed_other);
                     float applied_pm <- min(rl_acc_pm, safe_acc_pm);
-                    if (applied_pm < rl_acc_pm - 0.001) { shield_intervened <- true; }
+                    // Intervention CHỈ tính khi KHẨN THẬT: RL muốn ĐI (accel/keep, rl_acc≥0) NHƯNG khiên
+                    // ép PHANH thật (applied<-0.05) = "khiên chiếm quyền". KHÔNG tính lúc theo-xe bình
+                    // thường (cap nhẹ accel) → tránh phạt oan làm merger đóng băng (yt41: -5 quá nặng → freeze).
+                    if (rl_acc_pm >= -0.001 and applied_pm < -0.05) { shield_intervened <- true; }
                     speed <- min(speed_max, max(0.0, speed + applied_pm));
                 } else {
                     speed <- min(speed_max, max(0.0, speed + idm_acc(speed, ahead_gap_dx, ahead_speed_other)));
@@ -4505,7 +4508,7 @@ species car {
         // nặng (−5/tick) → RL học TỰ phanh-từ-xa/điều-tốc-mượt trước khi khiên kích hoạt (goal-3 của RL,
         // không phải IDM). Phối hợp: RL = chủ động (tầm xa); khiên = phản xạ cứu phút chót (hiếm khi đạt).
         if (shield_intervened) {
-            reward_cache <- reward_cache - 5.0;
+            reward_cache <- reward_cache - 1.0;   // -5 quá nặng → merger freeze (yt41). -1 đủ biết-sai, không sợ đến mức đứng im.
         }
         if (merge_mode = 1) {
             // Trên ramp: shaping signal hướng agent vào accel zone (vùng cuối có thể merge).

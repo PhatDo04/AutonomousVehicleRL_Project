@@ -10,7 +10,7 @@ import numpy as np
 from rl.config import MARL_AGENTS, MARL_OBS_DIM, MODEL_PATH
 from rl.evaluate_marl import _predict_marl_action, load_marl_model
 from rl.gama_compat import patch_gama_gymnasium
-from rl.gama_episode_reset import reset_marl_episode
+from rl.gama_episode_reset import reset_marl_episode, _exec_global
 from rl.marl_env import AgentIndicatorParallelWrapper
 patch_gama_gymnasium()
 from gama_pettingzoo.gama_parallel_env import GamaParallelEnv
@@ -32,6 +32,11 @@ async def run(args):
         print(f"[debug] post-load experiment_id={pe.experiment_id!r} type={type(pe.experiment_id).__name__}", flush=True)
         env_ss = AgentIndicatorParallelWrapper(pe, type_only=False)
         obs, _ = env_ss.reset(seed=args.seed)
+        if args.eval_continue:
+            _exec_global(env_ss, "pz_eval_continue <- 1.0;")
+            _exec_global(env_ss, f"pz_postmerge_window <- {float(args.postmerge_window)};")
+        if args.rl_postmerge:
+            _exec_global(env_ss, "pz_rl_postmerge <- 1.0;")
         print(f"[debug] post-reset experiment_id={pe.experiment_id!r} agents={pe.agents}", flush=True)
         infos = {}
         det = not args.stochastic
@@ -39,7 +44,7 @@ async def run(args):
             for ep in range(1, args.episodes + 1):
                 if ep > 1:
                     await asyncio.sleep(args.pause_between_episodes)
-                    obs, _ = reset_marl_episode(env_ss, args.seed + ep)
+                    obs, _ = reset_marl_episode(env_ss, args.seed + ep, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window, rl_postmerge=args.rl_postmerge)
                 done, step, hist = set(), 0, Counter()
                 while step < args.max_steps and "merging_0" not in done:
                     actions = {}
@@ -82,6 +87,12 @@ def main():
     p.add_argument("--pause-between-episodes", type=float, default=1.0)
     p.add_argument("--stochastic", action="store_true")
     p.add_argument("--no-eval-mask", action="store_true")
+    p.add_argument("--eval-continue", action="store_true",
+                   help="Merger chay tiep SAU merge (khong end o merge) de xem di toi cuoi + song lui.")
+    p.add_argument("--postmerge-window", type=float, default=200.0,
+                   help="So tick chay tiep sau merge (mac dinh 200 ~ toi gan cuoi duong).")
+    p.add_argument("--rl-postmerge", action="store_true",
+                   help="RL dieu khien merger SAU merge (e2e) thay vi IDM. Dung voi model train --rl-postmerge (vd yt42).")
     asyncio.run(run(p.parse_args()))
 
 if __name__ == "__main__":
