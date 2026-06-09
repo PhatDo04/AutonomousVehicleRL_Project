@@ -19,7 +19,7 @@ global {
     float deceleration         <- 0.1;
     // IDM (Intelligent Driver Model — Treiber 2000) cho xe NPC/HDV. Tham số scaled về đơn vị sim
     // (speed∈[0,1]/cycle, x theo mét), KHÔNG phải giây thật. time_headway theo cycle.
-    float idm_time_headway     <- 1.5;   // T scarce (khe ~6.25m << 17.5m merger cần → buộc nhường). Curriculum: warmstart từ nền headway-2.0 (yt35) để tránh sập-từ-đầu. IDM collision-free mọi T>0.
+    float idm_time_headway     <- 2.5;   // T VỪA (e2e): khe followable post-merge (RL lái được, khiên hiếm fire → goal-3 của RL) NHƯNG vẫn cần nhường đôi lúc (goal-2). Cực-scarce (1.5) làm post-merge sập 90%. IDM collision-free mọi T>0.
     float idm_min_gap          <- 2.0;   // s0: bumper gap tối thiểu (mét)
     // MOBIL (Kesting/Treiber 2007) cho đổi làn HDV: an toàn + lợi ích + politeness.
     float idm_politeness       <- 0.3;   // p: mức quan tâm tới phanh ép lên xe sau làn đích
@@ -1771,6 +1771,7 @@ species car {
     int         dbg_decel_mrg   <- 0;          //   có merger sát <35m phía trước = nhường thật
     int         dbg_decel_ahead <- 0;          //   có xe sát <12m phía trước = phanh-cụm (không phải nhường)
     float       dbg_merge_x_pos <- -1.0;       // vị trí x merger TẠI LÚC merge (căn đặt RL highway)
+    bool        shield_intervened <- false;    // KHIÊN IDM-cap đã ép phanh > RL muốn (tick này) → phạt intervention cost (RL không ỷ lại)
     bool        merge_committed <- false;   // commit-to-merge: đã bấm action-3 cam kết nhập, chờ gap an toàn
     bool        collision_event <- false;
     bool        failed_merge <- false;
@@ -2100,6 +2101,7 @@ species car {
             }
         }
 
+        shield_intervened <- false;   // reset mỗi tick; post-merge block set true nếu KHIÊN ép phanh
         // merging_0: 0 giam, 2 tang. merge_mode=1: toc do trong rl_merging_behavior.
         // Sua bug "ket toc do=0": action 1 (keep_speed) khi speed=0 -> giu 0 vinh vien.
         // Kick-start nhe (+acceleration) khi speed < 0.05 de xe co the recover. Safety shield
@@ -2112,11 +2114,18 @@ species car {
                 // (RL-post-merge từng làm né-merge) bằng CURRICULUM warmstart từ nền biết-merge + phạt
                 // collision (calculate_reward) + shield nhẹ chống đâm thảm. pz_rl_postmerge=0 → IDM (cũ).
                 if (pz_rl_postmerge >= 0.5) {
-                    if (action_rl = 0) { speed <- max(0.0, speed - deceleration); }
-                    else if (action_rl = 2) { speed <- min(speed_max, speed + acceleration); }
-                    else { if (speed < 0.05) { speed <- min(speed_max, speed + acceleration); } }
-                    // Shield nhẹ: xe trước CỰC gần (<6m) → phanh khẩn (tránh đâm thảm khi RL còn học; RL vẫn quyết chính).
-                    if (ahead_gap_dx < 6.0) { speed <- max(0.0, speed - deceleration); }
+                    // RL chọn gia tốc (0=giảm, 2=tăng, khác=giữ + kick-start). KHIÊN = cap theo IDM-safe:
+                    // applied = min(rl_acc, idm_safe) → không bao giờ tăng tốc đâm đuôi (collision-free).
+                    // Khi khiên cắt RL (ép phanh > RL muốn) → shield_intervened=true → PHẠT trong reward
+                    // (intervention cost) → RL không ỷ lại, học tự phanh-từ-xa/điều-tốc-mượt (goal-3 của RL).
+                    float rl_acc_pm <- 0.0;
+                    if (action_rl = 0) { rl_acc_pm <- 0.0 - deceleration; }
+                    else if (action_rl = 2) { rl_acc_pm <- acceleration; }
+                    else { if (speed < 0.05) { rl_acc_pm <- acceleration; } }
+                    float safe_acc_pm <- idm_acc(speed, ahead_gap_dx, ahead_speed_other);
+                    float applied_pm <- min(rl_acc_pm, safe_acc_pm);
+                    if (applied_pm < rl_acc_pm - 0.001) { shield_intervened <- true; }
+                    speed <- min(speed_max, max(0.0, speed + applied_pm));
                 } else {
                     speed <- min(speed_max, max(0.0, speed + idm_acc(speed, ahead_gap_dx, ahead_speed_other)));
                 }
@@ -4492,6 +4501,12 @@ species car {
         // Base reward: -0.01/tick (time pressure) + action_penalty + speed * 0.10.
         // Hệ số speed nhỏ để không lấn át safety signals (collision -100, gap penalties).
         reward_cache <- -0.01 + action_penalty + speed * 0.10;
+        // INTERVENTION COST (post-merge): KHIÊN IDM-cap ép phanh > RL muốn = RL lái ẩu/ỷ lại → phạt
+        // nặng (−5/tick) → RL học TỰ phanh-từ-xa/điều-tốc-mượt trước khi khiên kích hoạt (goal-3 của RL,
+        // không phải IDM). Phối hợp: RL = chủ động (tầm xa); khiên = phản xạ cứu phút chót (hiếm khi đạt).
+        if (shield_intervened) {
+            reward_cache <- reward_cache - 5.0;
+        }
         if (merge_mode = 1) {
             // Trên ramp: shaping signal hướng agent vào accel zone (vùng cuối có thể merge).
             //   - Penalty nhẹ khi speed quá thấp (đứng yên trên ramp).
