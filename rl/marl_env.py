@@ -249,8 +249,9 @@ class GamaMarkovSB3VecEnv(VecEnv):
     """
 
     def __init__(self, markov_vector_env: Any, reset_on_merging_death: bool = True,
-                 postmerge_window: float | None = None) -> None:
+                 postmerge_window: float | None = None, rl_postmerge: bool = False) -> None:
         self._m = markov_vector_env
+        self._rl_postmerge = rl_postmerge   # =True → RL điều khiển merger post-merge (end-to-end, thesis)
         # TRAIN post-merge bounded: nếu set → mỗi reset bơm pz_eval_continue=1 + pz_postmerge_window
         # → episode train KHÔNG end tại merge mà chạy thêm `postmerge_window` tick (học lái post-merge).
         # KHÁC yt22 (chạy-tới-cuối, unbounded → sập): đây là cửa sổ CÓ CHẶN, episode vẫn kết thúc.
@@ -273,12 +274,15 @@ class GamaMarkovSB3VecEnv(VecEnv):
         return self._m.par_env
 
     def _inject_postmerge(self) -> None:
-        """Bơm cờ post-merge-bounded xuống GAML sau reset (GAMA reload đã reset chúng về default)."""
-        if self._postmerge_window is None:
+        """Bơm cờ post-merge xuống GAML sau reset (GAMA reload đã reset chúng về default)."""
+        if self._postmerge_window is None and not self._rl_postmerge:
             return
         from rl.gama_episode_reset import _exec_global
-        _exec_global(self._par(), "pz_eval_continue <- 1.0;")
-        _exec_global(self._par(), f"pz_postmerge_window <- {float(self._postmerge_window)};")
+        if self._postmerge_window is not None:
+            _exec_global(self._par(), "pz_eval_continue <- 1.0;")
+            _exec_global(self._par(), f"pz_postmerge_window <- {float(self._postmerge_window)};")
+        if self._rl_postmerge:
+            _exec_global(self._par(), "pz_rl_postmerge <- 1.0;")
 
     def reset(self) -> VecEnvObs:
         seed = self._seeds[0]
@@ -377,6 +381,7 @@ def make_marl_vec_env(
     config: GamaConnectionConfig | None = None,
     num_vec_envs: int = 1,
     postmerge_window: float | None = None,
+    rl_postmerge: bool = False,
 ) -> VecEnv:
     """Tạo SB3-compatible VecEnv từ GAMA PettingZoo parallel env.
 
@@ -428,7 +433,7 @@ def make_marl_vec_env(
 
     # 5. SB3 VecEnv — không dùng concat_vec_envs_v1 (pickle GAMA → lỗi coroutine).
     if num_vec_envs == 1:
-        return GamaMarkovSB3VecEnv(markov, postmerge_window=postmerge_window)
+        return GamaMarkovSB3VecEnv(markov, postmerge_window=postmerge_window, rl_postmerge=rl_postmerge)
 
     raise NotImplementedError(
         "num_vec_envs>1 cần concat_vec_envs_v1 (pickle env). GAMA bridge không pickle được; "

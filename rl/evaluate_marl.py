@@ -176,6 +176,11 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--rl-postmerge",
+        action="store_true",
+        help="(eval-continue) RL điều khiển merger SAU merge (end-to-end) thay vì IDM — khớp model train --rl-postmerge.",
+    )
+    parser.add_argument(
         "--postmerge-window",
         type=float,
         default=None,
@@ -325,7 +330,7 @@ async def async_main(args: argparse.Namespace) -> None:
                     )
                     await asyncio.sleep(args.pause_between_episodes)
                 ep_seed = int(seed_rng.integers(1, 2**31 - 1))
-                obs_dict, _ = reset_marl_episode(env_ss, ep_seed, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window)
+                obs_dict, _ = reset_marl_episode(env_ss, ep_seed, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window, rl_postmerge=args.rl_postmerge)
             # Episode 1: dùng obs sau reset khởi tạo — tránh reset GAMA lần 2 ngay đầu (UI nháy thừa).
 
             ep_rewards: dict[str, float] = {a: 0.0 for a in MARL_AGENTS}
@@ -393,7 +398,7 @@ async def async_main(args: argparse.Namespace) -> None:
                     )
                     await asyncio.sleep(3.0)
                     try:
-                        obs_dict, _ = reset_marl_episode(env_ss, ep_seed, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window)
+                        obs_dict, _ = reset_marl_episode(env_ss, ep_seed, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window, rl_postmerge=args.rl_postmerge)
                     except GamaCommandError:
                         print("  [GAMA] Chua ket noi lai — dung Ctrl+C, Play GAMA, chay lai lenh Python.")
                         raise

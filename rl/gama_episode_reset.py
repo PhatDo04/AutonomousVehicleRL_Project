@@ -37,6 +37,7 @@ def reset_marl_episode(
     seed: int | None,
     eval_continue: bool = False,
     postmerge_window: float | None = None,
+    rl_postmerge: bool = False,
 ) -> tuple[dict, dict]:
     """Reset và chờ đủ agent (bootstrap_initial_cars chạy sau cycle>0).
 
@@ -50,6 +51,8 @@ def reset_marl_episode(
         _exec_global(env_ss, "pz_eval_continue <- 1.0;")
         if postmerge_window is not None:
             _exec_global(env_ss, f"pz_postmerge_window <- {float(postmerge_window)};")
+    if rl_postmerge:
+        _exec_global(env_ss, "pz_rl_postmerge <- 1.0;")
     noop = {a: 1 for a in MARL_AGENTS}
     for _ in range(_BOOTSTRAP_STEPS):
         missing = [a for a in MARL_AGENTS if a not in obs]

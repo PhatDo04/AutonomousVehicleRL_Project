@@ -247,6 +247,15 @@ def parse_args() -> argparse.Namespace:
             "post-merge-continue unbounded từng làm merger né-merge (yt22); window có-chặn là thử nghiệm mới."
         ),
     )
+    parser.add_argument(
+        "--rl-postmerge",
+        action="store_true",
+        help=(
+            "RL điều khiển merger SAU merge (end-to-end, thesis): merger lái tiếp tới cuối đường bằng RL "
+            "(không IDM) → đo trọn hành trình + merge-không-tai-nạn-sau. Dùng kèm --postmerge-window lớn "
+            "(vd 99999 = tới cuối) + curriculum --resume-from (warmstart nền biết-merge) để chống collapse."
+        ),
+    )
     parser.add_argument("--run-name", default=None)
     parser.add_argument(
         "--resume-from",
@@ -340,7 +349,9 @@ async def async_main(args: argparse.Namespace) -> None:
         simulation_seed=args.seed,
     )
 
-    env = make_marl_vec_env(config, postmerge_window=args.postmerge_window)
+    env = make_marl_vec_env(config, postmerge_window=args.postmerge_window, rl_postmerge=args.rl_postmerge)
+    if args.rl_postmerge:
+        print(f"  [RL-post-merge] merger lái tiếp SAU merge bằng RL (end-to-end). Cần curriculum warmstart chống collapse.")
     if args.postmerge_window is not None:
         print(f"  [post-merge-bounded] TRAIN chạy tiếp {args.postmerge_window:g} tick sau merge (pz_eval_continue=1). "
               f"THỬ NGHIỆM — khác yt22 unbounded; theo dõi merge success kẻo collapse.")

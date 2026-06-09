@@ -135,6 +135,7 @@ global {
     // (terminate-at-merge, ổn định — post-merge-continue lúc TRAIN làm merger né-merge, đã xác nhận yt22).
     float pz_eval_continue <- 0.0;
     float pz_postmerge_window <- 50.0;   // EVAL-continue: chạy tiếp pz_postmerge_window tick sau merge để đo đuôi sóng lùi rồi end success (tránh chạy tới cuối đường → gridlock do highway chậm + tích lũy xe)
+    float pz_rl_postmerge <- 0.0;        // =1 → RL điều khiển merger SAU merge (end-to-end, thesis); =0 → IDM (cũ). Dùng kèm pz_eval_continue=1 + window lớn (chạy tới cuối) để đo trọn hành trình + merge-không-tai-nạn-sau.
 
     // Throughput counters: đếm tổng số xe ramp đã cố merge và số lần merge thành công.
     int total_ramp_attempts <- 0;   // Tăng khi xe ramp vào acceleration zone
@@ -2105,12 +2106,20 @@ species car {
         // M3c phia duoi (ahead_gap_dx < 12) van ep giam toc lai neu xe truoc qua gan -> khong va cham.
         if (rl_agent_id = "merging_0") {
             if (merge_mode != 1) {
-                // POST-MERGE: merger ĐÃ nhập làn → lái bằng IDM (an toàn, collision-free) thay vì RL.
-                // FIX COLLAPSE: trước đây RL điều khiển post-merge → lúc train explore lái bậy → đâm
-                // sau merge (-100) → policy học "merge = xấu" → né merge hoàn toàn (yield_test10:
-                // 100% accel, 0% merge). Cho IDM lái post-merge → merging luôn net-dương (+200, ko đâm)
-                // → merger học merge lại. Episode vẫn chạy tiếp tới cuối đường → ĐO sóng lùi sau merge.
-                speed <- min(speed_max, max(0.0, speed + idm_acc(speed, ahead_gap_dx, ahead_speed_other)));
+                // POST-MERGE control. pz_rl_postmerge=1 → RL điều khiển TIẾP (end-to-end, thesis: đo
+                // sóng lùi trọn hành trình + merge-không-tai-nạn-sau là thành công thật). merging_0
+                // longitudinal: action 0=giảm, 2=tăng, khác=giữ (kick-start nếu quá chậm). Chống collapse
+                // (RL-post-merge từng làm né-merge) bằng CURRICULUM warmstart từ nền biết-merge + phạt
+                // collision (calculate_reward) + shield nhẹ chống đâm thảm. pz_rl_postmerge=0 → IDM (cũ).
+                if (pz_rl_postmerge >= 0.5) {
+                    if (action_rl = 0) { speed <- max(0.0, speed - deceleration); }
+                    else if (action_rl = 2) { speed <- min(speed_max, speed + acceleration); }
+                    else { if (speed < 0.05) { speed <- min(speed_max, speed + acceleration); } }
+                    // Shield nhẹ: xe trước CỰC gần (<6m) → phanh khẩn (tránh đâm thảm khi RL còn học; RL vẫn quyết chính).
+                    if (ahead_gap_dx < 6.0) { speed <- max(0.0, speed - deceleration); }
+                } else {
+                    speed <- min(speed_max, max(0.0, speed + idm_acc(speed, ahead_gap_dx, ahead_speed_other)));
+                }
             }
         } else if (rl_agent_id != "") {
             if (action_rl = 0) {
