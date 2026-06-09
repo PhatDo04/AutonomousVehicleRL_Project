@@ -195,7 +195,7 @@ def build_marl_model(algo: str, env, seed: int, tensorboard_log: str, ent_coef: 
         return PPO(
             CentralizedCriticPolicy,
             env,
-            learning_rate=3e-4,
+            learning_rate=1e-4,   # hạ 3e-4→1e-4: train DÀI ổn định hơn (giảm drift rời nhường ở giai đoạn exploit / catastrophic forgetting). Goal-2 cần train lâu mà không degrade.
             n_steps=256,
             batch_size=128,
             gamma=0.99,
