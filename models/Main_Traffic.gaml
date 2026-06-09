@@ -2134,22 +2134,23 @@ species car {
                 }
             }
         } else if (rl_agent_id != "") {
-            if (action_rl = 0) {
-                speed <- min(speed_max, speed + acceleration);
-            } else if (action_rl = 2) {
-                speed <- max(speed_min, speed - deceleration);
+            // RL highway longitudinal: 0=accel, 2=decel, khác=keep. KHIÊN IDM-cap (đối xứng merger):
+            // applied = min(rl_acc, idm_safe) → collision-free → HẾT hiện tượng highway tăng tốc đâm chết.
+            // Intervention (RL muốn đi NHƯNG khiên ép phanh) → phạt trong reward (không ỷ lại).
+            float rl_acc_hw <- 0.0;
+            if (action_rl = 0) { rl_acc_hw <- acceleration; }
+            else if (action_rl = 2) {
+                rl_acc_hw <- 0.0 - deceleration;
                 dbg_decel_total <- dbg_decel_total + 1;
                 if (active_merger_x >= 0.0 and move_next_x < active_merger_x and (active_merger_x - move_next_x) < 35.0) {
                     dbg_decel_mrg <- dbg_decel_mrg + 1;
                 }
                 if (ahead_gap_dx < 12.0) { dbg_decel_ahead <- dbg_decel_ahead + 1; }
-            } else {
-                if (speed < 0.05) {
-                    speed <- min(speed_max, speed + acceleration);
-                } else {
-                    speed <- min(speed_max, max(speed_min, speed));
-                }
-            }
+            } else { if (speed < 0.05) { rl_acc_hw <- acceleration; } }
+            float safe_acc_hw <- idm_acc(speed, ahead_gap_dx, ahead_speed_other);
+            float applied_hw <- min(rl_acc_hw, safe_acc_hw);
+            if (rl_acc_hw >= -0.001 and applied_hw < -0.05) { shield_intervened <- true; }
+            speed <- min(speed_max, max(0.0, speed + applied_hw));
         } else {
             // NPC cars execution — HDV: longitudinal = IDM (mượt, collision-free, KHÔNG nhường
             // chủ động merger). action_rl (MOBIL) chỉ dùng cho lane-change ở khối dưới.
@@ -4380,6 +4381,11 @@ species car {
         //   - speed * 0.04: khuyến khích duy trì tốc độ; hệ số nhỏ để không đè safety signals.
         //   - low-speed penalty (-0.05): tránh policy "đứng yên" trên cao tốc.
         reward_cache <- action_penalty + speed * 0.04;
+        // INTERVENTION COST (đối xứng merger): khiên IDM-cap ép phanh > RL muốn = highway lái ẩu/sắp đâm
+        // → phạt -1 → highway học tự phanh-từ-xa (không tăng tốc đâm chết) + không ỷ lại khiên.
+        if (shield_intervened) {
+            reward_cache <- reward_cache - 1.0;
+        }
         if (speed < speed_max * 0.2) {
             reward_cache <- reward_cache - 0.05;
         }
