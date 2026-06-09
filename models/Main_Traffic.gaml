@@ -4,10 +4,14 @@ model HorizontalTraffic
 global {
     int   number_of_lanes <- 3;
     float lane_width      <- 3.5;
-    float road_length     <- 200.0;
+    // 2026-06: NỚI mainline sau merge (merge_x=180 → exit 320.38 = +140 đơn vị ~280 tick) để merger
+    // "đi tới CUỐI đường rồi end ván" (điều kiện sạch) + đo SÓNG LÙI trọn vẹn (trước chỉ ~20 đơn vị/~40 tick).
+    // Ramp/accel/merge (48/162/180) GIỮ NGUYÊN — chỉ kéo dài đoạn cao tốc sau merge. nb_cars_max scale ×1.6
+    // (70→112) để GIỮ mật độ vùng merge (mật độ = nb_cars_max/road_length).
+    float road_length     <- 320.0;
     // Mainline: clip thap hon nguong die 1 chut de moi tick co the vuot nguong -> die (tranh ket tai bien).
-    float road_mainline_exit_x <- 200.38;
-    float road_mainline_clip_x  <- 200.58;
+    float road_mainline_exit_x <- 320.38;
+    float road_mainline_clip_x  <- 320.58;
     float road_move_clip_x     <- 220.0; // chi dung trong nhanh merge_mode=1 (behave)
     float offset_y        <- 18.0;
 
@@ -25,7 +29,7 @@ global {
     float idm_politeness       <- 0.3;   // p: mức quan tâm tới phanh ép lên xe sau làn đích
     float idm_b_safe           <- 0.2;   // b_safe: giảm tốc tối đa cho phép ép lên xe sau khi cắt vào
     float idm_lc_threshold     <- 0.12;  // ngưỡng lợi ích tối thiểu mới đổi làn (Kesting 2007 Δa_th; 0.01 quá thấp → NPC đổi làn vô cớ; nâng ~0.12 so b_safe=0.2 → chỉ đổi khi lợi ích thật)
-    int   nb_cars_max          <- 70;   // GUI mac dinh nhe hon 45 de giam gridlock; headless co the tang qua tham so / Python
+    int   nb_cars_max          <- 112;  // road_length 200→320 → scale 70×1.6=112 GIỮ mật độ vùng merge; headless tang qua tham so / Python
     float observation_distance <- 10.0;
 
     list<point> ramp_waypoints <- [];
@@ -4717,7 +4721,7 @@ experiment TrafficSimulation type: gui {
 
     output {
         display MainView type: opengl axes: false background: rgb(46, 139, 87) {
-            camera 'default' location: {100.0, 50.0, 155.0} target: {100.0, 50.0, 0.0};
+            camera 'default' location: {160.0, 50.0, 245.0} target: {160.0, 50.0, 0.0};  // center x=160 (road 320), zoom out
 
             graphics "Infrastructure" {
                 // Nen lane tang toc / gore truoc mesh ramp (chi UI).
