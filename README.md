@@ -22,34 +22,31 @@ Kiến trúc học áp dụng **CTDE** (Centralized Training, Decentralized Exec
 - **A/B khiên an toàn** (`--shield on/off`): bật/tắt lưới an toàn của môi trường (gate nhập làn + car-following guard) cho **toàn bộ** policy → đo ảnh hưởng của khiên lên từng thuật toán một cách công bằng.
 - **Pipeline thực nghiệm tự động**: một lệnh chạy trọn bộ huấn luyện → đánh giá đa hạt giống → biểu đồ + bảng so sánh có CI95%.
 - **Traffic tái lập theo seed**: mỗi episode (baseline + eval) sinh giao thông khác nhau nhưng tái lập được và **paired** (cùng seed → cùng tình huống cho mọi policy).
-- **Bộ chỉ số đầy đủ**: tỷ lệ thành công, va chạm, thông lượng, tốc độ dòng chính, chỉ số sóng lùi (shockwave).
-- **Bảng điều khiển Streamlit**: giao diện web điều khiển toàn bộ pipeline (train/eval/experiment/theo dõi/xem kết quả/demo) — thay cho gõ lệnh tay.
+- **Bộ chỉ số đầy đủ**: tỷ lệ thành công, va chạm, thông lượng, tốc độ dòng chính, chỉ số sóng lùi (CV), **%nhường-hướng-merger** (đo hợp tác thật, không nhiễu histogram), **số lần khiên can thiệp/episode** (đo mức lệ thuộc lưới an toàn).
+- **Đánh giá end-to-end**: merger lái tiếp sau nhập làn tới cuối đường bằng RL (`--eval-continue --rl-postmerge`) — bắt được tai nạn hậu-merge + đo sóng lùi trọn hành trình.
+- **Ablation khiên** (`--no-shield`): tắt toàn bộ lưới an toàn lúc đánh giá → định lượng mức nội tâm hóa kỹ năng lái của policy.
+- **Reward shaping hiện đại**: dense progress (potential-based, Ng 1999) + phạt-khiên-tỷ-lệ theo mức cắt ga (thay binary) — hai chìa khóa giúp critic học được (explained_variance 0 → 0.85) và policy bớt ỷ khiên.
+- **Curriculum 2 giai đoạn tái lập được**: `bash train_curriculum.sh` — train from-scratch (học nhập làn → học e2e + hợp tác) không cần sửa code, xuất full learning curve.
+- **Bảng điều khiển Streamlit**: giao diện web điều khiển toàn bộ pipeline (train/eval/experiment/theo dõi/kết quả/demo/biểu đồ thesis) — thay cho gõ lệnh tay.
 
 ## Kết quả chính
 
-Ma trận đầy đủ: **3 mật độ** (low ~20 xe / medium ~45 / high ~70) × **2 chế độ khiên** (ON/OFF) × **4 chính sách**. Mỗi chính sách học: 5 hạt giống × 200k bước × 50 episode đánh giá (stochastic), traffic biến thiên theo seed.
+Chế độ đánh giá chuẩn: **end-to-end (e2e)** — xe RL nhập làn xong **tự lái tiếp tới cuối đường** (ván kết tại cuối đường; đo trọn sóng lùi + tai nạn sau nhập làn). Mật độ cao (84 xe, road 240), 10 episode/seed.
 
-**SUCCESS % — định dạng `khiên ON | khiên OFF`** (RL: mean ± std qua 5 seed):
-
-| Mật độ | MAA2C | MAPPO | Greedy | Random |
-|---|---|---|---|---|
-| low | 86.4±3.9 \| 87.2±4.1 | 83.6±11.8 \| 75.2±22.8 | 96 \| 82 | 0 \| 0 |
-| medium | **89.2±1.6** \| 84.8±3.0 | 83.6±8.6 \| 76.8±17.9 | 96 \| 2 | 0 \| 0 |
-| high | 82.8±4.3 \| 85.2±5.2 | 68.4±7.1 \| 69.6±9.4 | 74 \| **0** | 0 \| 0 |
-
-**COLLISION % (`ON | OFF`):**
-
-| Mật độ | MAA2C | MAPPO | Greedy | Random |
-|---|---|---|---|---|
-| low | 13.6 \| 12.8 | 16.0 \| 21.6 | 4 \| 18 | 100 |
-| medium | 10.8 \| 15.2 | 16.0 \| 22.4 | 0 \| **98** | 100 |
-| high | 16.4 \| 14.8 | 31.2 \| 30.4 | 22 \| **100** | 100 |
+| Model | Nguồn gốc huấn luyện | Thành công | Va chạm | Nhường (G2) | Không-khiên |
+|---|---|---|---|---|---|
+| **Curriculum 2-stage** | from scratch 600k (`train_curriculum.sh`) | 90% | 10% | 41% | 30% |
+| **yt50-150k (hợp tác)** | warmstart nhiều giai đoạn | 90% | 10% | **94%** | 10% |
+| **yt52-150k (propshield)** | yt50 + phạt khiên tỷ lệ k=5 | **100%** | **0%** | thấp | **50%** |
+| Greedy (baseline) | luật tĩnh | 40% | 60% | 0% | 0% |
 
 ### Ba kết luận chính
 
-1. **MAA2C mạnh + ổn định nhất** — 82–89% thành công ở MỌI cấu hình, std chỉ 1.6–5.2%. Vượt MAPPO cả độ chính xác lẫn độ ổn định (MAPPO std nổ tới ±23% khi không khiên).
-2. **Năng lực của Greedy là "vay mượn" từ khiên môi trường.** Có khiên: 96/96/74%. **Gỡ khiên: sụp theo mật độ → 82 / 2 / 0%** (va chạm 18/98/100%). RL thì *nội hóa* an toàn → bền (MAA2C 86→87, 89→85, 83→85%). Cùng điều kiện không-khiên, **RL thắng Greedy áp đảo** (medium 85% vs 2%, high 85% vs 0%) → đây là minh chứng giá trị của học.
-3. **Tầm quan trọng của khiên tăng theo mật độ** — low còn tha thứ (Greedy-off 82%), high thì luật tĩnh vô dụng (0%). Random = sàn 0%/100% mọi nơi.
+1. **RL thắng baseline áp đảo ở mật độ cao**: cùng toàn bộ lưới an toàn (so sánh công bằng từng lớp), RL đạt 90–100% trong khi Greedy đâm 60% (lao sớm, không khớp tốc độ). Khác biệt thuần là **chất lượng quyết định học được**: chọn khe + căn thời điểm + khớp tốc — kiểu "zipper merge".
+2. **Phổ hành vi theo trục huấn luyện**: checkpoint giữa (150k) đạt hợp tác đỉnh — highway **chủ động nhường 94%** số lần giảm tốc khi có xe nhập làn gần (Goal 2); train tiếp, hệ tiến hóa sang "tự chủ" — merger tự tìm khe tự nhiên, không cần ai nhường mà vẫn 100% (Goal 1+3 cực đại). Trade-off hợp tác ↔ lưu lượng là thật, đo được, và chọn được bằng checkpoint.
+3. **Khiên an toàn là bộ phận kiến trúc, mức lệ thuộc đo được**: ablation `--no-shield` cho thấy policy chỉ còn 10–30% khi lái trần (kỹ năng điều-tốc-tinh được ủy thác cho IDM-cap); chuyển phạt can-thiệp từ **binary −1 sang tỷ lệ mức-cắt (k=5)** nâng không-khiên lên 50% mà vẫn giữ 100% có khiên — chuỗi 10% → 30% → 50% chứng minh kỹ năng này *nội tâm hóa* dần được qua thiết kế reward.
+
+> Số liệu gốc trong `outputs/logs/` (mỗi con số truy được về file nguồn). Biểu đồ báo cáo: `python rl/make_thesis_plots.py` → `outputs/plots/fig1..fig7` (learning curve 2-stage, G1/G2/G3, ablation khiên, mức ỷ-khiên).
 
 ---
 
@@ -198,9 +195,29 @@ Tùy chọn: `--scenario low|medium|high` (mật độ) · `--shield on|off` (kh
 
 | Scenario | nb_cars_max | spawn_interval | Mô tả |
 |---|---|---|---|
-| `low` | 20 | 10 | Mật độ thấp (đường thưa) |
-| `medium` | 45 | 5 | Mật độ vừa (bộ số chính) |
-| `high` | 70 | 3 | Mật độ cao (ùn tắc) |
+| `low` | 24 | 10 | Mật độ thấp (đường thưa) |
+| `medium` | 54 | 5 | Mật độ vừa |
+| `high` | 84 | 3 | Mật độ cao (ùn tắc — bộ số chính e2e, road 240) |
+
+### Huấn luyện curriculum 2 giai đoạn (tái lập model thesis từ đầu)
+
+```bash
+bash train_curriculum.sh            # ~3h: Stage 1 học NHẬP LÀN (300k, from scratch)
+                                    #      Stage 2 học E2E + HỢP TÁC (300k, warmstart Stage 1)
+```
+
+Sau đó sweep checkpoint Stage 2 (50k…300k) bằng tab Evaluate (bật E2E) và chọn checkpoint **cân bằng 3 mục tiêu** — checkpoint cuối thường tối ưu merger nhưng quên nhường (catastrophic forgetting), nên chọn theo số liệu, không lấy mù. Learning curve ghi tại `outputs/logs/curr_stage*_episodes.csv` (tự dùng cho `make_thesis_plots.py`).
+
+### Đánh giá e2e + ablation khiên (chuẩn thesis)
+
+```powershell
+# E2E có khiên (chuẩn):
+python rl/evaluate_marl.py --algo ppo --model outputs/models/thesis_e2e_yt50_150k.zip `
+  --episodes 10 --seed 0 --port 1002 --max-episode-steps 800 `
+  --eval-continue --postmerge-window 400 --rl-postmerge
+
+# Ablation bỏ khiên (đo nội tâm hóa): thêm --no-shield
+```
 
 **Tách output theo từng lần chạy (mặc định):** mỗi lần chạy tự sinh thư mục riêng theo timestamp `<preset>_YYYYmmdd_HHMMSS` (hoặc tên `--run-tag`) cho cả model, log và plots — không bao giờ đè kết quả lần trước.
 
@@ -216,7 +233,7 @@ python -m venv .venv-ui
 .venv-ui\Scripts\streamlit run app_streamlit.py
 ```
 
-Tab **Results** hiển thị biểu đồ của đúng lần chạy đang chọn (ảnh thu nhỏ, bấm để phóng to).
+Tab **Results** hiển thị biểu đồ của đúng lần chạy đang chọn (ảnh thu nhỏ, bấm để phóng to). Tab **Evaluate** và **Play GUI** có công tắc **E2E** (chạy tới cuối đường) và **BỎ KHIÊN** (ablation). Tab **Thesis** sinh + xem bộ biểu đồ báo cáo (`make_thesis_plots.py`) và bảng model thesis.
 
 ## Phân tích kết quả
 
