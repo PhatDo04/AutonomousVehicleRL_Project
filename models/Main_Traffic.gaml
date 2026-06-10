@@ -1608,7 +1608,21 @@ species car {
     reflex die_if_out_of_road {
         if (merge_mode = 1) {
             if (move_next_x > road_move_clip_x) {
-                do die;
+                // ROOT-CAUSE FIX (value-failure/collapse yt45-49): RL agent KHÔNG `do die` ngay —
+                // petz_collect_tick chạy TRƯỚC car trong cycle → die-cùng-cycle khiến termination +
+                // reward terminal KHÔNG BAO GIỜ sang Python (tick_find_rl_car thấy dead → nil →
+                // SB3 không thấy episode boundary → black_death bơm zeros vô tận → ev≈0 → collapse).
+                // Set is_done rồi để behave dead_timer (grace 2 tick) giết xe → collect kịp đọc.
+                if (rl_agent_id != "") {
+                    if (terminal_reason = "running") {
+                        terminal_reason <- "failed_merge";
+                        reward_val <- (force_action3_only ? -150.0 : -50.0);
+                        is_done <- true;
+                        cumulative_reward <- cumulative_reward + reward_val;
+                    }
+                } else {
+                    do die;
+                }
             }
         } else {
             if (move_next_x > road_mainline_exit_x) {
@@ -1627,8 +1641,19 @@ species car {
                             cumulative_reward <- cumulative_reward + reward_val;
                         }
                     }
+                    // ROOT-CAUSE FIX: KHÔNG `do die` ngay (xem comment nhánh ramp). behave early-path
+                    // (terminal_reason != "running") sẽ dead_timer++ → die sau 2 tick → Python kịp
+                    // nhận termination=true + reward terminal → SB3 thấy episode boundary THẬT.
+                } else if (rl_agent_id != "") {
+                    // Highway RL chạy hết đường: terminal "exited" (trước đây die câm → slot zeros
+                    // vô tận + exit_rate luôn 0% trong eval). Grace die như merger.
+                    if (terminal_reason = "running") {
+                        terminal_reason <- "exited";
+                        is_done <- true;
+                    }
+                } else {
+                    do die;
                 }
-                do die;
             }
             if (move_next_y > 0.0) {
                 float y_lo_die <- offset_y - lane_width * 0.9;
