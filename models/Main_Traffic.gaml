@@ -145,6 +145,12 @@ global {
     float pz_postmerge_window <- 50.0;   // EVAL-continue: chạy tiếp pz_postmerge_window tick sau merge để đo đuôi sóng lùi rồi end success (tránh chạy tới cuối đường → gridlock do highway chậm + tích lũy xe)
     float pz_rl_postmerge <- 0.0;        // =1 → RL điều khiển merger SAU merge (end-to-end, thesis); =0 → IDM (cũ). Dùng kèm pz_eval_continue=1 + window lớn (chạy tới cuối) để đo trọn hành trình + merge-không-tai-nạn-sau.
     float pz_no_shield    <- 0.0;        // ABLATION (eval-only): =1 → BỎ khiên RL (IDM-cap dọc merger+highway, gate ngang) → policy lái TRẦN. Đo "nội tâm hóa an toàn vs ỷ khiên". KHÔNG dùng khi train.
+    // Phạt TỶ LỆ theo mức khiên cắt ga (thay binary -1): reward -= coef × (rl_acc − applied).
+    // Binary cũ chỉ kích ở pha khẩn → phần "cắt tỉa ga hằng ngày" (đa số việc của khiên) vô hình với
+    // reward → policy ủy thác điều tốc tinh cho khiên (no-shield sập). Tỷ lệ: cắt nhẹ = nhói nhẹ
+    // (~0.04/tick, cùng cỡ thưởng speed → không freeze như -5 nhị phân yt41), cắt nhiều = đau nhiều
+    // → gradient mượt ép tự hạ ga. Kỳ vọng: nội tâm hóa điều tốc, no-shield success tăng.
+    float shield_prop_coef <- 1.0;
 
     // Throughput counters: đếm tổng số xe ramp đã cố merge và số lần merge thành công.
     int total_ramp_attempts <- 0;   // Tăng khi xe ramp vào acceleration zone
@@ -1808,6 +1814,7 @@ species car {
     float       dbg_merge_x_pos <- -1.0;       // vị trí x merger TẠI LÚC merge (căn đặt RL highway)
     bool        shield_intervened <- false;    // KHIÊN IDM-cap đã ép phanh > RL muốn (tick này) → phạt intervention cost (RL không ỷ lại)
     int         shield_intervention_count <- 0; // đếm tổng lần khiên can thiệp / episode — metric "ỷ khiên" (RL học → thấp; greedy free-ride → cao)
+    float       shield_clip_amount <- 0.0;      // mức khiên cắt ga tick này (rl_acc − applied, ≥0) — đầu vào phạt tỷ lệ shield_prop_coef
     bool        merge_committed <- false;   // commit-to-merge: đã bấm action-3 cam kết nhập, chờ gap an toàn
     bool        collision_event <- false;
     bool        failed_merge <- false;
@@ -2138,6 +2145,7 @@ species car {
         }
 
         shield_intervened <- false;   // reset mỗi tick; post-merge block set true nếu KHIÊN ép phanh
+        shield_clip_amount <- 0.0;    // reset mỗi tick; các block khiên cộng mức cắt ga vào đây
         // merging_0: 0 giam, 2 tang. merge_mode=1: toc do trong rl_merging_behavior.
         // Sua bug "ket toc do=0": action 1 (keep_speed) khi speed=0 -> giu 0 vinh vien.
         // Kick-start nhe (+acceleration) khi speed < 0.05 de xe co the recover. Safety shield
@@ -2167,6 +2175,8 @@ species car {
                         // ép PHANH thật (applied<-0.05) = "khiên chiếm quyền". KHÔNG tính lúc theo-xe bình
                         // thường (cap nhẹ accel) → tránh phạt oan làm merger đóng băng (yt41: -5 nặng → freeze).
                         if (rl_acc_pm >= -0.001 and applied_pm < -0.05) { shield_intervened <- true; }
+                        // Phạt tỷ lệ: ghi mức cắt ga (kể cả cắt-nhẹ hằng ngày) → reward trừ coef×clip.
+                        shield_clip_amount <- shield_clip_amount + max(0.0, rl_acc_pm - applied_pm);
                     }
                     speed <- min(speed_max, max(0.0, speed + applied_pm));
                 } else {
@@ -2193,6 +2203,7 @@ species car {
                 applied_hw <- rl_acc_hw;   // ABLATION: bỏ khiên highway — RL lái trần
             } else {
                 if (rl_acc_hw >= -0.001 and applied_hw < -0.05) { shield_intervened <- true; }
+                shield_clip_amount <- shield_clip_amount + max(0.0, rl_acc_hw - applied_hw);
             }
             speed <- min(speed_max, max(0.0, speed + applied_hw));
         } else {
@@ -2254,6 +2265,7 @@ species car {
                             is_merging_transition <- true;
                         } else {
                             shield_intervened <- true;   // khiên ngang chặn đổi-làn-không-an-toàn
+                            shield_clip_amount <- shield_clip_amount + 0.1;   // quy đổi mức phạt tỷ lệ (cỡ deceleration)
                         }
                     } else {
                         action_penalty <- action_penalty - 2.0;
@@ -2273,6 +2285,7 @@ species car {
                             is_merging_transition <- true;
                         } else {
                             shield_intervened <- true;   // khiên ngang chặn đổi-làn-không-an-toàn
+                            shield_clip_amount <- shield_clip_amount + 0.1;   // quy đổi mức phạt tỷ lệ (cỡ deceleration)
                         }
                     } else {
                         action_penalty <- action_penalty - 2.0;
@@ -4447,9 +4460,11 @@ species car {
         // INTERVENTION COST (đối xứng merger): khiên IDM-cap ép phanh > RL muốn = highway lái ẩu/sắp đâm
         // → phạt -1 → highway học tự phanh-từ-xa (không tăng tốc đâm chết) + không ỷ lại khiên.
         if (shield_intervened) {
-            reward_cache <- reward_cache - 1.0;
             shield_intervention_count <- shield_intervention_count + 1;   // metric "ỷ khiên" (so RL vs greedy)
         }
+        // Phạt TỶ LỆ mức cắt ga (thay binary -1): cover cả cắt-nhẹ hằng ngày (trước vô hình với reward
+        // → highway ủy thác điều tốc cho khiên). Cắt nhẹ ~0.04 → nhói nhẹ; khẩn ~0.25 ≪ 1.0 cũ.
+        reward_cache <- reward_cache - shield_prop_coef * shield_clip_amount;
         if (speed < speed_max * 0.2) {
             reward_cache <- reward_cache - 0.05;
         }
@@ -4585,9 +4600,12 @@ species car {
         // nặng (−5/tick) → RL học TỰ phanh-từ-xa/điều-tốc-mượt trước khi khiên kích hoạt (goal-3 của RL,
         // không phải IDM). Phối hợp: RL = chủ động (tầm xa); khiên = phản xạ cứu phút chót (hiếm khi đạt).
         if (shield_intervened) {
-            reward_cache <- reward_cache - 1.0;   // -5 quá nặng → merger freeze (yt41). -1 đủ biết-sai, không sợ đến mức đứng im.
             shield_intervention_count <- shield_intervention_count + 1;   // metric "ỷ khiên" (so RL vs greedy)
         }
+        // Phạt TỶ LỆ mức cắt ga (thay binary -1; lịch sử: -5 gây freeze yt41, -1 chỉ kích pha khẩn →
+        // cắt-nhẹ hằng ngày vô hình → merger ủy thác điều tốc cho khiên, no-shield sập 80-90%).
+        // Tỷ lệ: gradient mượt mọi mức cắt → kỳ vọng nội tâm hóa điều tốc tinh.
+        reward_cache <- reward_cache - shield_prop_coef * shield_clip_amount;
         if (merge_mode = 1) {
             // Trên ramp: shaping signal hướng agent vào accel zone (vùng cuối có thể merge).
             //   - Penalty nhẹ khi speed quá thấp (đứng yên trên ramp).
