@@ -144,6 +144,7 @@ global {
     float pz_eval_continue <- 0.0;
     float pz_postmerge_window <- 50.0;   // EVAL-continue: chạy tiếp pz_postmerge_window tick sau merge để đo đuôi sóng lùi rồi end success (tránh chạy tới cuối đường → gridlock do highway chậm + tích lũy xe)
     float pz_rl_postmerge <- 0.0;        // =1 → RL điều khiển merger SAU merge (end-to-end, thesis); =0 → IDM (cũ). Dùng kèm pz_eval_continue=1 + window lớn (chạy tới cuối) để đo trọn hành trình + merge-không-tai-nạn-sau.
+    float pz_no_shield    <- 0.0;        // ABLATION (eval-only): =1 → BỎ khiên RL (IDM-cap dọc merger+highway, gate ngang) → policy lái TRẦN. Đo "nội tâm hóa an toàn vs ỷ khiên". KHÔNG dùng khi train.
 
     // Throughput counters: đếm tổng số xe ramp đã cố merge và số lần merge thành công.
     int total_ramp_attempts <- 0;   // Tăng khi xe ramp vào acceleration zone
@@ -2159,10 +2160,14 @@ species car {
                     else { if (speed < 0.05) { rl_acc_pm <- acceleration; } }
                     float safe_acc_pm <- idm_acc(speed, ahead_gap_dx, ahead_speed_other);
                     float applied_pm <- min(rl_acc_pm, safe_acc_pm);
-                    // Intervention CHỈ tính khi KHẨN THẬT: RL muốn ĐI (accel/keep, rl_acc≥0) NHƯNG khiên
-                    // ép PHANH thật (applied<-0.05) = "khiên chiếm quyền". KHÔNG tính lúc theo-xe bình
-                    // thường (cap nhẹ accel) → tránh phạt oan làm merger đóng băng (yt41: -5 quá nặng → freeze).
-                    if (rl_acc_pm >= -0.001 and applied_pm < -0.05) { shield_intervened <- true; }
+                    if (pz_no_shield >= 0.5) {
+                        applied_pm <- rl_acc_pm;   // ABLATION: bỏ khiên — RL lái trần (đo nội-tâm-hóa an toàn)
+                    } else {
+                        // Intervention CHỈ tính khi KHẨN THẬT: RL muốn ĐI (accel/keep, rl_acc≥0) NHƯNG khiên
+                        // ép PHANH thật (applied<-0.05) = "khiên chiếm quyền". KHÔNG tính lúc theo-xe bình
+                        // thường (cap nhẹ accel) → tránh phạt oan làm merger đóng băng (yt41: -5 nặng → freeze).
+                        if (rl_acc_pm >= -0.001 and applied_pm < -0.05) { shield_intervened <- true; }
+                    }
                     speed <- min(speed_max, max(0.0, speed + applied_pm));
                 } else {
                     speed <- min(speed_max, max(0.0, speed + idm_acc(speed, ahead_gap_dx, ahead_speed_other)));
@@ -2184,7 +2189,11 @@ species car {
             } else { if (speed < 0.05) { rl_acc_hw <- acceleration; } }
             float safe_acc_hw <- idm_acc(speed, ahead_gap_dx, ahead_speed_other);
             float applied_hw <- min(rl_acc_hw, safe_acc_hw);
-            if (rl_acc_hw >= -0.001 and applied_hw < -0.05) { shield_intervened <- true; }
+            if (pz_no_shield >= 0.5) {
+                applied_hw <- rl_acc_hw;   // ABLATION: bỏ khiên highway — RL lái trần
+            } else {
+                if (rl_acc_hw >= -0.001 and applied_hw < -0.05) { shield_intervened <- true; }
+            }
             speed <- min(speed_max, max(0.0, speed + applied_hw));
         } else {
             // NPC cars execution — HDV: longitudinal = IDM (mượt, collision-free, KHÔNG nhường
@@ -2229,7 +2238,7 @@ species car {
                         // vào gap hẹp = đâm xe/đâm HDV-hỏng (shield bất lực với va chạm ngang).
                         // CHỈ áp cho RL (rl_agent_id != ""); NPC (rl_agent_id="") đã qua MOBIL gap-check
                         // CẢ 2 HƯỚNG (a_nf_l/a_nf_r >= -b_safe, Kesting 2007) → giữ MOBIL thuần (citable).
-                        if (rl_agent_id = "" or (ahead_gap_left > 8.0 and behind_gap_left > 6.0)) {
+                        if (rl_agent_id = "" or pz_no_shield >= 0.5 or (ahead_gap_left > 8.0 and behind_gap_left > 6.0)) {
                             // Phạt đổi làn cơ bản -0.3 (nhẹ → vẫn cho phép đổi làn NÉ một lần dưới argmax,
                             // tránh xe chỉ phanh rồi rear-end). Nếu đang còn trong cooldown lần đổi trước
                             // (lane_change_cooldown>0) → ĐỔI LÀN LẶP = "đánh lái trái-phải": phạt nặng -2.1
@@ -2252,7 +2261,7 @@ species car {
                 } else if (action_rl = 4) {
                     if (current_lane_index < number_of_lanes - 1) {
                         // CHỈ áp cho RL; NPC giữ MOBIL thuần (gap-check phải sẵn có, citable).
-                        if (rl_agent_id = "" or (ahead_gap_right > 8.0 and behind_gap_right > 6.0)) {
+                        if (rl_agent_id = "" or pz_no_shield >= 0.5 or (ahead_gap_right > 8.0 and behind_gap_right > 6.0)) {
                             if (lane_change_cooldown > 0) {
                                 action_penalty <- action_penalty - 2.1;
                             } else {
