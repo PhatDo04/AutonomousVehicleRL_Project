@@ -37,6 +37,8 @@ async def run(args):
             _exec_global(env_ss, f"pz_postmerge_window <- {float(args.postmerge_window)};")
         if args.rl_postmerge:
             _exec_global(env_ss, "pz_rl_postmerge <- 1.0;")
+        if args.no_shield:
+            _exec_global(env_ss, "pz_no_shield <- 1.0;")
         print(f"[debug] post-reset experiment_id={pe.experiment_id!r} agents={pe.agents}", flush=True)
         infos = {}
         det = not args.stochastic
@@ -44,7 +46,7 @@ async def run(args):
             for ep in range(1, args.episodes + 1):
                 if ep > 1:
                     await asyncio.sleep(args.pause_between_episodes)
-                    obs, _ = reset_marl_episode(env_ss, args.seed + ep, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window, rl_postmerge=args.rl_postmerge)
+                    obs, _ = reset_marl_episode(env_ss, args.seed + ep, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window, rl_postmerge=args.rl_postmerge, no_shield=args.no_shield)
                 done, step, hist = set(), 0, Counter()
                 while step < args.max_steps and "merging_0" not in done:
                     actions = {}
@@ -80,7 +82,7 @@ def main():
     p.add_argument("--port", type=int, default=1000)
     p.add_argument("--experiment", default="TrafficSimulation")
     p.add_argument("--scenario", choices=["low", "medium", "high"], default=None,
-                   help="Va nb_cars_max vao GAML (low=20/medium=45/high=70) de khop mat do model da train. Khoi phuc sau khi chay.")
+                   help="Va nb_cars_max vao GAML (low=24/medium=54/high=84) de khop mat do model da train. Khoi phuc sau khi chay.")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--max-steps", type=int, default=500)
     p.add_argument("--step-delay", type=float, default=0.35)
@@ -93,6 +95,8 @@ def main():
                    help="So tick chay tiep sau merge (mac dinh 200 ~ toi gan cuoi duong).")
     p.add_argument("--rl-postmerge", action="store_true",
                    help="RL dieu khien merger SAU merge (e2e) thay vi IDM. Dung voi model train --rl-postmerge (vd yt42).")
+    p.add_argument("--no-shield", action="store_true",
+                   help="ABLATION: bo khien RL (IDM-cap + gate ngang) — xem policy lai TRAN tren GUI.")
     asyncio.run(run(p.parse_args()))
 
 if __name__ == "__main__":

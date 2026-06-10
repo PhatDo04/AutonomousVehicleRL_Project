@@ -92,7 +92,7 @@ c3.metric("Job", st.session_state.job.kind if _job_running() else "—",
           "đang chạy" if _job_running() else "rảnh")
 
 tabs = st.tabs(["⚙️ Config", "🟢 GAMA", "🚀 Train", "📡 Monitor",
-                "📊 Evaluate", "🧪 Experiments", "📈 Results", "▶️ Play GUI"])
+                "📊 Evaluate", "🧪 Experiments", "📈 Results", "▶️ Play GUI", "🎓 Thesis"])
 
 # ===================== CONFIG =====================
 with tabs[0]:
@@ -266,12 +266,16 @@ with tabs[4]:
         ep = st.number_input("Episodes", value=30, step=5)
         stoch = st.checkbox("Stochastic eval (cho A/B shield)", value=False)
         la = st.checkbox("Log action histogram", value=True)
+        ee2e = st.checkbox("🏁 E2E (chạy tới cuối đường — đo sóng lùi + tai nạn post-merge)", value=True, key="eval_e2e",
+                           help="--eval-continue --rl-postmerge --postmerge-window 400, max-steps 800. Chuẩn eval thesis.")
+        ens = st.checkbox("🛡️ BỎ KHIÊN (ablation nội tâm hóa)", value=False, key="eval_noshield",
+                          help="--no-shield: tắt IDM-cap + gate ngang — policy lái trần. So với có-khiên để đo mức tự lái thật.")
         if st.button("📊 Eval", disabled=_job_running() or not ez):
             if not C.port_listening(int(cfg["gama_port"])):
                 st.error("GAMA chưa chạy.")
             else:
                 job = C.launch_eval(cfg, algo=ealgo, model_zip=ez, episodes=int(ep),
-                                    stochastic=stoch, log_actions=la)
+                                    stochastic=stoch, log_actions=la, e2e=ee2e, no_shield=ens)
                 st.session_state.job = job
                 st.success(f"Eval launched (PID {job.pid}) — xem Monitor.")
 
@@ -388,13 +392,16 @@ with tabs[7]:
         pexp = pcol1.text_input("Experiment GAML", "TrafficSimulation")
         pport = pcol2.number_input("Port GAMA Desktop (GUI server)", value=1000, step=1, key="play_port",
                                    help="1000 = GAMA Desktop (Gama.exe) đang chạy experiment + hiển thị. KHÔNG dùng 1001 (headless).")
-        pscen = pcol1.selectbox("Mật độ xe (patch GAML)", C.SCENARIOS, index=1, key="play_scen",
-                                help="low/medium/high = nb_cars_max 20/45/70. Patch GAML trước khi play; "
-                                     "server Desktop nạp lại file khi play load_experiment → mật độ áp dụng.")
+        pscen = pcol1.selectbox("Mật độ xe (patch GAML)", C.SCENARIOS, index=2, key="play_scen",
+                                help="low/medium/high = nb_cars_max 24/54/84 (road 240). Patch GAML trước khi play; "
+                                     "server Desktop nạp lại file khi play load_experiment → mật độ áp dụng. "
+                                     "⚠️ Patch này từng lẫn vào commit khi play bị kill — restore GAML sau khi xem.")
         pdelay = st.slider("Độ trễ mỗi bước (giây) — chậm để dễ nhìn", 0.0, 1.0, 0.35, 0.05)
         pstoch = st.checkbox("Stochastic (lấy mẫu thay vì argmax)", value=False, key="play_stoch")
-        pe2e = st.checkbox("🏁 Đi tới cuối (e2e: RL lái tiếp sau merge, không end ở merge)", value=False, key="play_e2e",
-                           help="Bật cho model train --rl-postmerge (vd goal2_e2e_300k): merger nhập làn xong CHẠY TIẾP tới ~cuối đường bằng RL + đo sóng lùi. TẮT = end ngay khi merge (terminate).")
+        pe2e = st.checkbox("🏁 Đi tới cuối (e2e: RL lái tiếp sau merge, không end ở merge)", value=True, key="play_e2e",
+                           help="Bật cho model train --rl-postmerge (vd thesis_e2e_yt50_150k): merger nhập làn xong CHẠY TIẾP tới cuối đường bằng RL, ván kết tại cuối đường. TẮT = end ngay khi merge (terminate).")
+        pns = st.checkbox("🛡️ BỎ KHIÊN (xem policy lái trần — demo ablation)", value=False, key="play_noshield",
+                          help="Tắt IDM-cap + gate ngang trên GUI. Kỳ vọng: model thường sẽ đâm nhiều hơn — minh họa vai trò khiên.")
         if st.button("▶️ Chạy Play GUI", type="primary", disabled=_job_running() or not pz):
             if not C.port_listening(int(pport)):
                 st.error(f"❌ Không có GAMA server ở port {int(pport)}. Mở **Gama.exe** → chạy experiment "
@@ -402,7 +409,7 @@ with tabs[7]:
             else:
                 job, pmsg = C.launch_play(cfg, algo=pa, model_zip=pz, episodes=int(pep),
                                           experiment=pexp, port=int(pport), step_delay=float(pdelay),
-                                          stochastic=pstoch, scenario=pscen, e2e=pe2e)
+                                          stochastic=pstoch, scenario=pscen, e2e=pe2e, no_shield=pns)
                 st.session_state.job = job
                 if pmsg:
                     st.info(pmsg)
@@ -414,3 +421,39 @@ with tabs[7]:
             st.warning(C.kill_job(st.session_state.job)["msg"])
             st.session_state.job = None
             st.rerun()
+
+# ===================== THESIS =====================
+with tabs[8]:
+    st.subheader("🎓 Biểu đồ & model thesis")
+    st.caption("Bộ hình PNG 300dpi cho báo cáo — sinh bởi rl/make_thesis_plots.py từ CSV train/eval. "
+               "Số liệu bar chart lấy từ bảng SUMMARY đã kiểm chứng trong script (kèm nguồn log).")
+
+    pl_dir = Path(cfg["project_dir"]) / "outputs" / "plots" if cfg.get("project_dir") else Path("outputs/plots")
+    if st.button("🖼️ Tạo / làm mới biểu đồ", disabled=_job_running()):
+        import subprocess as _sp
+        r = _sp.run([cfg["venv_python"], "rl/make_thesis_plots.py"],
+                    cwd=cfg.get("project_dir") or ".", capture_output=True, text=True,
+                    encoding="utf-8", errors="replace")
+        if r.returncode == 0:
+            st.success("Đã xuất biểu đồ vào outputs/plots/")
+        else:
+            st.error(f"Lỗi: {r.stderr[-800:]}")
+
+    figs = sorted(pl_dir.glob("fig*.png")) if pl_dir.exists() else []
+    if figs:
+        png_gallery(figs, "thesis", cols_per_row=2)
+    else:
+        st.info("Chưa có biểu đồ — bấm nút trên để tạo.")
+
+    st.divider()
+    st.markdown("**Model thesis (eval @ mật độ cao 84, road 240, e2e):**")
+    st.table([
+        {"Model": "thesis_curriculum_final.zip", "Nguồn": "curriculum 2-stage from-scratch (600k)",
+         "Success": "90%", "Nhường": "41%", "No-shield": "30%"},
+        {"Model": "thesis_e2e_yt50_150k.zip", "Nguồn": "warmstart lineage (~2-3M tích lũy)",
+         "Success": "90%", "Nhường": "94%", "No-shield": "10%"},
+        {"Model": "yt52_propshield5_150000_steps.zip", "Nguồn": "yt50-150k + phạt khiên tỷ lệ k=5",
+         "Success": "100%", "Nhường": "thấp", "No-shield": "50%"},
+    ])
+    st.caption("Train lại từ đầu: `bash train_curriculum.sh` (2 stage, ~3h) — learning curve ghi vào "
+               "outputs/logs/curr_stage*_episodes.csv, tự dùng cho biểu đồ ở trên.")

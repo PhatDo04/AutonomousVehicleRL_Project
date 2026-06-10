@@ -83,8 +83,8 @@ def greedy_merging_action(obs: np.ndarray) -> int:
     """greedy (merging): tham lam — tăng tốc + merge SỚM, không chờ/không phanh phòng bị.
 
     Baseline tham lam (non-learning) so với PPO/A2C. Merging obs index: [4]=in_accel_zone.
-    - Trong accel zone → luôn thử merge (action 3). GAML gate is_merge_gap_safe() nên merge chỉ
-      thực thi khi an toàn — greedy thử mỗi bước (sớm) thay vì chờ khe tốt hơn như chính sách học.
+    - Trong accel zone → luôn thử merge (action 3) NGAY bước đầu tiên — không chờ khe/khớp tốc
+      (gate is_merge_gap_safe đã TẮT trong Python mode cho mọi policy → merge thực thi bất kể gap).
     - Ngoài zone → luôn tăng tốc (action 2). Va chạm dọc được khiên môi trường (M3c) né phản ứng,
       giống move-forward-greedy của NetLogo (tham lam + né phản ứng).
     """
@@ -101,8 +101,8 @@ def greedy_highway_action(obs: np.ndarray) -> int:
     [4]=left-ahead dist, [8]=right-ahead dist (tất cả normalize /100m). Action highway:
     0=accel, 1=keep, 2=decel, 3=lane_left, 4=lane_right.
 
-    Khiên M3c chỉ chặn đâm đuôi CÙNG LÀN; va chạm NGANG khi đổi làn KHÔNG được che → greedy đổi
-    làn để vượt mà không xét kỹ xe sau ([6]/[10]) nên thỉnh thoảng vẫn va chạm (đúng kiểu lái ẩu).
+    Đổi làn đi qua gate ngang của env (chặn khi gap thiếu) như mọi policy lái slot RL — khác biệt
+    của greedy nằm ở Ý ĐỊNH (luôn vượt/luôn max ga), không phải ở lưới an toàn.
     """
     own_lane = float(obs[1])
     ahead = float(obs[2])

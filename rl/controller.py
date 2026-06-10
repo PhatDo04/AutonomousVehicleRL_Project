@@ -322,7 +322,9 @@ def launch_train_multiseed(
 
 
 def launch_eval(cfg: dict, *, algo: str, model_zip: str, episodes: int,
-                stochastic: bool, log_actions: bool, out_csv: str | None = None) -> Job:
+                stochastic: bool, log_actions: bool, out_csv: str | None = None,
+                e2e: bool = False, postmerge_window: float = 400.0,
+                no_shield: bool = False, max_episode_steps: int | None = None) -> Job:
     args = [
         "rl/evaluate_marl.py", "--algo", algo, "--model", model_zip,
         "--episodes", str(episodes), "--port", str(cfg["gama_port"]),
@@ -333,6 +335,16 @@ def launch_eval(cfg: dict, *, algo: str, model_zip: str, episodes: int,
         args.append("--log-actions")
     if out_csv:
         args += ["--out", out_csv]
+    if e2e:
+        # E2E: merger chạy tiếp sau merge tới cuối đường (đo sóng lùi + tai nạn post-merge).
+        args += ["--eval-continue", "--rl-postmerge", "--postmerge-window", str(float(postmerge_window))]
+        if max_episode_steps is None:
+            max_episode_steps = 800  # đủ cho hành trình e2e road-240
+    if no_shield:
+        # Ablation: bỏ khiên (IDM-cap + gate ngang) — đo mức nội tâm hóa an toàn của policy.
+        args.append("--no-shield")
+    if max_episode_steps is not None:
+        args += ["--max-episode-steps", str(int(max_episode_steps))]
     return _launch(cfg, args, f"eval_{time.strftime('%Y%m%d_%H%M%S')}.log", "eval")
 
 
@@ -378,7 +390,8 @@ def launch_play(cfg: dict, *, algo: str, model_zip: str, episodes: int,
                 experiment: str = "TrafficSimulation", port: int = 1000,
                 step_delay: float = 0.35, stochastic: bool = False,
                 scenario: str | None = None,
-                e2e: bool = False, postmerge_window: float = 200.0) -> tuple[Job, str]:
+                e2e: bool = False, postmerge_window: float = 200.0,
+                no_shield: bool = False) -> tuple[Job, str]:
     """Chạy play_marl_gui.py: Python load zip → điều khiển GAMA Desktop (port serve có hiển thị)
     chạy experiment GUI để XEM model. Nếu scenario != None: PATCH density GAML trước — play gọi
     load_experiment(gaml) nên server Desktop nạp lại file đã patch → mật độ xe áp dụng.
@@ -401,6 +414,8 @@ def launch_play(cfg: dict, *, algo: str, model_zip: str, episodes: int,
         # max-steps 1300 đủ cho merger đi tới exit (road-240: merge~step130 + bò ~960 tick). Model bò-stall/
         # collapse sẽ timeout ở 1300 (demo model sạch như yt43). postmerge_window param bị bỏ qua khi e2e GUI.
         args += ["--eval-continue", "--rl-postmerge", "--postmerge-window", "99999", "--max-steps", "1300"]
+    if no_shield:
+        args.append("--no-shield")
     job = _launch(cfg, args, f"play_{time.strftime('%Y%m%d_%H%M%S')}.log", "play")
     return job, patch_msg
 
