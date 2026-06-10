@@ -150,7 +150,10 @@ global {
     // reward → policy ủy thác điều tốc tinh cho khiên (no-shield sập). Tỷ lệ: cắt nhẹ = nhói nhẹ
     // (~0.04/tick, cùng cỡ thưởng speed → không freeze như -5 nhị phân yt41), cắt nhiều = đau nhiều
     // → gradient mượt ép tự hạ ga. Kỳ vọng: nội tâm hóa điều tốc, no-shield success tăng.
-    float shield_prop_coef <- 1.0;
+    // k=1.0 → no-shield success 10%→30% sau 200k (đúng hướng nhưng yếu: clip thường 0.04/tick bị
+    // progress reward ~0.42/tick lấn). k=5.0: clip thường 0.2/tick (so được progress), pha khẩn
+    // 1.25 (~binary cũ). Progress reward giữ neo chống freeze (đứng im = mất progress lớn hơn).
+    float shield_prop_coef <- 5.0;
 
     // Throughput counters: đếm tổng số xe ramp đã cố merge và số lần merge thành công.
     int total_ramp_attempts <- 0;   // Tăng khi xe ramp vào acceleration zone
