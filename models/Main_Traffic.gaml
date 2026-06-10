@@ -29,7 +29,7 @@ global {
     float idm_politeness       <- 0.3;   // p: mức quan tâm tới phanh ép lên xe sau làn đích
     float idm_b_safe           <- 0.2;   // b_safe: giảm tốc tối đa cho phép ép lên xe sau khi cắt vào
     float idm_lc_threshold     <- 0.12;  // ngưỡng lợi ích tối thiểu mới đổi làn (Kesting 2007 Δa_th; 0.01 quá thấp → NPC đổi làn vô cớ; nâng ~0.12 so b_safe=0.2 → chỉ đổi khi lợi ích thật)
-    int   nb_cars_max          <- 84;   // road_length 240 → 70×240/200=84 GIỮ mật độ vùng merge; headless tang qua tham so / Python
+    int   nb_cars_max          <- 54;   // road_length 240 → 70×240/200=84 GIỮ mật độ vùng merge; headless tang qua tham so / Python
     float observation_distance <- 10.0;
 
     list<point> ramp_waypoints <- [];
@@ -100,6 +100,10 @@ global {
     // GLOBAL/REGIONAL reward coef (MARL4AV local+global): thưởng highway theo flow dòng chính (sw_mean).
     // Chống gridlock attractor (gridlock→sw_mean=0→mất thưởng). Đặt 0 để tắt.
     float global_flow_coef <- 0.3;
+    // C-fix value-failure: DENSE PROGRESS SHAPING (Ng 1999 potential-based) cho merger. Thưởng tiến-tới-đích
+    // per-tick (coef × Δ(x/exit)) thay vì chỉ sparse +200 → returns MƯỢT → critic học được (ev>0) → hết
+    // collapse/fragile. Telescope ~coef tổng cả hành trình. Sparse merge bonus giảm 200→50 (bớt spike variance).
+    float merge_progress_coef <- 200.0;
     // SVO/REGIONAL reward (MARL4AV — cơ chế cooperation chính): highway nhận PHẦN reward của merger
     // khi merger GẦN (trong merge zone). merger merge thành công (+200) gần highway nào → highway đó
     // hưởng social_coef×200 → việc NHƯỜNG (mở khe để merger merge gần mình) trở nên tự-lợi → goal 2.
@@ -921,7 +925,7 @@ global {
     reflex spawn_ramp_tickup {
         spawn_ramp_tick <- spawn_ramp_tick + 1;
         spawn_ramp_due <- false;
-        if (spawn_ramp_tick >= 3) {
+        if (spawn_ramp_tick >= 5) {
             spawn_ramp_tick <- 0;
             if (ramp_wp0_ready) {
                 spawn_ramp_due <- true;
@@ -1767,8 +1771,9 @@ species car {
     float       min_rear_gap <- 999.0;
     string      terminal_reason <- "running";
     bool        merge_success <- false;
-    bool        merge_reward_given <- false;   // one-shot: +200 chỉ trao 1 lần tại tick merge
-    bool        merge_bonus_tick   <- false;   // transient: cờ cộng +200 sau calculate_reward (tick merge)
+    bool        merge_reward_given <- false;   // one-shot: +50 chỉ trao 1 lần tại tick merge
+    bool        merge_bonus_tick   <- false;   // transient: cờ cộng +50 sau calculate_reward (tick merge)
+    float       merger_prev_progress <- 0.0;   // dense progress shaping: x/exit tick trước (xe tạo mới = 0.0)
     float       prev_speed_sw <- -1.0;         // tốc độ mẫu shockwave trước (-1=chưa mẫu) — đếm phanh gấp
     // VERIFY goal-2: phân biệt highway giảm tốc VÌ NHƯỜNG MERGER vs VÌ XE CÙNG CỤM (car-following).
     int         dbg_decel_total <- 0;          // tổng lần chọn decel (action 2)
@@ -2643,8 +2648,8 @@ species car {
                 // bằng braking_event_rate (in-episode), không cần chạy tiếp sau merge.
                 if (commit_to_merge and merge_mode != 1) {
                     if (pz_eval_continue < 0.5) {
-                        // TRAIN: terminate-at-merge (ổn định).
-                        reward_val <- 200.0;
+                        // TRAIN: terminate-at-merge (ổn định). +50 (giảm từ 200) — dense progress bù phần còn lại.
+                        reward_val <- 50.0;
                         terminal_reason <- "success";
                         is_done <- true;
                         pz_block_merging_respawn <- true;
@@ -2675,7 +2680,7 @@ species car {
 
         reward_val <- calculate_reward();
         if (merge_bonus_tick) {
-            reward_val <- reward_val + 200.0;
+            reward_val <- reward_val + 50.0;   // giảm 200→50: dense progress shaping bù phần còn lại (returns mượt)
             merge_bonus_tick <- false;
         }
         cumulative_reward <- cumulative_reward + reward_val;
@@ -4531,6 +4536,13 @@ species car {
         // Base reward: -0.01/tick (time pressure) + action_penalty + speed * 0.10.
         // Hệ số speed nhỏ để không lấn át safety signals (collision -100, gap penalties).
         reward_cache <- -0.01 + action_penalty + speed * 0.10;
+        // DENSE PROGRESS SHAPING (C-fix value-failure, Ng 1999 potential-based): Φ = x/exit (0→1 cả hành
+        // trình ramp→merge→exit). F = coef×(Φ_now − Φ_prev) = tiến bộ tick này (dương khi tiến, ~0 khi bò/đứng).
+        // Telescope tổng ~coef cả journey → tín hiệu DÀY THAY sparse +50 → returns MƯỢT → critic fit được
+        // (ev>0) → phá fragility/collapse. Bò chậm = ít progress reward → cũng đẩy merger giữ tốc (lợi goal-3).
+        float cur_prog <- min(1.0, max(0.0, move_next_x / road_mainline_exit_x));
+        reward_cache <- reward_cache + merge_progress_coef * (cur_prog - merger_prev_progress);
+        merger_prev_progress <- cur_prog;
         // INTERVENTION COST (post-merge): KHIÊN IDM-cap ép phanh > RL muốn = RL lái ẩu/ỷ lại → phạt
         // nặng (−5/tick) → RL học TỰ phanh-từ-xa/điều-tốc-mượt trước khi khiên kích hoạt (goal-3 của RL,
         // không phải IDM). Phối hợp: RL = chủ động (tầm xa); khiên = phản xạ cứu phút chót (hiếm khi đạt).
