@@ -1806,6 +1806,7 @@ species car {
     int         dbg_decel_ahead <- 0;          //   có xe sát <12m phía trước = phanh-cụm (không phải nhường)
     float       dbg_merge_x_pos <- -1.0;       // vị trí x merger TẠI LÚC merge (căn đặt RL highway)
     bool        shield_intervened <- false;    // KHIÊN IDM-cap đã ép phanh > RL muốn (tick này) → phạt intervention cost (RL không ỷ lại)
+    int         shield_intervention_count <- 0; // đếm tổng lần khiên can thiệp / episode — metric "ỷ khiên" (RL học → thấp; greedy free-ride → cao)
     bool        merge_committed <- false;   // commit-to-merge: đã bấm action-3 cam kết nhập, chờ gap an toàn
     bool        collision_event <- false;
     bool        failed_merge <- false;
@@ -4155,7 +4156,8 @@ species car {
                 "agent_role"::"highway",
                 "dbg_decel_total"::dbg_decel_total,
                 "dbg_decel_mrg"::dbg_decel_mrg,
-                "dbg_decel_ahead"::dbg_decel_ahead
+                "dbg_decel_ahead"::dbg_decel_ahead,
+                "shield_interventions"::shield_intervention_count
             ];
             }
         }
@@ -4205,7 +4207,8 @@ species car {
             "shockwave_index"::info_shockwave_index,
             "mainline_mean_speed"::sw_mean,
             "braking_event_rate"::info_braking_rate,
-            "merge_x_pos"::dbg_merge_x_pos
+            "merge_x_pos"::dbg_merge_x_pos,
+            "shield_interventions"::shield_intervention_count
         ];
     }
 
@@ -4436,6 +4439,7 @@ species car {
         // → phạt -1 → highway học tự phanh-từ-xa (không tăng tốc đâm chết) + không ỷ lại khiên.
         if (shield_intervened) {
             reward_cache <- reward_cache - 1.0;
+            shield_intervention_count <- shield_intervention_count + 1;   // metric "ỷ khiên" (so RL vs greedy)
         }
         if (speed < speed_max * 0.2) {
             reward_cache <- reward_cache - 0.05;
@@ -4573,6 +4577,7 @@ species car {
         // không phải IDM). Phối hợp: RL = chủ động (tầm xa); khiên = phản xạ cứu phút chót (hiếm khi đạt).
         if (shield_intervened) {
             reward_cache <- reward_cache - 1.0;   // -5 quá nặng → merger freeze (yt41). -1 đủ biết-sai, không sợ đến mức đứng im.
+            shield_intervention_count <- shield_intervention_count + 1;   // metric "ỷ khiên" (so RL vs greedy)
         }
         if (merge_mode = 1) {
             // Trên ramp: shaping signal hướng agent vào accel zone (vùng cuối có thể merge).

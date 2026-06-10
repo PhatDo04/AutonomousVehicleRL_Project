@@ -436,6 +436,7 @@ async def async_main(args: argparse.Namespace) -> None:
                 if mxp >= 0.0:
                     dbg_acc["merge_x_sum"] = dbg_acc.get("merge_x_sum", 0.0) + mxp
                     dbg_acc["merge_x_n"] = dbg_acc.get("merge_x_n", 0) + 1
+            dbg_acc["shield_mrg"] = dbg_acc.get("shield_mrg", 0) + int(m0_info.get("shield_interventions", 0) or 0)
             is_term, is_trunc = classify_episode(outcome)
             rows.append(EpisodeMetric(
                 algorithm=f"marl_{args.algo}",
@@ -471,6 +472,8 @@ async def async_main(args: argparse.Namespace) -> None:
                 dbg_acc["total"] += int(hw_info.get("dbg_decel_total", 0) or 0)
                 dbg_acc["mrg"] += int(hw_info.get("dbg_decel_mrg", 0) or 0)
                 dbg_acc["ahead"] += int(hw_info.get("dbg_decel_ahead", 0) or 0)
+                # Metric "ỷ khiên": tổng lần khiên can thiệp (RL học tự-phanh → thấp; greedy free-ride → cao)
+                dbg_acc["shield_hw"] = dbg_acc.get("shield_hw", 0) + int(hw_info.get("shield_interventions", 0) or 0)
                 hw_outcome = str(hw_info.get("outcome", "unknown"))
                 hw_r = ep_rewards.get(agent_id, 0.0)
                 hw_len = ep_lengths.get(agent_id, 0)
@@ -553,6 +556,10 @@ async def async_main(args: argparse.Namespace) -> None:
         mxn = dbg_acc.get("merge_x_n", 0)
         if mxn > 0:
             print(f"  VERIFY merge-x | merger merge ở x trung bình = {dbg_acc['merge_x_sum']/mxn:.1f}m (road=240, accel[48-162], merge_x=180, exit=240)")
+        n_eps = max(1, args.episodes)
+        sh_m = dbg_acc.get("shield_mrg", 0) / n_eps
+        sh_h = dbg_acc.get("shield_hw", 0) / n_eps
+        print(f"  VERIFY ỷ-khiên | khiên can thiệp/ván: merger={sh_m:.1f}  highway(3 xe)={sh_h:.1f} — thấp = tự lái thật; cao = khiên gánh")
         if args.log_actions and merging_action_counter_total:
             for agent_id in MARL_AGENTS:
                 total_actions = sum(action_counter_total[agent_id].values())

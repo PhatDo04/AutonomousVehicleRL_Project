@@ -227,9 +227,15 @@ async def async_main(args: argparse.Namespace) -> None:
                     info=m0_info,
                 )
             )
+            # Metric "ỷ khiên" (so công bằng với RL): khiên can thiệp bao nhiêu lần/ván.
+            sh_m = int(m0_info.get("shield_interventions", 0) or 0)
+            sh_h = 0
+            for aid, ai in {**last_infos, **final_info}.items():
+                if aid != "merging_0" and isinstance(ai, dict):
+                    sh_h += int(ai.get("shield_interventions", 0) or 0)
             print(
                 f"episode={episode} reward={ep_reward:.2f} length={length} "
-                f"outcome={rows[-1].outcome}"
+                f"outcome={rows[-1].outcome} shield_mrg={sh_m} shield_hw={sh_h}"
             )
     finally:
         if parallel_env is not None:
