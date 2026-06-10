@@ -71,6 +71,9 @@ def parse_args() -> argparse.Namespace:
                         help="Merger chạy tiếp sau merge để đo ĐUÔI SÓNG LÙI (đo goal-3 thật).")
     parser.add_argument("--postmerge-window", type=float, default=None,
                         help="(eval-continue) Số tick chạy tiếp sau merge. Mặc định 50 (GAML).")
+    parser.add_argument("--rl-postmerge", action="store_true",
+                        help="Policy (greedy) điều khiển merger SAU merge thay vì IDM — CÙNG cơ chế với RL "
+                             "--rl-postmerge (cùng khiên IDM-cap) → so sánh e2e CÔNG BẰNG.")
     return parser.parse_args()
 
 
@@ -149,14 +152,14 @@ async def async_main(args: argparse.Namespace) -> None:
             gama_port=config.port,
         )
         env_ss = AgentIndicatorParallelWrapper(parallel_env, type_only=False)
-        obs_dict, _ = reset_marl_episode(env_ss, args.seed, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window)
+        obs_dict, _ = reset_marl_episode(env_ss, args.seed, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window, rl_postmerge=args.rl_postmerge)
         missing = [a for a in MARL_AGENTS if a not in obs_dict]
         if missing:
             raise RuntimeError(f"Thiếu agent MARL: {missing}. Kiểm tra GAML / GAMA headless.")
 
         for episode in range(1, args.episodes + 1):
             ep_seed = int(seed_rng.integers(1, 2**31 - 1))
-            obs_dict, _ = reset_marl_episode(env_ss, ep_seed, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window)
+            obs_dict, _ = reset_marl_episode(env_ss, ep_seed, eval_continue=args.eval_continue, postmerge_window=args.postmerge_window, rl_postmerge=args.rl_postmerge)
             ep_reward = 0.0
             length = 0
             done_agents: set[str] = set()
