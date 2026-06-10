@@ -395,8 +395,12 @@ def launch_play(cfg: dict, *, algo: str, model_zip: str, episodes: int,
     if stochastic:
         args.append("--stochastic")
     if e2e:
-        # e2e: merger chạy tiếp tới ~cuối đường bằng RL (không end ở merge, không IDM) — xem trọn hành trình.
-        args += ["--eval-continue", "--rl-postmerge", "--postmerge-window", str(float(postmerge_window))]
+        # e2e GUI: merger chạy tiếp tới CUỐI ĐƯỜNG bằng RL rồi END ngay tại đó (die_if_out_of_road @ exit).
+        # window LỚN (99999) → road-end là điều kiện kết, KHÔNG bị cắt giữa chừng ở merge+window (trước đây
+        # window=200 → ván kết ở ~giữa đường, ramp tới cuối thì episode đã kết từ lâu → "không kết tại cuối").
+        # max-steps 1300 đủ cho merger đi tới exit (road-240: merge~step130 + bò ~960 tick). Model bò-stall/
+        # collapse sẽ timeout ở 1300 (demo model sạch như yt43). postmerge_window param bị bỏ qua khi e2e GUI.
+        args += ["--eval-continue", "--rl-postmerge", "--postmerge-window", "99999", "--max-steps", "1300"]
     job = _launch(cfg, args, f"play_{time.strftime('%Y%m%d_%H%M%S')}.log", "play")
     return job, patch_msg
 
