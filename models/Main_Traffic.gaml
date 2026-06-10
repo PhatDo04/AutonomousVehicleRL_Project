@@ -29,7 +29,7 @@ global {
     float idm_politeness       <- 0.3;   // p: mức quan tâm tới phanh ép lên xe sau làn đích
     float idm_b_safe           <- 0.2;   // b_safe: giảm tốc tối đa cho phép ép lên xe sau khi cắt vào
     float idm_lc_threshold     <- 0.12;  // ngưỡng lợi ích tối thiểu mới đổi làn (Kesting 2007 Δa_th; 0.01 quá thấp → NPC đổi làn vô cớ; nâng ~0.12 so b_safe=0.2 → chỉ đổi khi lợi ích thật)
-    int   nb_cars_max          <- 54;   // road_length 240 → 70×240/200=84 GIỮ mật độ vùng merge; headless tang qua tham so / Python
+    int   nb_cars_max          <- 84;   // road_length 240 → 70×240/200=84 GIỮ mật độ vùng merge; headless tang qua tham so / Python
     float observation_distance <- 10.0;
 
     list<point> ramp_waypoints <- [];
