@@ -278,6 +278,12 @@ def parse_args() -> argparse.Namespace:
         help="Nếu >0, lưu checkpoint mỗi N timesteps để chọn best model sau train.",
     )
     parser.add_argument(
+        "--norm-reward",
+        action="store_true",
+        help="Bọc VecNormalize(norm_reward=True) chống value-failure (ev≈0) ở e2e train do reward-scale "
+             "mismatch (+200 vs ±1). Chỉ chuẩn reward (norm_obs=False) → eval/policy không đổi.",
+    )
+    parser.add_argument(
         "--ent-coef",
         type=float,
         default=0.05,
@@ -350,6 +356,15 @@ async def async_main(args: argparse.Namespace) -> None:
     )
 
     env = make_marl_vec_env(config, postmerge_window=args.postmerge_window, rl_postmerge=args.rl_postmerge)
+    if args.norm_reward:
+        # C-FIX value-failure: e2e train có explained_variance≈0 + value_loss≈1e-6 (critic KHÔNG học được
+        # do reward-scale mismatch: merge +200 sparse vs per-tick ±1 trên horizon dài → returns dải động
+        # quá rộng → critic không fit → advantage rác → collapse policy warmstart). VecNormalize(norm_reward)
+        # chuẩn hoá return-scale → critic fit được → ev tăng → hết collapse. norm_obs=False (obs đã [0,1] sẵn
+        # trong GAML → policy/actor thấy obs THÔ → eval (PPO.load + predict obs thô) KHÔNG cần load stats).
+        from stable_baselines3.common.vec_env import VecNormalize
+        env = VecNormalize(env, norm_obs=False, norm_reward=True, gamma=0.99, clip_reward=10.0)
+        print(f"  [norm-reward] VecNormalize(norm_reward=True) — chuẩn hoá return-scale chống value-failure (ev≈0).")
     if args.rl_postmerge:
         print(f"  [RL-post-merge] merger lái tiếp SAU merge bằng RL (end-to-end). Cần curriculum warmstart chống collapse.")
     if args.postmerge_window is not None:
