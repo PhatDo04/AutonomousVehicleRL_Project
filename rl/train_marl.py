@@ -213,7 +213,10 @@ def build_marl_model(algo: str, env, seed: int, tensorboard_log: str, ent_coef: 
             CentralizedCriticPolicy,
             env,
             learning_rate=3e-4,
-            n_steps=64,
+            # 64→256: rollout ngắn cho returns ước lượng nhiễu ở bài toán horizon dài (300-600 tick)
+            # → critic không fit (ev≈0) → advantage nhiễu → policy không nhọn về action-merge
+            # (argmax 0% dù stochastic 60-72%). 256 khớp PPO để so sánh công bằng cùng độ dài rollout.
+            n_steps=256,
             gamma=0.99,
             gae_lambda=0.95,
             ent_coef=(0.05 if ent_coef is None else ent_coef),
