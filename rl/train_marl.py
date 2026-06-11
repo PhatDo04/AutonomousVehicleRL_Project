@@ -213,10 +213,14 @@ def build_marl_model(algo: str, env, seed: int, tensorboard_log: str, ent_coef: 
             CentralizedCriticPolicy,
             env,
             learning_rate=3e-4,
-            # 64→256: rollout ngắn cho returns ước lượng nhiễu ở bài toán horizon dài (300-600 tick)
-            # → critic không fit (ev≈0) → advantage nhiễu → policy không nhọn về action-merge
-            # (argmax 0% dù stochastic 60-72%). 256 khớp PPO để so sánh công bằng cùng độ dài rollout.
+            # 64→256: khớp PPO cùng độ dài rollout (so sánh công bằng). Riêng nó KHÔNG đủ sửa
+            # deterministic collapse (v2: argmax vẫn 0%, stochastic 60%).
             n_steps=256,
+            # SB3 A2C mặc định normalize_advantage=False, trong khi PPO LUÔN chuẩn hóa advantage
+            # theo batch. Đối chứng then chốt: PPO ev≈0 (stage 1) mà argmax vẫn 100% → critic tốt
+            # KHÔNG phải điều kiện cần; chuẩn hóa advantage mới là cơ chế giúp tín hiệu tương đối
+            # nổi trên nhiễu → policy nhọn về action đúng. Bật để A2C có cùng cơ chế.
+            normalize_advantage=True,
             gamma=0.99,
             gae_lambda=0.95,
             ent_coef=(0.05 if ent_coef is None else ent_coef),
