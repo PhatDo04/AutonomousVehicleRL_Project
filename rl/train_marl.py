@@ -180,7 +180,7 @@ class EntCoefAnnealCallback(BaseCallback):
         return True
 
 
-def build_marl_model(algo: str, env, seed: int, tensorboard_log: str, ent_coef: float | None = None):
+def build_marl_model(algo: str, env, seed: int, tensorboard_log: str, ent_coef: float | None = None, learning_rate: float | None = None):
     """Tạo SB3 on-policy model MARL với centralized critic (MAPPO / MAA2C).
 
     ent_coef=None → dùng mặc định (PPO 0.01 / A2C 0.05). Truyền giá trị để override
@@ -195,7 +195,7 @@ def build_marl_model(algo: str, env, seed: int, tensorboard_log: str, ent_coef: 
         return PPO(
             CentralizedCriticPolicy,
             env,
-            learning_rate=1e-4,   # hạ 3e-4→1e-4: train DÀI ổn định hơn (giảm drift rời nhường ở giai đoạn exploit / catastrophic forgetting). Goal-2 cần train lâu mà không degrade.
+            learning_rate=(1e-4 if learning_rate is None else learning_rate),   # mặc định 1e-4: train dài ổn định (chống drift/catastrophic forgetting)
             n_steps=256,
             batch_size=128,
             gamma=0.99,
@@ -212,7 +212,7 @@ def build_marl_model(algo: str, env, seed: int, tensorboard_log: str, ent_coef: 
         return A2C(
             CentralizedCriticPolicy,
             env,
-            learning_rate=3e-4,
+            learning_rate=(3e-4 if learning_rate is None else learning_rate),
             # 64→256: khớp PPO cùng độ dài rollout (so sánh công bằng). Riêng nó KHÔNG đủ sửa
             # deterministic collapse (v2: argmax vẫn 0%, stochastic 60%).
             n_steps=256,
@@ -283,6 +283,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=0,
         help="Nếu >0, lưu checkpoint mỗi N timesteps để chọn best model sau train.",
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=None,
+        help="Override learning rate (mặc định: PPO 1e-4, A2C 3e-4). Vd A2C chuẩn SB3 = 7e-4.",
     )
     parser.add_argument(
         "--norm-reward",
@@ -393,14 +399,14 @@ async def async_main(args: argparse.Namespace) -> None:
                 # set_parameters() nạp CẢ optimizer state → crash khi cross-algo (PPO Adam → A2C RMSprop:
                 # KeyError 'square_avg'). Warmstart đúng nghĩa = weights-only + optimizer mới. Load riêng
                 # params["policy"] (network state_dict) → hỗ trợ PPO↔A2C, và đúng hơn cho cả PPO→PPO.
-                model = build_marl_model(args.algo, env, args.seed, tensorboard_log, ent_coef=args.ent_coef)
+                model = build_marl_model(args.algo, env, args.seed, tensorboard_log, ent_coef=args.ent_coef, learning_rate=args.learning_rate)
                 from stable_baselines3.common.save_util import load_from_zip_file
                 _, _wparams, _ = load_from_zip_file(str(resume_path), device="cpu")
                 model.policy.load_state_dict(_wparams["policy"])
                 _opt = "RMSprop" if args.algo == "a2c" else "Adam"
                 print(f"  [resume] WARM-START từ {resume_path.name} — CHỈ nạp policy weights (optimizer {_opt} mới). Hỗ trợ cross-algo PPO↔A2C.")
         else:
-            model = build_marl_model(args.algo, env, args.seed, tensorboard_log, ent_coef=args.ent_coef)
+            model = build_marl_model(args.algo, env, args.seed, tensorboard_log, ent_coef=args.ent_coef, learning_rate=args.learning_rate)
         callbacks = [MARLEpisodeCSVCallback(args.algo, args.seed, metric_path)]
         if args.ent_coef_end is not None and not args.no_ent_anneal:
             ent_start = args.ent_coef if args.ent_coef is not None else (0.01 if args.algo == "ppo" else 0.05)
