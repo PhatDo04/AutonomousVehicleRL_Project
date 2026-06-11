@@ -11,13 +11,19 @@
 #            cuối thường KHÔNG phải checkpoint cuối (catastrophic forgetting).
 #
 # Yêu cầu: GAML giữ nguyên (road 240, nb_cars_max 84). Script tự kiểm.
-# Chạy:   bash train_curriculum.sh        (log: outputs/logs/curr_*.log)
+# Chạy:   bash train_curriculum.sh [PORT] [SEED] [TAG]   (log: outputs/logs/curr_*.log)
+#         TAG đặt tên riêng mỗi lần chạy — tránh ghi đè checkpoint/CSV lần trước.
 # ============================================================================
 set -u
 PORT="${1:-1001}"
 SEED="${2:-0}"
-S1=curr_stage1_merge
-S2=curr_stage2_e2e
+# TAG (tham số 3, tùy chọn): hậu tố tên run để KHÔNG ghi đè lần chạy trước.
+#   bash train_curriculum.sh              -> curr_stage1_merge / curr_stage2_e2e (tên gốc)
+#   bash train_curriculum.sh 1001 0 run2  -> curr_stage1_merge_run2 / curr_stage2_e2e_run2
+TAG="${3:-}"
+SUF=""; if [ -n "$TAG" ]; then SUF="_${TAG}"; fi
+S1=curr_stage1_merge${SUF}
+S2=curr_stage2_e2e${SUF}
 PY=./.venv/Scripts/python.exe
 
 # Guard: mật độ phải đúng HIGH (bài học sự cố GUI-patch lẫn 54 vào commit).
