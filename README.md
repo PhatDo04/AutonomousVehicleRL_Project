@@ -18,8 +18,7 @@ Kiến trúc học áp dụng **CTDE** (Centralized Training, Decentralized Exec
 
 - **Môi trường nhập làn đầy đủ** trên GAMA: 3 làn cao tốc + nhánh ramp + vùng tăng tốc + xe nền NPC + hệ thống xe hỏng tạo ùn tắc.
 - **4 tác tử học đồng thời** (1 xe nhập làn + 3 xe cao tốc) với chính sách dùng chung (parameter sharing + agent indicator).
-- **Hai thuật toán học** (MAPPO, MAA2C) theo kiến trúc CTDE, so với **baseline không học**: `greedy` (tham lam) và `random` (sàn).
-- **A/B khiên an toàn** (`--shield on/off`): bật/tắt lưới an toàn của môi trường (gate nhập làn + car-following guard) cho **toàn bộ** policy → đo ảnh hưởng của khiên lên từng thuật toán một cách công bằng.
+- **Hai thuật toán học** (MAPPO, MAA2C) theo kiến trúc CTDE, so với **baseline không học** `greedy` (tham lam; `random` đã bỏ theo đề cương).
 - **Pipeline thực nghiệm tự động**: một lệnh chạy trọn bộ huấn luyện → đánh giá đa hạt giống → biểu đồ + bảng so sánh có CI95%.
 - **Traffic tái lập theo seed**: mỗi episode (baseline + eval) sinh giao thông khác nhau nhưng tái lập được và **paired** (cùng seed → cùng tình huống cho mọi policy).
 - **Bộ chỉ số đầy đủ**: tỷ lệ thành công, va chạm, thông lượng, tốc độ dòng chính, chỉ số sóng lùi (CV), **%nhường-hướng-merger** (đo hợp tác thật, không nhiễu histogram), **số lần khiên can thiệp/episode** (đo mức lệ thuộc lưới an toàn).
@@ -56,10 +55,10 @@ Chế độ đánh giá chuẩn: **end-to-end (e2e)** — xe RL nhập làn xong
 ┌─────────────────────────────────────────────────────────────┐
 │  GAMA Platform  —  models/Main_Traffic.gaml  (MÔI TRƯỜNG)   │
 │                                                             │
-│  • 3 làn cao tốc (lane_width = 3.5m, dài 200m)              │
+│  • 3 làn cao tốc (lane_width = 3.5m, dài 240m)              │
 │  • Nhánh ramp (8 waypoints) + vùng tăng tốc (48m → 162m)    │
 │  • Điểm merge x = 180m                                      │
-│  • Khiên an toàn: gate is_merge_gap_safe + shield M3c        │
+│  • Khiên RL: IDM-cap dọc + gate ngang + phạt tỷ lệ k=5       │
 │                                                             │
 │  Xe nền NPC           │   RL Agents (PettingZoo Parallel)   │
 │                       │    • merging_0  (magenta) — ramp     │
@@ -74,12 +73,12 @@ Chế độ đánh giá chuẩn: **end-to-end (e2e)** — xe RL nhập làn xong
 │  centralized_policy Actor(local 19D) + Critic(global 60D)    │
 │  train_marl.py      PPO/A2C + CentralizedCriticPolicy        │
 │  evaluate_marl.py   đánh giá + histogram action              │
-│  baselines.py       greedy / random (non-learning)          │
+│  baselines.py       greedy (non-learning baseline)          │
 │  run_experiments.py điều phối: train → eval → plots → bảng   │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-> **Greedy/random vs khiên:** đây là baseline **không học** (chỉ là mốc so sánh, không train). Chế độ Heuristic trên GUI GAMA dùng luật phía GAML (`get_heuristic_*`) — độc lập với `baselines.py`, để xe demo chạy hợp lý khi quan sát trực quan.
+> **Greedy vs khiên:** đây là baseline **không học** (chỉ là mốc so sánh, không train). Chế độ Heuristic trên GUI GAMA dùng luật phía GAML (`get_heuristic_*`) — độc lập với `baselines.py`, để xe demo chạy hợp lý khi quan sát trực quan.
 
 ---
 
@@ -119,12 +118,13 @@ Chế độ đánh giá chuẩn: **end-to-end (e2e)** — xe RL nhập làn xong
 
 Toàn bộ reward được tính trong GAML (`calculate_merging_reward`, `calculate_reward`); Python chỉ nhận giá trị qua PettingZoo.
 
-| `merging_0` | | `highway_0/1/2` |
-|---|---|---|
-| Nhập làn thành công (lớn) | | Thoát đường an toàn (+) |
-| Va chạm (−100) | | Va chạm (−100) |
-| Hết đường chưa merge (−) | | Bám đuôi quá gần (TTC): phạt theo gap |
-| Vào vùng tăng tốc / merge đúng lúc gap an toàn (+) | | Nhường gap khi xe ramp merge (+) |
+| `merging_0` | `highway_0/1/2` |
+|---|---|
+| **Dense progress** (potential-based, Ng 1999): +k×Δ(x/đích) mỗi tick — chìa khóa giúp critic học được (ev 0→0.85) | Giữ tốc/flow (+ theo speed, thưởng dòng chính sw_mean) |
+| Nhập làn thành công (+50, one-shot) | Thoát cuối đường: terminal `exited` |
+| Va chạm (−100) | Va chạm (−100) |
+| Hết đường chưa merge (−50) | Bám đuôi quá gần (TTC): phạt theo gap |
+| **Phạt khiên tỷ lệ**: −k×(ga RL − ga khiên cho phép) mỗi tick (k=5) — ép nội tâm hóa điều tốc, không ỷ khiên | Như merger + thưởng nhường khi merger gần (+0.4) / phạt phanh-vô-cớ |
 
 ---
 
@@ -133,12 +133,12 @@ Toàn bộ reward được tính trong GAML (`calculate_merging_reward`, `calcul
 | Hyperparameter | MAPPO | MAA2C |
 |---|---|---|
 | Policy | `CentralizedCriticPolicy` (CTDE) | `CentralizedCriticPolicy` (CTDE) |
-| Learning rate | 3e-4 | 3e-4 |
+| Learning rate | 1e-4 (ổn định train dài) | 3e-4 |
 | `n_steps` | 256 | 64 |
 | `batch_size` | 128 | (full rollout) |
 | `gamma` / `gae_lambda` | 0.99 / 0.95 | 0.99 / 0.95 |
 | `clip_range` | 0.2 | — |
-| `ent_coef` | 0.01 | 0.05 |
+| `ent_coef` | anneal 0.05 → 0.002 (giữ 65% đầu) | anneal 0.05 → 0.002 |
 | Mạng / kích hoạt / init | 64 / Tanh / Orthogonal(√2) | nt |
 
 > Dự án dùng các thuật toán **on-policy** (PPO/A2C) phù hợp với môi trường đa tác tử non-stationary; DQN (off-policy) không được dùng vì replay buffer trộn dữ liệu nhiều tác tử khiến Q-value khó hội tụ.
@@ -271,7 +271,7 @@ Có thể chạy thủ công: `python rl/plots.py <csv...> --out-dir <dir>` và 
 │   ├── marl_env.py            # Chuỗi wrapper GAMA → SB3 VecEnv
 │   ├── train_marl.py          # Huấn luyện MAPPO + MAA2C
 │   ├── evaluate_marl.py       # Đánh giá + histogram action
-│   ├── baselines.py           # greedy / random (non-learning)
+│   ├── baselines.py           # greedy (non-learning; random đã bỏ)
 │   ├── run_experiments.py     # Điều phối pipeline (+ --shield, --scenario)
 │   ├── analysis.py            # Bảng so sánh + LaTeX
 │   ├── plots.py               # Biểu đồ
@@ -280,9 +280,12 @@ Có thể chạy thủ công: `python rl/plots.py <csv...> --out-dir <dir>` và 
 │   ├── scenario_utils.py      # Vá GAML: scenario mật độ + khiên an toàn
 │   ├── gama_compat.py         # Lớp tương thích gama-pettingzoo
 │   ├── gama_episode_reset.py  # Reset helper + reseed traffic theo seed
+│   ├── make_thesis_plots.py   # 7 biểu đồ PNG cho báo cáo
+│   ├── probe_reward_stream.py # Soi dòng reward/done THÔ SB3 thấy (chẩn ev≈0)
 │   ├── smoke_test_env.py      # Kiểm tra kết nối (chạy tay)
 │   ├── diagnose_marl.py       # Công cụ debug (chạy tay)
 │   └── model_registry.py      # Liệt kê model → JSON (chạy tay)
+├── train_curriculum.sh        # Curriculum 2-stage from-scratch (tái lập model)
 ├── tests/                     # pytest (offline)
 ├── outputs/                   # Sinh khi train/eval (models, logs, plots)
 └── requirements.txt
@@ -298,10 +301,13 @@ Có thể chạy thủ công: `python rl/plots.py <csv...> --out-dir <dir>` và 
 | `UnicodeEncodeError` (Windows) | `$env:PYTHONIOENCODING='utf-8'` hoặc `chcp 65001` |
 | GAMA: `unable to find experiment/simulation` | Restart GAMA headless (`gama-headless.bat -socket 1001`) |
 | GAMA chết giữa run dài | Khởi động lại headless rồi chạy lại lần đó |
+| Train không học (`explained_variance≈0`, `value_loss≈1e-6`) | Episode boundary có thể bị nuốt — chạy `python rl/probe_reward_stream.py` xem done=True có tới SB3 không; xe RL trong GAML phải grace-die (KHÔNG `do die` cùng cycle) |
+| Density sai sau khi Play GUI | Play patch GAML theo scenario; nếu bị kill giữa chừng → kiểm `nb_cars_max` trước khi train (`grep nb_cars_max models/Main_Traffic.gaml`) |
 
 ## Phạm vi & hạn chế
 
 - Mô phỏng tinh giản: hành động rời rạc + waypoint, không phải động học/cảm biến xe thật.
+- **Hành động rời rạc 5 mức không biểu diễn được điều-tốc-liên-tục** → policy ủy thác phần này cho khiên IDM-cap (ablation: bỏ khiên còn 10–50% tùy thiết kế phạt). Hướng mở: action liên tục hoặc shield-annealing.
 - Chính sách dùng chung cho hai vai trò có ngữ nghĩa khác nhau — lựa chọn thiết kế đơn giản, không tương đương hai chính sách chuyên biệt.
 - Một instance GAMA (`num_vec_envs=1`) → thời gian huấn luyện dài.
 - Traffic của **baseline + eval** đã tái lập theo seed (reproducible + paired); riêng **huấn luyện** RL chạy trên một layout cố định (chưa randomize traffic theo seed trong vòng train).

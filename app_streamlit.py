@@ -150,7 +150,7 @@ with tabs[2]:
                    "1 GAMA port = 1 train tại một thời điểm. Xem tab Monitor.")
     mode = st.radio("Loại", ["Train mới", "Train tiếp từ zip"], horizontal=True)
     cA, cB = st.columns(2)
-    algo = cA.selectbox("Thuật toán", C.ALGOS, index=1, help="A2C khuyến nghị (ổn định hơn PPO ở MARL này).")
+    algo = cA.selectbox("Thuật toán", C.ALGOS, index=1, help="PPO khuyến nghị (sau fix episode-boundary, PPO 90-100%; A2C kém hơn ở code hiện tại).")
     timesteps = cB.number_input("Timesteps", value=200000, step=10000)
     seeds_str = cA.text_input("Seed(s)", "0",
                               help="1 seed: '0'. Nhiều seed (train tuần tự trong 1 job): '0,1,2,3,4'.")
