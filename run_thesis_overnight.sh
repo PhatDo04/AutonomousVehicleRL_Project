@@ -11,10 +11,11 @@
 #     entropy thấp) — phần CHÊNH LỆCH BƯỚC được ghi rõ trong summary (minh bạch).
 #   • Eval cùng giao thức: gate S1 + sweep S2 + ma trận (chế độ × khiên × 3 seed).
 #
-# Pipeline:  PPO  S1 300k → S2 300k                        (600k)
+# Pipeline:  PPO  S1 300k → S2 300k → S3 yield-hunt 300k    (900k)
 #            A2C  S1 300k → sharpen 100k → S2 300k → sharpen 100k   (800k, ghi chú)
 #            Greedy: không train (luật tĩnh)
-#            EVAL: gates → sweep S2 → ma trận best-ckpt → greedy → summary + plots
+#            EVAL: gates → sweep S2 → S3 sweep (chọn theo %nhường, success≥80%)
+#                  → ma trận best-ckpt 3 seeds × khiên/no-shield → greedy → summary + plots
 #
 # Chạy:  bash run_thesis_overnight.sh [PORT] [SEED] [TAG]
 # Theo dõi: tail -f outputs/logs/night_<TAG>_progress.log
@@ -65,7 +66,7 @@ echo "Budget: PPO 600k | A2C 800k (gồm 2×100k mài nhọn — đặc thù thu
 say "===== BẮT ĐẦU OVERNIGHT (tag $TAG) ====="
 
 # ───────────────────────── PHẦN A: TRAIN ─────────────────────────
-P1="night_ppo_s1_${TAG}";  P2="night_ppo_s2_${TAG}"
+P1="night_ppo_s1_${TAG}";  P2="night_ppo_s2_${TAG}";  P3="night_ppo_s3yield_${TAG}"
 A1="night_a2c_s1_${TAG}";  A1S="night_a2c_s1sharp_${TAG}"
 A2="night_a2c_s2_${TAG}";  A2S="night_a2c_s2sharp_${TAG}"
 CK="outputs/models/checkpoints"
@@ -131,6 +132,36 @@ PYEOF
 )
 say "Best ckpt: PPO=$PPO_BEST, A2C=$A2C_BEST"
 echo "" >> "$SUM"; echo "## BEST CKPT: PPO=${PPO_BEST}, A2C=${A2C_BEST}" >> "$SUM"
+
+# ── STAGE-3 PPO (yield-hunt, goal-2): train tiếp từ S2-best, chọn ckpt theo %NHƯỜNG ──
+train ppo 300000 "$P3" --max-episode-steps 600 --postmerge-window 400 --rl-postmerge   --resume-from "$CK/$P2/${P2}_${PPO_BEST}_steps.zip" --resume-mode warmstart
+guard_density; fresh
+echo "" >> "$SUM"; echo "## SWEEP STAGE-3 PPO (yield-hunt — chọn theo %nhường, ràng buộc success ≥80%)" >> "$SUM"
+for ck in 100000 150000 200000 250000 300000; do
+  evalm ppo "$CK/$P3/${P3}_${ck}_steps.zip" "PPO-S3 ${ck} argmax" --seed "$SEED" $E2E
+done
+P3_BEST=$($PY - "$SUM" <<'PYEOF2'
+import re, sys
+txt = open(sys.argv[1], encoding="utf-8").read()
+best, score = None, -1.0
+pat = re.compile(r"##### PPO-S3 (\d+) \S+\n(.*?)(?=#####|\Z)", re.S)
+for m in pat.finditer(txt):
+    ck, blk = m.group(1), m.group(2)
+    su = re.search(r"success=([\d.]+)%", blk)
+    yi = re.search(r"NH\S*NG-merger\(<35m\)=(\d+)%", blk)
+    if su and yi and float(su.group(1)) >= 80.0 and float(yi.group(1)) > score:
+        best, score = ck, float(yi.group(1))
+print(best or "NONE")
+PYEOF2
+)
+say "Stage-3 yield-best: $P3_BEST"
+echo "" >> "$SUM"; echo "## STAGE-3 YIELD-BEST: ${P3_BEST} (NONE = không ckpt nào đạt success≥80, dùng S2-best làm model chính)" >> "$SUM"
+if [ "$P3_BEST" != "NONE" ]; then
+  cp "$CK/$P3/${P3}_${P3_BEST}_steps.zip" "outputs/models/thesis_overnight_yield_${TAG}.zip"
+  for S in 0 1 2; do
+    evalm ppo "$CK/$P3/${P3}_${P3_BEST}_steps.zip" "PPO-S3-yieldbest seed$S khiên" --seed "$S" $E2E
+  done
+fi
 
 echo "" >> "$SUM"; echo "## MA TRẬN BEST (3 seeds × khiên/no-shield, chế độ vận hành)" >> "$SUM"
 for S in 0 1 2; do
