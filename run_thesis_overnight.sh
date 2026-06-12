@@ -174,8 +174,7 @@ A3_BEST=$($PY - "$SUM" <<'PYEOF3'
 import re, sys
 txt = open(sys.argv[1], encoding="utf-8").read()
 best, score = None, -1.0
-pat = re.compile(r"##### A2C-S3 (\d+) \S+
-(.*?)(?=#####|\Z)", re.S)
+pat = re.compile(r"##### A2C-S3 (\d+) \S+\n(.*?)(?=#####|\Z)", re.S)
 for m in pat.finditer(txt):
     ck, blk = m.group(1), m.group(2)
     su = re.search(r"success=([\d.]+)%", blk)
