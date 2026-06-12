@@ -201,6 +201,17 @@ for S in 0 1 2; do
   evalm a2c "$CK/$A2/${A2}_${A2C_BEST}_steps.zip" "A2C-best seed$S NO-SHIELD (stoch)" --seed "$S" $E2E --stochastic --no-shield
 done
 
+# ── MA TRẬN BỔ SUNG: khép kín 3 policy × 2 chế độ eval × 3 stage ──
+echo "" >> "$SUM"; echo "## MA TRẬN BỔ SUNG (khép kín 3x2x3)" >> "$SUM"
+evalm ppo "$CK/$P2/${P2}_${PPO_BEST}_steps.zip" "PPO-S2-best stochastic" --seed "$SEED" $E2E --stochastic
+if [ "$P3_BEST" != "NONE" ]; then
+  evalm ppo "$CK/$P3/${P3}_${P3_BEST}_steps.zip" "PPO-S3-yieldbest stochastic" --seed "$SEED" $E2E --stochastic
+fi
+evalm a2c "$CK/$A3Y/${A3Y}_300000_steps.zip" "A2C-S3-300k argmax" --seed "$SEED" $E2E --log-actions
+echo "##### GREEDY kich-ban-S1 (terminate-at-merge) seed$SEED" >> "$SUM"
+PYTHONIOENCODING=utf-8 $PY rl/baselines.py --policy greedy --episodes 10 --seed "$SEED" --port "$PORT"   --max-episode-steps 300 2>&1 | grep -cE "outcome=success" | sed 's/^/  success_count=/' >> "$SUM"
+say "GREEDY S1-mode xong."
+
 echo "" >> "$SUM"; echo "## GREEDY (cùng env + cùng khiên, e2e tự lái)" >> "$SUM"
 for S in 0 1 2; do
   echo "##### GREEDY seed$S khiên" >> "$SUM"
