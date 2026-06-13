@@ -30,21 +30,24 @@ LOGS = ROOT / "outputs" / "logs"
 # ---------------------------------------------------------------------------
 SUMMARY = {
     # model: (success%, collision%, nhường%, no_shield_success%, shield_mrg/ván, nguồn)
-    "Curriculum\n(from scratch)": dict(success=90, collision=10, yield_pct=41, noshield=30,
-                                       shield_mrg=3.4, src="s2_sweep.log + curr150k_final.log"),
-    "RL yt50-150k\n(hợp tác)":     dict(success=90, collision=10, yield_pct=94, noshield=10,
-                                       shield_mrg=9.9, src="true_high84.log + noshield84.log"),
-    "RL yt52-150k\n(propshield)":  dict(success=100, collision=0, yield_pct=20, noshield=50,
-                                       shield_mrg=0.7, src="yt52_eval.log"),
-    "Greedy\n(rule-based)":        dict(success=40, collision=60, yield_pct=0, noshield=0,
-                                       shield_mrg=1.5, src="true_high84.log + noshield84.log"),
+    # Số là TRUNG BÌNH±std qua 3 hạt giống huấn luyện (run_thesis_overnight tag 0611_225051,
+    # 0612_135116, 0612_232535). PPO: success/collision = Giai đoạn 2; yield = Giai đoạn 3
+    # (yield-hunt, năng lực hợp tác đạt được); noshield = Giai đoạn 4 (propshield, năng lực cai
+    # khiên đạt được). Mỗi mục tiêu là checkpoint chuyên hóa riêng của cùng dòng curriculum.
+    "PPO\n(argmax)":     dict(success=86, collision=14, yield_pct=89, noshield=28,
+                              shield_mrg=3.0, src="thesis_night_summary_*.md (3 train-seeds)"),
+    "MAA2C\n(lấy mẫu)":  dict(success=73, collision=27, yield_pct=37, noshield=52,
+                              shield_mrg=2.5, src="thesis_night_summary_*.md (3 train-seeds)"),
+    "Greedy\n(luật)":    dict(success=53, collision=47, yield_pct=0, noshield=0,
+                              shield_mrg=1.5, src="thesis_night_summary_*.md (GREEDY, 3 eval-seeds)"),
 }
 
-# Tiến trình nội tâm hóa theo hệ số phạt khiên (cùng nền yt50-150k, eval no-shield seed0).
+# Tiến trình nội tâm hóa theo hệ số phạt khiên. Hai điểm đầu là THĂM DÒ 1 hạt giống (seed 0);
+# điểm k=5 có cả thăm dò seed-0 (50%) và xác minh 3 hạt giống (28±17%, variance cao).
 PROPSHIELD_TREND = [
-    ("Binary -1\n(yt50)", 10, "noshield84.log"),
-    ("Tỷ lệ k=1\n(yt51-200k)", 30, "yt51_200k_eval.log"),
-    ("Tỷ lệ k=5\n(yt52-150k)", 50, "yt52_eval.log"),
+    ("Binary -1\n(1 seed)", 10, "noshield84.log"),
+    ("Tỷ lệ k=1\n(1 seed)", 30, "yt51_200k_eval.log"),
+    ("Tỷ lệ k=5\n(3 seeds: 28±17)", 28, "thesis_night_summary_*.md S4"),
 ]
 
 COLORS = {"success": "#2e7d32", "collision": "#c62828", "yield": "#1565c0",
@@ -121,7 +124,7 @@ def fig_g1_bars(out: Path) -> None:
     ax.set_xticks(list(x), names, fontsize=10)
     ax.set_ylabel("% episode")
     ax.set_ylim(0, 112)
-    ax.set_title("Mục tiêu 1 — Nhập làn an toàn (mật độ cao 84, có khiên, seed 0)")
+    ax.set_title("Mục tiêu 1 — Nhập làn an toàn (mật độ cao 84, có khiên, 3 hạt giống)")
     ax.legend()
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
@@ -206,7 +209,7 @@ def fig_propshield_trend(out: Path) -> None:
                     ha="center", fontsize=11, fontweight="bold")
     ax.set_ylabel("Thành công KHÔNG khiên (%)")
     ax.set_ylim(0, 60)
-    ax.set_title("Phạt can-thiệp-khiên: binary → tỷ lệ (cùng nền yt50-150k)")
+    ax.set_title("Phạt can-thiệp-khiên: binary → tỷ lệ (k=5: xác minh 3 hạt giống, variance cao)")
     ax.grid(alpha=0.3)
     fig.tight_layout()
     fig.savefig(out / "fig6_propshield_trend.png", dpi=300)
