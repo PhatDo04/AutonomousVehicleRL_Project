@@ -128,7 +128,7 @@ Toàn bộ reward được tính trong GAML (`calculate_merging_reward`, `calcul
 | **Dense progress** (potential-based, Ng 1999): +k×Δ(x/đích) mỗi tick — chìa khóa giúp critic học được (ev 0→0.85) | Giữ tốc/flow (+ theo speed, thưởng dòng chính sw_mean) |
 | Nhập làn thành công (+50, one-shot) | Thoát cuối đường: terminal `exited` |
 | Va chạm (−100) | Va chạm (−100) |
-| Hết đường chưa merge (−50) | Bám đuôi quá gần (TTC): phạt theo gap |
+| Hết đường chưa merge (−50) | Bám đuôi quá gần (gap < 20m): phạt theo gap |
 | **Phạt khiên tỷ lệ**: −k×(ga RL − ga khiên cho phép) mỗi tick (k=5) — ép nội tâm hóa điều tốc, không ỷ khiên | Như merger + thưởng nhường khi merger gần (+0.4) / phạt phanh-vô-cớ |
 
 ---
