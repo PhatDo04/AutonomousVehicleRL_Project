@@ -26,7 +26,7 @@ Kiến trúc học áp dụng **CTDE** (Centralized Training, Decentralized Exec
 - **Ablation khiên** (`--no-shield`): tắt toàn bộ lưới an toàn lúc đánh giá → định lượng mức nội tâm hóa kỹ năng lái của policy.
 - **Reward shaping hiện đại**: dense progress (potential-based, Ng 1999) + phạt-khiên-tỷ-lệ theo mức cắt ga (thay binary) — hai chìa khóa giúp critic học được (explained_variance 0 → 0.85) và policy bớt ỷ khiên.
 - **Curriculum 2 giai đoạn tái lập được**: `bash train_curriculum.sh` — train from-scratch (học nhập làn → học e2e + hợp tác) không cần sửa code, xuất full learning curve.
-- **Pipeline so sánh thuật toán qua đêm**: `bash run_thesis_overnight.sh` — một lệnh chạy trọn PPO + A2C (curriculum 4 giai đoạn) + Greedy trên cùng môi trường/seed, tự eval ma trận (gate / sweep / ablation / 3 hạt giống) + sinh summary + biểu đồ.
+- **Pipeline so sánh thuật toán qua đêm**: `bash run_thesis_overnight.sh` — một lệnh chạy trọn PPO + A2C (curriculum 3 giai đoạn: nhập làn → e2e → yield-hunt) + Greedy trên cùng môi trường/seed, tự eval ma trận (gate / sweep / ablation / 3 hạt giống) + sinh summary + biểu đồ. Giai đoạn 4 (cai khiên) chạy riêng bằng `run_stage4_propshield.sh`.
 - **Bảng điều khiển Streamlit**: giao diện web điều khiển toàn bộ pipeline (train/eval/experiment/theo dõi/kết quả/demo/biểu đồ thesis) — thay cho gõ lệnh tay.
 
 ## Kết quả chính
