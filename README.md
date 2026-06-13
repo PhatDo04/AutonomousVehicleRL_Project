@@ -24,7 +24,7 @@ Kiến trúc học áp dụng **CTDE** (Centralized Training, Decentralized Exec
 - **Bộ chỉ số đầy đủ**: tỷ lệ thành công, va chạm, thông lượng, tốc độ dòng chính, chỉ số sóng lùi (CV), **%nhường-hướng-merger** (đo hợp tác thật, không nhiễu histogram), **số lần khiên can thiệp/episode** (đo mức lệ thuộc lưới an toàn).
 - **Đánh giá end-to-end**: merger lái tiếp sau nhập làn tới cuối đường bằng RL (`--eval-continue --rl-postmerge`) — bắt được tai nạn hậu-merge + đo sóng lùi trọn hành trình.
 - **Ablation khiên** (`--no-shield`): tắt toàn bộ lưới an toàn lúc đánh giá → định lượng mức nội tâm hóa kỹ năng lái của policy.
-- **Reward shaping hiện đại**: dense progress (potential-based, Ng 1999) + phạt-khiên-tỷ-lệ theo mức cắt ga (thay binary) — hai chìa khóa giúp critic học được (explained_variance 0 → 0.85) và policy bớt ỷ khiên.
+- **Reward shaping theo thế năng**: dense progress (potential-based, Ng 1999) + phạt-khiên-tỷ-lệ theo mức cắt ga (thay binary) — hai chìa khóa giúp critic học được (explained_variance 0 → 0.85) và policy bớt ỷ khiên.
 - **Curriculum 2 giai đoạn tái lập được**: `bash train_curriculum.sh` — train from-scratch (học nhập làn → học e2e + hợp tác) không cần sửa code, xuất full learning curve.
 - **Pipeline so sánh thuật toán qua đêm**: `bash run_thesis_overnight.sh` — một lệnh chạy trọn PPO + A2C (curriculum 3 giai đoạn: nhập làn → e2e → yield-hunt) + Greedy trên cùng môi trường/seed, tự eval ma trận (gate / sweep / ablation / 3 hạt giống) + sinh summary + biểu đồ. Giai đoạn 4 (cai khiên) chạy riêng bằng `run_stage4_propshield.sh`.
 - **Bảng điều khiển Streamlit**: giao diện web điều khiển toàn bộ pipeline (train/eval/experiment/theo dõi/kết quả/demo/biểu đồ thesis) — thay cho gõ lệnh tay.
@@ -45,7 +45,7 @@ Gate nhập làn (giai đoạn 1): PPO argmax **100±0%** (tái lập tuyệt đ
 
 ### Bốn kết luận chính
 
-1. **RL thắng baseline áp đảo ở mật độ cao**: cùng toàn bộ lưới an toàn, PPO đạt 86±6% (gate nhập làn 100±0%) trong khi Greedy chỉ 53±12% và **sụp về 0% khi gỡ khiên**. Khác biệt thuần là **chất lượng quyết định học được**: chọn khe + căn thời điểm + khớp tốc — kiểu "zipper merge".
+1. **RL cao hơn rõ rệt baseline ở mật độ cao**: cùng toàn bộ lưới an toàn, PPO đạt 86±6% (gate nhập làn 100±0%) trong khi Greedy chỉ 53±12% và **sụp về 0% khi gỡ khiên** — chênh ~33 điểm phần trăm. Khác biệt thuần là **chất lượng quyết định học được**: chọn khe + căn thời điểm + khớp tốc — kiểu "zipper merge".
 2. **Phổ hành vi hợp tác ↔ tự chủ theo trục huấn luyện**: giai đoạn yield-hunt đẩy hành vi nhường lên **89±6%** (ổn định 3 hạt giống); checkpoint khác lại để merger tự tìm khe, không cần nhường vẫn đạt success cao. Trade-off đo được và **chọn được bằng checkpoint**.
 3. **Khiên an toàn — mức lệ thuộc đo được nhưng cai chưa ổn định**: ablation `--no-shield` cho thấy GĐ2 chỉ còn 14±6% khi lái trần (kỹ năng điều-tốc-tinh ủy thác cho khiên IDM-cap). Phạt can-thiệp tỷ lệ (k=5) nâng được năng lực không-khiên lên **28±17% (đỉnh 50%)** nhưng **variance cao** — reward shaping khả thi nhưng chưa đảm bảo mọi hạt giống (hướng tiếp: phạt mạnh hơn / hành động liên tục).
 4. **PPO vs A2C — deterministic collapse**: A2C *có học* (gate lấy mẫu 77±5%) nhưng argmax = **0±0%** ở cả 3 hạt giống — phân phối không "nhọn" về hành động nhập làn (bài toán *hành-động-hiếm-sống-còn*). PPO vừa học vừa nhọn (argmax 100±0%) nhờ cơ chế update trọn gói (nhiều epoch + clip + norm-advantage). Khuyến nghị phương pháp luận: **so sánh thuật toán MARL phải báo cáo rõ chế độ đánh giá** — thứ hạng đảo ngược giữa lấy mẫu và tất định.
