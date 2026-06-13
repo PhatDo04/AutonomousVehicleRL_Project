@@ -29,10 +29,22 @@ o default GAML, chi va spawn_ramp_tick theo scenario.
 from __future__ import annotations
 
 import re
-import shutil
+import subprocess
 from pathlib import Path
 
 from rl.config import MODEL_PATH, SCENARIO_PRESETS
+
+
+def _git_has_uncommitted(gaml_path: Path) -> bool:
+    """True nếu file có thay đổi chưa commit (so với HEAD). Lỗi git → False (không cảnh báo nhầm)."""
+    try:
+        out = subprocess.run(
+            ["git", "status", "--porcelain", gaml_path.name],
+            cwd=str(gaml_path.parent), check=True, capture_output=True, text=True,
+        )
+        return bool(out.stdout.strip())
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
 
 _BACKUP_SUFFIX = ".gaml.bak"
 
@@ -85,11 +97,16 @@ def _apply_scenario_to_path(scenario_name: str, gaml_path: Path) -> None:
         )
 
     scenario = SCENARIO_PRESETS[scenario_name]
-    bak_path = _backup_path(gaml_path)
 
-    # Backup bản gốc (để restore_gaml_backup() cuối pipeline trả lại nguyên trạng).
-    if not bak_path.exists():
-        shutil.copy2(gaml_path, bak_path)
+    # restore_gaml_backup() khôi phục bằng `git checkout` (về bản committed) — KHÔNG dùng
+    # file .bak nữa (cơ chế cũ skip-if-exists từng để .bak mồ côi đè mất code). Cảnh báo nếu
+    # file có sửa tay CHƯA commit: patch sẽ trộn lên đó và restore sẽ trả về HEAD (mất sửa đó).
+    if _git_has_uncommitted(gaml_path):
+        print(
+            f"  [scenario_utils] CẢNH BÁO: {gaml_path.name} có thay đổi CHƯA COMMIT. "
+            f"Vá scenario sẽ chồng lên; restore cuối pipeline trả về bản committed (HEAD) "
+            f"→ commit trước nếu muốn giữ sửa tay."
+        )
 
     # Đọc từ file hiện tại (không từ .bak) để giữ mọi chỉnh tay; an toàn vì 2 regex dưới
     # idempotent (chỉ thay con số sau '<-'/'>=', vá lại nhiều lần vẫn ra đúng giá trị scenario).
@@ -140,13 +157,25 @@ def apply_scenario_all_gaml(scenario_name: str) -> None:
 
 
 def _restore_path(gaml_path: Path) -> None:
+    """Khôi phục GAML về bản committed bằng `git checkout` (đáng tin hơn .bak — không mồ côi).
+
+    Dọn nốt .bak cũ nếu còn (tàn dư cơ chế cũ). Nếu git không khả dụng/không track file,
+    cảnh báo và để nguyên (an toàn — không đè bừa)."""
     bak_path = _backup_path(gaml_path)
-    if not bak_path.exists():
-        print(f"  [scenario_utils] Không có backup cho {gaml_path.name} — bỏ qua.")
-        return
-    shutil.copy2(bak_path, gaml_path)
-    bak_path.unlink()
-    print(f"  [scenario_utils] Đã khôi phục {gaml_path.name} về medium.")
+    if bak_path.exists():
+        bak_path.unlink()  # dọn tàn dư cơ chế backup cũ
+    try:
+        subprocess.run(
+            ["git", "checkout", "--", gaml_path.name],
+            cwd=str(gaml_path.parent), check=True,
+            capture_output=True, text=True,
+        )
+        print(f"  [scenario_utils] Đã khôi phục {gaml_path.name} về bản committed (git checkout).")
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        print(
+            f"  [scenario_utils] CẢNH BÁO: không git-checkout được {gaml_path.name} ({exc}). "
+            f"File giữ nguyên trạng đã vá — khôi phục thủ công nếu cần."
+        )
 
 
 def restore_gaml_backup() -> None:
