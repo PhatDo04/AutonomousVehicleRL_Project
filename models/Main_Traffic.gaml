@@ -4865,8 +4865,10 @@ experiment TrafficSimulation type: gui {
                         color: #cyan font: font("Arial", 24, #bold);
                     draw ("Chính sách: " + dashboard_policy + " (model .zip nạp bởi Python --model)")
                         at: {15 #px, 78 #px} color: #white font: font("Arial", 21, #plain);
-                    draw "Hành động — merger: 0=Phanh 1=Giữ 2=Tăng 3=Nhập 4=Chờ | highway: 0=Tăng 1=Giữ 2=Phanh 3=Trái 4=Phải"
+                    draw "Hành động — merger:  0=Phanh 1=Giữ 2=Tăng 3=Nhập 4=Chờ"
                         at: {15 #px, 113 #px} color: #yellow font: font("Arial", 17, #plain);
+                    draw "                  highway: 0=Tăng 1=Giữ 2=Phanh 3=Trái 4=Phải"
+                        at: {15 #px, 135 #px} color: #yellow font: font("Arial", 17, #plain);
 
                     if (tracked = nil) {
                         draw "Chưa có RL agent. Reset thí nghiệm để sinh merging_0."
@@ -4945,21 +4947,21 @@ experiment TrafficSimulation type: gui {
                             gui_cv <- sqrt(sw_M2 / (sw_n - 1)) / sw_mean;
                         }
                         draw (tracked_title_prefix + tracked.rl_agent_id)
-                            at: {15 #px, 143 #px} color: tracked_title_rgb font: font("Arial", 21, #bold);
+                            at: {15 #px, 165 #px} color: tracked_title_rgb font: font("Arial", 21, #bold);
                         draw ("Kết cục: " + tracked.terminal_reason + " | Bước: " + tracked.episode_step)
-                            at: {15 #px, 178 #px} color: outcome_rgb font: font("Arial", 21, #plain);
+                            at: {15 #px, 200 #px} color: outcome_rgb font: font("Arial", 21, #plain);
                         draw ("Hành động: " + tracked.action_rl + " | Thưởng: " + (tracked.reward_val with_precision 2) + " | Tích lũy: " + (tracked.cumulative_reward with_precision 2))
-                            at: {15 #px, 213 #px} color: reward_line_rgb font: font("Arial", 21, #plain);
+                            at: {15 #px, 235 #px} color: reward_line_rgb font: font("Arial", 21, #plain);
                         draw ("Tốc độ: " + (tracked.speed with_precision 2) + " | TB: " + (mean_speed with_precision 2) + " | Tiến độ: " + ((progress * 100.0) with_precision 1) + "%")
-                            at: {15 #px, 248 #px} color: #white font: font("Arial", 21, #plain);
+                            at: {15 #px, 270 #px} color: #white font: font("Arial", 21, #plain);
                         draw ("Khe trước/sau: " + (front_gap with_precision 2) + " / " + (rear_gap with_precision 2) + " | An toàn: " + tracked.is_merge_gap_safe())
-                            at: {15 #px, 283 #px} color: gap_safe_rgb font: font("Arial", 21, #plain);
+                            at: {15 #px, 305 #px} color: gap_safe_rgb font: font("Arial", 21, #plain);
                         draw ("Khe nhỏ nhất trước/sau: " + (tracked.min_front_gap with_precision 2) + " / " + (tracked.min_rear_gap with_precision 2))
-                            at: {15 #px, 318 #px} color: #white font: font("Arial", 21, #plain);
+                            at: {15 #px, 340 #px} color: #white font: font("Arial", 21, #plain);
                         draw ("Khe trước (ramp): " + (tracked.get_ramp_front_gap() with_precision 2) + " | Trong làn tăng tốc: " + tracked.in_accel_zone)
-                            at: {15 #px, 353 #px} color: #white font: font("Arial", 21, #plain);
+                            at: {15 #px, 375 #px} color: #white font: font("Arial", 21, #plain);
                         draw ("Tốc độ dòng chính TB: " + (sw_mean with_precision 2) + " (" + (sw_mean < 0.25 ? "KẸT" : "thông") + ") | Sóng lùi (CV): " + (gui_cv with_precision 3))
-                            at: {15 #px, 388 #px} color: (sw_mean < 0.4 ? rgb(255,140,0) : #white) font: font("Arial", 21, #plain);
+                            at: {15 #px, 410 #px} color: (sw_mean < 0.4 ? rgb(255,140,0) : #white) font: font("Arial", 21, #plain);
                         }
                     }
 
@@ -4986,13 +4988,13 @@ experiment TrafficSimulation type: gui {
                         }
                     }
                     draw ("Tác tử: RL=" + rl_count + " | NPC ramp=" + rule_based_merging_count + " | nền cao tốc=" + mainline_count)
-                        at: {15 #px, 438 #px} color: #white font: font("Arial", 21, #plain);
+                        at: {15 #px, 460 #px} color: #white font: font("Arial", 21, #plain);
                     draw ("Giao thông: tổng=" + length(safe_cars) + " | ramp=" + ramp_count + " | xe hỏng=" + damaged_count)
-                        at: {15 #px, 473 #px} color: #white font: font("Arial", 21, #plain);
+                        at: {15 #px, 495 #px} color: #white font: font("Arial", 21, #plain);
                     draw ("Chu kỳ: " + cycle + " | Xem chậm: thanh tốc độ GAMA hoặc Python --step-delay")
-                        at: {15 #px, 508 #px} color: #white font: font("Arial", 21, #plain);
-                    draw "Model SB3 .zip do Python nạp; GUI này chỉ gắn nhãn/quan sát phiên chạy." at: {15 #px, 550 #px} color: #cyan font: font("Arial", 17, #italic);
-                    draw "Chú giải: RL=tác tử học | không nhãn=xe nền | đỏ=xe hỏng (kéo về làn vàng)" at: {15 #px, 585 #px} color: #cyan font: font("Arial", 17, #italic);
+                        at: {15 #px, 530 #px} color: #white font: font("Arial", 21, #plain);
+                    draw "Model SB3 .zip do Python nạp; GUI này chỉ gắn nhãn/quan sát phiên chạy." at: {15 #px, 572 #px} color: #cyan font: font("Arial", 17, #italic);
+                    draw "Chú giải: RL=tác tử học | không nhãn=xe nền | đỏ=xe hỏng (kéo về làn vàng)" at: {15 #px, 607 #px} color: #cyan font: font("Arial", 17, #italic);
                 }
             }
         }
