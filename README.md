@@ -26,26 +26,31 @@ Kiến trúc học áp dụng **CTDE** (Centralized Training, Decentralized Exec
 - **Ablation khiên** (`--no-shield`): tắt toàn bộ lưới an toàn lúc đánh giá → định lượng mức nội tâm hóa kỹ năng lái của policy.
 - **Reward shaping hiện đại**: dense progress (potential-based, Ng 1999) + phạt-khiên-tỷ-lệ theo mức cắt ga (thay binary) — hai chìa khóa giúp critic học được (explained_variance 0 → 0.85) và policy bớt ỷ khiên.
 - **Curriculum 2 giai đoạn tái lập được**: `bash train_curriculum.sh` — train from-scratch (học nhập làn → học e2e + hợp tác) không cần sửa code, xuất full learning curve.
+- **Pipeline so sánh thuật toán qua đêm**: `bash run_thesis_overnight.sh` — một lệnh chạy trọn PPO + A2C (curriculum 4 giai đoạn) + Greedy trên cùng môi trường/seed, tự eval ma trận (gate / sweep / ablation / 3 hạt giống) + sinh summary + biểu đồ.
 - **Bảng điều khiển Streamlit**: giao diện web điều khiển toàn bộ pipeline (train/eval/experiment/theo dõi/kết quả/demo/biểu đồ thesis) — thay cho gõ lệnh tay.
 
 ## Kết quả chính
 
-Chế độ đánh giá chuẩn: **end-to-end (e2e)** — xe RL nhập làn xong **tự lái tiếp tới cuối đường** (ván kết tại cuối đường; đo trọn sóng lùi + tai nạn sau nhập làn). Mật độ cao (84 xe, road 240), 10 episode/seed.
+Chế độ đánh giá chuẩn: **end-to-end (e2e)** — xe RL nhập làn xong **tự lái tiếp tới cuối đường** (ván kết tại cuối đường; đo trọn sóng lùi + tai nạn sau nhập làn). Mật độ cao (84 xe, road 240). Số liệu dưới là **trung bình ± độ lệch chuẩn qua 3 hạt giống huấn luyện độc lập × 3 hạt giống đánh giá** (`run_thesis_overnight.sh`). PPO đánh giá tất định (argmax — chế độ triển khai); MAA2C lấy mẫu (chế độ vận hành duy nhất của nó).
 
-| Model | Nguồn gốc huấn luyện | Thành công | Va chạm | Nhường (G2) | Không-khiên |
-|---|---|---|---|---|---|
-| **Curriculum 2-stage** | from scratch 600k (`train_curriculum.sh`) | 90% | 10% | 41% | 30% |
-| **yt50-150k (hợp tác)** | warmstart nhiều giai đoạn | 90% | 10% | **94%** | 10% |
-| **yt52-150k (propshield)** | yt50 + phạt khiên tỷ lệ k=5 | **100%** | **0%** | thấp | **50%** |
-| Greedy (baseline) | luật tĩnh | 40% | 60% | 0% | 0% |
+| Cấu hình (PPO theo giai đoạn curriculum) | Thành công | Va chạm | Nhường (G2) | Không-khiên |
+|---|---|---|---|---|
+| **PPO** — GĐ2 (nhập làn + e2e) | 86±6% | 14±6% | 70±20% | 14±6% |
+| **PPO** — GĐ3 (yield-hunt, tối ưu nhường) | 86±7% | 13±5% | **89±6%** | — |
+| **PPO** — GĐ4 (propshield, cai khiên) | 83±9% | 17±9% | — | **28±17%** |
+| **MAA2C** — GĐ2 (đánh giá lấy mẫu) | 73±7% | 27±7% | 37±4% | 52±7% |
+| Greedy (baseline, luật tĩnh) | 53±12% | 47±12% | 0% | **0%** |
 
-### Ba kết luận chính
+Gate nhập làn (giai đoạn 1): PPO argmax **100±0%** (tái lập tuyệt đối 3 hạt giống), A2C argmax **0±0%** (xem KL4).
 
-1. **RL thắng baseline áp đảo ở mật độ cao**: cùng toàn bộ lưới an toàn (so sánh công bằng từng lớp), RL đạt 90–100% trong khi Greedy đâm 60% (lao sớm, không khớp tốc độ). Khác biệt thuần là **chất lượng quyết định học được**: chọn khe + căn thời điểm + khớp tốc — kiểu "zipper merge".
-2. **Phổ hành vi theo trục huấn luyện**: checkpoint giữa (150k) đạt hợp tác đỉnh — highway **chủ động nhường 94%** số lần giảm tốc khi có xe nhập làn gần (Goal 2); train tiếp, hệ tiến hóa sang "tự chủ" — merger tự tìm khe tự nhiên, không cần ai nhường mà vẫn 100% (Goal 1+3 cực đại). Trade-off hợp tác ↔ lưu lượng là thật, đo được, và chọn được bằng checkpoint.
-3. **Khiên an toàn là bộ phận kiến trúc, mức lệ thuộc đo được**: ablation `--no-shield` cho thấy policy chỉ còn 10–30% khi lái trần (kỹ năng điều-tốc-tinh được ủy thác cho IDM-cap); chuyển phạt can-thiệp từ **binary −1 sang tỷ lệ mức-cắt (k=5)** nâng không-khiên lên 50% mà vẫn giữ 100% có khiên — chuỗi 10% → 30% → 50% chứng minh kỹ năng này *nội tâm hóa* dần được qua thiết kế reward.
+### Bốn kết luận chính
 
-> Số liệu gốc trong `outputs/logs/` (mỗi con số truy được về file nguồn). Biểu đồ báo cáo: `python rl/make_thesis_plots.py` → `outputs/plots/fig1..fig7` (learning curve 2-stage, G1/G2/G3, ablation khiên, mức ỷ-khiên).
+1. **RL thắng baseline áp đảo ở mật độ cao**: cùng toàn bộ lưới an toàn, PPO đạt 86±6% (gate nhập làn 100±0%) trong khi Greedy chỉ 53±12% và **sụp về 0% khi gỡ khiên**. Khác biệt thuần là **chất lượng quyết định học được**: chọn khe + căn thời điểm + khớp tốc — kiểu "zipper merge".
+2. **Phổ hành vi hợp tác ↔ tự chủ theo trục huấn luyện**: giai đoạn yield-hunt đẩy hành vi nhường lên **89±6%** (ổn định 3 hạt giống); checkpoint khác lại để merger tự tìm khe, không cần nhường vẫn đạt success cao. Trade-off đo được và **chọn được bằng checkpoint**.
+3. **Khiên an toàn — mức lệ thuộc đo được nhưng cai chưa ổn định**: ablation `--no-shield` cho thấy GĐ2 chỉ còn 14±6% khi lái trần (kỹ năng điều-tốc-tinh ủy thác cho khiên IDM-cap). Phạt can-thiệp tỷ lệ (k=5) nâng được năng lực không-khiên lên **28±17% (đỉnh 50%)** nhưng **variance cao** — reward shaping khả thi nhưng chưa đảm bảo mọi hạt giống (hướng tiếp: phạt mạnh hơn / hành động liên tục).
+4. **PPO vs A2C — deterministic collapse**: A2C *có học* (lấy mẫu 73±7%) nhưng argmax = **0±0%** ở cả 3 hạt giống — phân phối không "nhọn" về hành động nhập làn (bài toán *hành-động-hiếm-sống-còn*). PPO vừa học vừa nhọn (argmax 100±0%) nhờ cơ chế update trọn gói (nhiều epoch + clip + norm-advantage). Khuyến nghị phương pháp luận: **so sánh thuật toán MARL phải báo cáo rõ chế độ đánh giá** — thứ hạng đảo ngược giữa lấy mẫu và tất định.
+
+> Số liệu gốc trong `outputs/logs/thesis_night_summary_*.md` (3 đêm, mỗi con số truy được về file nguồn). Biểu đồ báo cáo: `python rl/make_thesis_plots.py` → `outputs/plots/fig1..fig7` (learning curve 2-stage, G1/G2/G3, ablation khiên, mức ỷ-khiên).
 
 ---
 
@@ -286,6 +291,8 @@ Có thể chạy thủ công: `python rl/plots.py <csv...> --out-dir <dir>` và 
 │   ├── diagnose_marl.py       # Công cụ debug (chạy tay)
 │   └── model_registry.py      # Liệt kê model → JSON (chạy tay)
 ├── train_curriculum.sh        # Curriculum 2-stage from-scratch (tái lập model)
+├── run_thesis_overnight.sh    # Một lệnh: train PPO+A2C+Greedy + eval ma trận 3 hạt giống
+├── run_stage4_propshield.sh   # Fine-tune cai khiên (propshield) từ model best
 ├── tests/                     # pytest (offline)
 ├── outputs/                   # Sinh khi train/eval (models, logs, plots)
 └── requirements.txt
@@ -307,7 +314,7 @@ Có thể chạy thủ công: `python rl/plots.py <csv...> --out-dir <dir>` và 
 ## Phạm vi & hạn chế
 
 - Mô phỏng tinh giản: hành động rời rạc + waypoint, không phải động học/cảm biến xe thật.
-- **Hành động rời rạc 5 mức không biểu diễn được điều-tốc-liên-tục** → policy ủy thác phần này cho khiên IDM-cap (ablation: bỏ khiên còn 10–50% tùy thiết kế phạt). Hướng mở: action liên tục hoặc shield-annealing.
+- **Hành động rời rạc 5 mức không biểu diễn được điều-tốc-liên-tục** → policy ủy thác phần này cho khiên IDM-cap (ablation bỏ khiên: 14% ở mô hình thường; phạt tỷ lệ nâng lên 28±17%, đỉnh 50% nhưng **variance cao, chưa ổn định**). Hướng mở: phạt mạnh hơn, action liên tục, hoặc shield-annealing.
 - Chính sách dùng chung cho hai vai trò có ngữ nghĩa khác nhau — lựa chọn thiết kế đơn giản, không tương đương hai chính sách chuyên biệt.
 - Một instance GAMA (`num_vec_envs=1`) → thời gian huấn luyện dài.
 - Traffic của **baseline + eval** đã tái lập theo seed (reproducible + paired); riêng **huấn luyện** RL chạy trên một layout cố định (chưa randomize traffic theo seed trong vòng train).
