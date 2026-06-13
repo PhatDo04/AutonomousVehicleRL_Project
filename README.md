@@ -138,8 +138,8 @@ Toàn bộ reward được tính trong GAML (`calculate_merging_reward`, `calcul
 | Hyperparameter | MAPPO | MAA2C |
 |---|---|---|
 | Policy | `CentralizedCriticPolicy` (CTDE) | `CentralizedCriticPolicy` (CTDE) |
-| Learning rate | 1e-4 (ổn định train dài) | 3e-4 |
-| `n_steps` | 256 | 64 |
+| Learning rate | 1e-4 (ổn định train dài) | 7e-4 (pipeline thesis) |
+| `n_steps` | 256 | 256 |
 | `batch_size` | 128 | (full rollout) |
 | `gamma` / `gae_lambda` | 0.99 / 0.95 | 0.99 / 0.95 |
 | `clip_range` | 0.2 | — |

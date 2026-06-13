@@ -30,11 +30,11 @@ from stable_baselines3.common.policies import ActorCriticPolicy
 from rl.config import MARL_AGENTS, MARL_BASE_OBS_DIM  # noqa: E402
 _N_AGENTS: int = len(MARL_AGENTS)
 # Local obs: 15 sensor + N one-hot agent ID (khớp MARL_OBS_DIM trong config).
-ACTOR_DIM: int = MARL_BASE_OBS_DIM + _N_AGENTS          # 15 + 7 = 22
+ACTOR_DIM: int = MARL_BASE_OBS_DIM + _N_AGENTS          # 15 + 4 = 19
 # Global state: N agents × 15D base sensor (không kèm one-hot ID — tránh dư thừa).
-GLOBAL_DIM: int = MARL_BASE_OBS_DIM * _N_AGENTS         # 15 × 7 = 105
+GLOBAL_DIM: int = MARL_BASE_OBS_DIM * _N_AGENTS         # 15 × 4 = 60
 # Obs đưa vào SB3 model = actor local + global state.
-CENTRALIZED_OBS_DIM: int = ACTOR_DIM + GLOBAL_DIM       # 127
+CENTRALIZED_OBS_DIM: int = ACTOR_DIM + GLOBAL_DIM       # 19 + 60 = 79
 
 
 class CentralizedCriticExtractor(nn.Module):
