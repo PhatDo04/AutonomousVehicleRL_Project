@@ -27,7 +27,7 @@ guard() { grep -qE "nb_cars_max          <- 84;" models/Main_Traffic.gaml || { s
 fresh() { bash restart_headless.sh "$PORT" >> "$PROG" 2>&1; }
 
 # Lấy checkpoint S3-yield-best của đêm (dòng "## STAGE-3 YIELD-BEST: <ck>")
-S3BEST=$(grep -oE "STAGE-3 YIELD-BEST: [0-9]+" "$SUM" | head -1 | grep -oE "[0-9]+")
+S3BEST=$(grep -oE "STAGE-3 YIELD-BEST: [0-9]+" "$SUM" | head -1 | grep -oE "[0-9]+$")
 [ -z "$S3BEST" ] && { say "Không tìm thấy S3-yield-best trong $SUM"; exit 1; }
 SRC="$CK/$S3/${S3}_${S3BEST}_steps.zip"
 [ -f "$SRC" ] || { say "Thiếu checkpoint nguồn: $SRC"; exit 1; }
