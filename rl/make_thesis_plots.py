@@ -1,8 +1,8 @@
 """Xuất bộ biểu đồ thesis (PNG 300dpi) từ dữ liệu train/eval.
 
 Nguồn dữ liệu:
-  - Learning curve : outputs/logs/curr_stage1_merge_episodes.csv + curr_stage2_e2e_episodes.csv
-                     (thesis-run curriculum 2-stage from-scratch — đọc THÔ từng episode).
+  - Learning curve : outputs/logs/curr_stage{1,2}_*_episodes.csv (tên cố định của train_curriculum.sh;
+                     fallback tự tìm file curr_*_stage{1,2}_*_episodes.csv mới nhất của run_thesis_overnight).
   - G3 (sóng lùi)  : outputs/logs/rl150k_h84.csv / rl250k_h84.csv / greedy_h84.csv (cùng mật độ high-84).
   - Bảng so sánh   : SUMMARY — số liệu đã kiểm chứng thủ công (mỗi dòng kèm nguồn log) vì các CSV eval
                      lịch sử trộn 2 mật độ (54/84); bảng này là single-source-of-truth cho bar chart.
@@ -79,9 +79,17 @@ def _rolling(xs: list[float], w: int) -> list[float]:
 def fig_learning_curve(out: Path) -> None:
     """Hình 1: learning curve 2-stage (success-rate trượt + reward) theo bước huấn luyện."""
     fig, axes = plt.subplots(2, 2, figsize=(13, 7), sharex="col")
-    for col, (name, title) in enumerate([("curr_stage1_merge", "Giai đoạn 1 — học NHẬP LÀN (from scratch)"),
-                                         ("curr_stage2_e2e", "Giai đoạn 2 — học E2E + hợp tác (warmstart GĐ1)")]):
-        rows = _read_csv(LOGS / f"{name}_episodes.csv")
+    # train_curriculum.sh đặt tên cố định (curr_stage1_merge / curr_stage2_e2e); run_thesis_overnight.sh
+    # đặt tên động (curr_<algo>_stage{1,2}_<TAG>). Ưu tiên tên cố định, fallback file mới nhất khớp pattern.
+    def _curve_csv(stage: int) -> Path | None:
+        fixed = LOGS / (f"curr_stage{stage}_merge_episodes.csv" if stage == 1 else "curr_stage2_e2e_episodes.csv")
+        if fixed.exists():
+            return fixed
+        cands = sorted(LOGS.glob(f"curr_*_stage{stage}_*_episodes.csv"), key=lambda p: p.stat().st_mtime)
+        return cands[-1] if cands else fixed
+    for col, (stage, title) in enumerate([(1, "Giai đoạn 1 — học NHẬP LÀN (from scratch)"),
+                                          (2, "Giai đoạn 2 — học E2E + hợp tác (warmstart GĐ1)")]):
+        rows = _read_csv(_curve_csv(stage))
         if not rows:
             continue
         steps, succ, rew = [], [], []

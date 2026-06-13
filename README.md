@@ -105,7 +105,7 @@ Gate nhập làn (giai đoạn 1): PPO argmax **100±0%** (tái lập tuyệt đ
 - **Đưa vào mô hình:** 79D = `[local 19D | global 60D]`.
 
 15D của `merging_0`: tốc độ, tiến độ ramp, khoảng cách tới điểm merge, lệch ngang, cờ vùng tăng tốc, khoảng trống/tốc độ xe trước–sau trên làn đích, cờ gap an toàn, xe trước trên ramp, độ khẩn, hành động trước, kiên nhẫn.
-15D của `highway`: tốc độ, làn hiện tại, radar đa hướng (trước/trái/phải) + thông tin xe ramp đang merge.
+15D của `highway`: tốc độ, làn hiện tại, radar 5 hướng (cùng-làn-trước; trái trước/sau; phải trước/sau — mỗi hướng gap + tốc độ) + xe ramp đang merge (gap + tốc) + kiên nhẫn.
 
 ### Không gian hành động — `Discrete(5)`
 
@@ -290,6 +290,7 @@ Có thể chạy thủ công: `python rl/plots.py <csv...> --out-dir <dir>` và 
 │   ├── smoke_test_env.py      # Kiểm tra kết nối (chạy tay)
 │   ├── diagnose_marl.py       # Công cụ debug (chạy tay)
 │   └── model_registry.py      # Liệt kê model → JSON (chạy tay)
+├── app_streamlit.py           # Bảng điều khiển web (venv-ui riêng)
 ├── train_curriculum.sh        # Curriculum 2-stage from-scratch (tái lập model)
 ├── run_thesis_overnight.sh    # Một lệnh: train PPO+A2C+Greedy + eval ma trận 3 hạt giống
 ├── run_stage4_propshield.sh   # Fine-tune cai khiên (propshield) từ model best
