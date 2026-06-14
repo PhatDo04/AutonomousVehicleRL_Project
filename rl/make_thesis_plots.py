@@ -281,11 +281,15 @@ def fig_shield_reliance(out: Path) -> None:
             if v > 0:
                 axes[0].text(xx, v + 1.5, f"{v:g}", ha="center", fontsize=8)
     axes[0].set_xticks(range(len(acts)), acts)
-    axes[0].set_ylabel("% bước")
+    axes[0].set_ylabel("% trên TỔNG số bước")
     axes[0].set_ylim(0, 108)
-    axes[0].set_title("Histogram hành động merging_0\n('nhập' hiếm: PPO 0,2% argmax vẫn đủ; A2C 4,9% chỉ qua lấy mẫu)", fontsize=10)
+    axes[0].set_title("Phân phối hành động merging_0 (% trên tổng bước lái, e2e)\n'nhập' chỉ cần 1 lần/episode đúng lúc → tỷ lệ nhỏ là ĐỦ (KHÔNG phải merger ít nhập)", fontsize=9.5)
     axes[0].legend(fontsize=9)
     axes[0].grid(axis="y", alpha=0.3)
+    # Chú thích chống hiểu nhầm: merge hiếm nhưng merger vẫn nhập thành công (gate 100%).
+    axes[0].annotate("PPO vẫn nhập đúng lúc\n→ gate nhập làn 100%",
+                     xy=(2.81, 3), xytext=(1.7, 55), fontsize=8, ha="center", color="#1f77b4",
+                     arrowprops=dict(arrowstyle="->", color="#1f77b4", lw=1.2))
     # Panel PHẢI — số lần khiên can thiệp/episode (mức ỷ khiên)
     names = list(SUMMARY)
     vals = [SUMMARY[n]["shield_mrg"] for n in names]
