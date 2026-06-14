@@ -35,11 +35,11 @@ SUMMARY = {
     # (yield-hunt, năng lực hợp tác đạt được); noshield = Giai đoạn 4 (propshield, năng lực cai
     # khiên đạt được). Mỗi mục tiêu là checkpoint chuyên hóa riêng của cùng dòng curriculum.
     "PPO\n(argmax)":     dict(success=86, collision=14, yield_pct=89, noshield=28,
-                              shield_mrg=3.0, src="thesis_night_summary_*.md (3 train-seeds)"),
+                              shield_mrg=2.3, src="thesis_night_summary_*.md (3 train-seeds)"),
     "MAA2C\n(lấy mẫu)":  dict(success=73, collision=27, yield_pct=37, noshield=52,
-                              shield_mrg=2.5, src="thesis_night_summary_*.md (3 train-seeds)"),
+                              shield_mrg=2.8, src="thesis_night_summary_*.md (3 train-seeds)"),
     "Greedy\n(luật)":    dict(success=53, collision=47, yield_pct=0, noshield=0,
-                              shield_mrg=1.5, src="thesis_night_summary_*.md (GREEDY, 3 eval-seeds)"),
+                              shield_mrg=6.2, src="thesis_night_summary_*.md (GREEDY, 3 eval-seeds)"),
 }
 
 # Tiến trình nội tâm hóa theo hệ số phạt khiên. Hai điểm đầu là THĂM DÒ 1 hạt giống (seed 0);
@@ -79,62 +79,93 @@ def _rolling(xs: list[float], w: int) -> list[float]:
 def fig_learning_curve(out: Path) -> None:
     """Hình 1: learning curve 2-stage (success-rate trượt + reward) theo bước huấn luyện."""
     fig, axes = plt.subplots(2, 2, figsize=(13, 7), sharex="col")
-    # train_curriculum.sh đặt tên cố định (curr_stage1_merge / curr_stage2_e2e); run_thesis_overnight.sh
-    # đặt tên động (curr_<algo>_stage{1,2}_<TAG>). Ưu tiên tên cố định, fallback file mới nhất khớp pattern.
-    def _curve_csv(stage: int) -> Path | None:
-        fixed = LOGS / (f"curr_stage{stage}_merge_episodes.csv" if stage == 1 else "curr_stage2_e2e_episodes.csv")
-        if fixed.exists():
-            return fixed
-        cands = sorted(LOGS.glob(f"curr_*_stage{stage}_*_episodes.csv"), key=lambda p: p.stat().st_mtime)
-        return cands[-1] if cands else fixed
-    for col, (stage, title) in enumerate([(1, "Giai đoạn 1 — học NHẬP LÀN (from scratch)"),
-                                          (2, "Giai đoạn 2 — học E2E + hợp tác (warmstart GĐ1)")]):
-        rows = _read_csv(_curve_csv(stage))
-        if not rows:
-            continue
-        steps, succ, rew = [], [], []
-        cum = 0
+
+    def _curve_csv(algo: str, stage: int) -> Path | None:
+        # Overnight: night_<algo>_s{stage}_<TAG>_episodes.csv (ưu tiên, mới nhất); fallback curr_<algo>_stage{stage}_*.
+        for pat in (f"night_{algo}_s{stage}_*_episodes.csv", f"curr_{algo}_stage{stage}_*_episodes.csv"):
+            cands = sorted([p for p in LOGS.glob(pat) if "highway" not in p.name], key=lambda p: p.stat().st_mtime)
+            if cands:
+                return cands[-1]
+        return None
+
+    def _series(path: Path | None):
+        rows = _read_csv(path) if path else []
+        steps, succ, rew, cum = [], [], [], 0
         for r in rows:
             cum += int(float(r["length"]))
             steps.append(cum / 1000.0)
             succ.append(1.0 if r["outcome"] == "success" else 0.0)
             rew.append(float(r["reward"]))
-        w = max(5, len(rows) // 20)
-        axes[0][col].plot(steps, [s * 100 for s in _rolling(succ, w)], color=COLORS["success"], lw=1.8)
+        return steps, succ, rew
+
+    ALGOS = [("ppo", "MAPPO", "#1f77b4"), ("a2c", "MAA2C", "#d62728")]
+    for col, (stage, title) in enumerate([(1, "Giai đoạn 1 — học NHẬP LÀN (from scratch)"),
+                                          (2, "Giai đoạn 2 — học E2E + hợp tác (warmstart GĐ1)")]):
+        for algo, label, color in ALGOS:
+            steps, succ, rew = _series(_curve_csv(algo, stage))
+            if not steps:
+                continue
+            w = max(5, len(steps) // 20)
+            axes[0][col].plot(steps, [s * 100 for s in _rolling(succ, w)], color=color, lw=1.8, label=label)
+            axes[1][col].plot(steps, _rolling(rew, w), color=color, lw=1.5, label=label)
         axes[0][col].set_ylabel("Tỷ lệ thành công (%)" if col == 0 else "")
         axes[0][col].set_ylim(-5, 105)
         axes[0][col].set_title(title, fontsize=11)
         axes[0][col].grid(alpha=0.3)
-        axes[1][col].plot(steps, _rolling(rew, w), color=COLORS["yield"], lw=1.5)
+        axes[0][col].legend(fontsize=9, loc="lower right")
         axes[1][col].set_ylabel("Reward/episode (trượt)" if col == 0 else "")
         # Trục x = tick môi trường tích lũy của merger; SB3 timesteps = 4× (4 agent slot / cycle).
         axes[1][col].set_xlabel("Tick môi trường tích lũy (nghìn)")
         axes[1][col].grid(alpha=0.3)
-    fig.suptitle("Đường cong huấn luyện — curriculum 2 giai đoạn (from scratch, 600k bước)", fontsize=13)
+        axes[1][col].legend(fontsize=9, loc="lower right")
+    fig.suptitle("Đường cong huấn luyện — curriculum 2 giai đoạn: đối sánh MAPPO vs MAA2C (overnight 3 seed)", fontsize=13)
     fig.tight_layout()
     fig.savefig(out / "fig1_learning_curve.png", dpi=300)
     plt.close(fig)
 
 
+# Ma trận giai đoạn 1 (đánh giá lấy mẫu) — nguồn: Bảng 4.1 (success) + Bảng 4.2 (collision), 5 hạt giống.
+# Mỗi ô = (khiên ON, khiên OFF).
+G1_SUCC = {
+    "thấp":  {"MAA2C": (86.4, 87.2), "MAPPO": (83.6, 75.2), "Greedy": (96, 82)},
+    "vừa":   {"MAA2C": (89.2, 84.8), "MAPPO": (83.6, 76.8), "Greedy": (96, 2)},
+    "cao":   {"MAA2C": (82.8, 85.2), "MAPPO": (68.4, 69.6), "Greedy": (74, 0)},
+}
+G1_COLL = {
+    "thấp":  {"MAA2C": (13.6, 12.8), "MAPPO": (16.0, 21.6), "Greedy": (4, 18)},
+    "vừa":   {"MAA2C": (10.8, 15.2), "MAPPO": (16.0, 22.4), "Greedy": (0, 98)},
+    "cao":   {"MAA2C": (16.4, 14.8), "MAPPO": (31.2, 30.4), "Greedy": (22, 100)},
+}
+
+
 def fig_g1_bars(out: Path) -> None:
-    """Hình 2: Goal 1 — success/collision theo model (@ high 84, có khiên)."""
-    names = list(SUMMARY)
-    succ = [SUMMARY[n]["success"] for n in names]
-    coll = [SUMMARY[n]["collision"] for n in names]
-    x = range(len(names))
-    fig, ax = plt.subplots(figsize=(9, 5))
-    ax.bar([i - 0.2 for i in x], succ, 0.38, label="Thành công", color=COLORS["success"])
-    ax.bar([i + 0.2 for i in x], coll, 0.38, label="Va chạm", color=COLORS["collision"])
-    for i, v in enumerate(succ):
-        ax.text(i - 0.2, v + 1.5, f"{v}%", ha="center", fontsize=10, fontweight="bold")
-    for i, v in enumerate(coll):
-        ax.text(i + 0.2, v + 1.5, f"{v}%", ha="center", fontsize=10)
-    ax.set_xticks(list(x), names, fontsize=10)
-    ax.set_ylabel("% episode")
-    ax.set_ylim(0, 112)
-    ax.set_title("Mục tiêu 1 — Nhập làn an toàn (mật độ cao 84, có khiên, 3 hạt giống)")
-    ax.legend()
-    ax.grid(axis="y", alpha=0.3)
+    """Hình 4.1: ma trận giai đoạn 1 — success/va chạm theo MẬT ĐỘ × LƯỚI AN TOÀN (ON/OFF)."""
+    dens = ["thấp", "vừa", "cao"]
+    pols = ["MAA2C", "MAPPO", "Greedy"]
+    pcol = {"MAA2C": "#2e7d32", "MAPPO": "#1565c0", "Greedy": "#c62828"}
+    w = 0.25
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
+    for col, (mode, idx) in enumerate([("Khiên ON", 0), ("Khiên OFF", 1)]):
+        for row, (MAT, ylab) in enumerate([(G1_SUCC, "Tỷ lệ thành công (%)"),
+                                           (G1_COLL, "Tỷ lệ va chạm (%)")]):
+            ax = axes[row][col]
+            for k, pol in enumerate(pols):
+                xs = [i + (k - 1) * w for i in range(len(dens))]
+                vals = [MAT[d][pol][idx] for d in dens]
+                ax.bar(xs, vals, w, label=pol, color=pcol[pol])
+                for xx, v in zip(xs, vals):
+                    ax.text(xx, v + 1, f"{v:g}", ha="center", fontsize=8)
+            ax.set_ylim(0, 112)
+            ax.grid(axis="y", alpha=0.3)
+            if col == 0:
+                ax.set_ylabel(ylab)
+            if row == 0:
+                ax.set_title(mode, fontsize=12)
+            if row == 1:
+                ax.set_xticks(range(len(dens)), dens)
+                ax.set_xlabel("Mật độ giao thông")
+    axes[0][0].legend(fontsize=9, loc="lower left")
+    fig.suptitle("Giai đoạn 1 — Ma trận mật độ × lưới an toàn (đánh giá lấy mẫu, 5 hạt giống)", fontsize=13)
     fig.tight_layout()
     fig.savefig(out / "fig2_g1_success.png", dpi=300)
     plt.close(fig)
@@ -159,7 +190,7 @@ def fig_g2_yield(out: Path) -> None:
 
 def fig_g3_flow(out: Path) -> None:
     """Hình 4: Goal 3 — CV sóng lùi / tốc độ dòng chính / throughput (đọc CSV @84)."""
-    series = [("RL-150k", "rl150k_h84.csv"), ("RL-250k", "rl250k_h84.csv"), ("Greedy", "greedy_h84.csv")]
+    series = [("MAPPO", "ppo_h84.csv"), ("MAA2C", "a2c_h84.csv"), ("Greedy", "greedy_h84.csv")]
     metrics = [("shockwave_index", "CV sóng lùi (thấp = tốt)"),
                ("mainline_mean_speed", "Tốc độ dòng chính"),
                ("throughput", "Throughput")]
@@ -168,6 +199,9 @@ def fig_g3_flow(out: Path) -> None:
         vals, names = [], []
         for name, fn in series:
             rows = _merger_rows(_read_csv(LOGS / fn))
+            # CHỈ tính trên ván HOÀN TẤT lộ trình (outcome=success): tránh artifact CV-sóng-lùi thấp giả
+            # do ván va chạm SỚM (length ~43) có ít dao động tốc độ → CV thấp không phản ánh dòng chảy thật.
+            rows = [r for r in rows if r.get("outcome") == "success"]
             vs = [float(r[col]) for r in rows if r.get(col, "") not in ("", "None")]
             if vs:
                 names.append(name)
@@ -177,7 +211,7 @@ def fig_g3_flow(out: Path) -> None:
             ax.text(b.get_x() + b.get_width() / 2, v, f"{v:.3f}", ha="center", va="bottom", fontsize=10)
         ax.set_title(title, fontsize=11)
         ax.grid(axis="y", alpha=0.3)
-    fig.suptitle("Mục tiêu 3 — Dòng giao thông sau nhập làn (high 84, seed 1, e2e)", fontsize=12)
+    fig.suptitle("Mục tiêu 3 — Dòng giao thông sau nhập làn (high 84, e2e; chỉ ván hoàn tất lộ trình)", fontsize=12)
     fig.tight_layout()
     fig.savefig(out / "fig4_g3_flow.png", dpi=300)
     plt.close(fig)
@@ -224,17 +258,45 @@ def fig_propshield_trend(out: Path) -> None:
     plt.close(fig)
 
 
+# Phân phối hành động merging_0 (% bước) — nguồn: eval --log-actions @ high 84 e2e (hist_eval.log).
+MERGING_ACT_HIST = {
+    "PPO (argmax)":  {"giảm": 0.0, "giữ": 0.0,  "tăng": 99.3, "nhập": 0.2, "chờ": 0.5},
+    "A2C (lấy mẫu)": {"giảm": 6.0, "giữ": 26.6, "tăng": 54.5, "nhập": 4.9, "chờ": 8.0},
+}
+
+
 def fig_shield_reliance(out: Path) -> None:
-    """Hình 7: mức ỷ-khiên (số lần khiên can thiệp khẩn cấp / episode, merger)."""
+    """Hình 4.4: histogram hành động merging_0 + số lần khiên can thiệp/episode."""
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.8))
+    # Panel TRÁI — histogram hành động merging_0 (minh họa hành-động-hiếm-sống-còn 'nhập')
+    acts = ["giảm", "giữ", "tăng", "nhập", "chờ"]
+    acol = {"PPO (argmax)": "#1f77b4", "A2C (lấy mẫu)": "#d62728"}
+    algos = list(MERGING_ACT_HIST)
+    w = 0.38
+    for k, al in enumerate(algos):
+        xs = [i + (k - 0.5) * w for i in range(len(acts))]
+        vals = [MERGING_ACT_HIST[al][a] for a in acts]
+        axes[0].bar(xs, vals, w, label=al, color=acol[al])
+        for xx, v in zip(xs, vals):
+            if v > 0:
+                axes[0].text(xx, v + 1.5, f"{v:g}", ha="center", fontsize=8)
+    axes[0].set_xticks(range(len(acts)), acts)
+    axes[0].set_ylabel("% bước")
+    axes[0].set_ylim(0, 108)
+    axes[0].set_title("Histogram hành động merging_0\n('nhập' hiếm: PPO 0,2% argmax vẫn đủ; A2C 4,9% chỉ qua lấy mẫu)", fontsize=10)
+    axes[0].legend(fontsize=9)
+    axes[0].grid(axis="y", alpha=0.3)
+    # Panel PHẢI — số lần khiên can thiệp/episode (mức ỷ khiên)
     names = list(SUMMARY)
     vals = [SUMMARY[n]["shield_mrg"] for n in names]
-    fig, ax = plt.subplots(figsize=(9, 4.5))
-    bars = ax.bar(names, vals, 0.5, color=COLORS["shield"])
+    bars = axes[1].bar(names, vals, 0.5, color=COLORS["shield"])
     for b, v in zip(bars, vals):
-        ax.text(b.get_x() + b.get_width() / 2, v + 0.12, f"{v}", ha="center", fontsize=11, fontweight="bold")
-    ax.set_ylabel("Lần can thiệp khẩn / episode")
-    ax.set_title("Mức lệ thuộc khiên của merger (thấp = tự lái thật)\n(greedy: trung bình thấp nhưng worst-case 155/ván khi kẹt xe)")
-    ax.grid(axis="y", alpha=0.3)
+        axes[1].text(b.get_x() + b.get_width() / 2, v + 0.12, f"{v}", ha="center", fontsize=11, fontweight="bold")
+    axes[1].set_ylabel("Lần can thiệp / episode")
+    axes[1].set_ylim(0, max(vals) * 1.25)
+    axes[1].set_title("Số lần khiên can thiệp / episode (thấp = tự lái thật)\n(RL ỷ khiên thấp & ổn định; Greedy cao hơn + spiky khi kẹt)", fontsize=10)
+    axes[1].grid(axis="y", alpha=0.3)
+    fig.suptitle("Histogram hành động & mức lệ thuộc khiên của merger (high 84, e2e)", fontsize=13)
     fig.tight_layout()
     fig.savefig(out / "fig7_shield_reliance.png", dpi=300)
     plt.close(fig)
