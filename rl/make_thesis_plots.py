@@ -3,7 +3,8 @@
 Nguồn dữ liệu:
   - Learning curve : outputs/logs/curr_stage{1,2}_*_episodes.csv (tên cố định của train_curriculum.sh;
                      fallback tự tìm file curr_*_stage{1,2}_*_episodes.csv mới nhất của run_thesis_overnight).
-  - G3 (sóng lùi)  : outputs/logs/rl150k_h84.csv / rl250k_h84.csv / greedy_h84.csv (cùng mật độ high-84).
+  - G3 (sóng lùi)  : outputs/logs/sw_eval/{ppo,a2c}_n{1,2,3}_seed{0,1,2}.csv + greedy_seed{0,1,2}.csv
+                     (eval lại 3 ckpt tốt nhất × 3 hạt giống đánh giá, e2e high-84, cùng giao thức Bảng 4.3).
   - Bảng so sánh   : SUMMARY — số liệu đã kiểm chứng thủ công (mỗi dòng kèm nguồn log) vì các CSV eval
                      lịch sử trộn 2 mật độ (54/84); bảng này là single-source-of-truth cho bar chart.
                      Cập nhật số mới: sửa SUMMARY bên dưới rồi chạy lại — mọi hình tự đồng bộ.
@@ -189,30 +190,60 @@ def fig_g2_yield(out: Path) -> None:
 
 
 def fig_g3_flow(out: Path) -> None:
-    """Hình 4: Goal 3 — CV sóng lùi / tốc độ dòng chính / throughput (đọc CSV @84)."""
-    series = [("MAPPO", "ppo_h84.csv"), ("MAA2C", "a2c_h84.csv"), ("Greedy", "greedy_h84.csv")]
+    """Hình 4: Goal 3 — CV sóng lùi / tốc độ dòng chính / throughput.
+
+    Nguồn: outputs/logs/sw_eval/ — eval LẠI 3 checkpoint tốt nhất (PPO/A2C, một/đêm)
+    trên 3 hạt giống đánh giá (e2e high-84, khiên ON, PPO=argmax, A2C=stochastic),
+    cùng giao thức với bộ headline 86±6% (Bảng 4.3). Cột = trung bình QUA 3 HẠT GIỐNG
+    HUẤN LUYỆN; thanh sai số = độ lệch chuẩn giữa 3 hạt giống; n = tổng số ván thành công.
+    """
+    SW = LOGS / "sw_eval"
+    # mỗi policy: danh sách "nhóm hạt giống"; mỗi nhóm = các file CSV gộp lại (eval-seeds).
+    series = [
+        ("MAPPO", [[SW / f"ppo_n{n}_seed{s}.csv" for s in (0, 1, 2)] for n in (1, 2, 3)]),
+        ("MAA2C", [[SW / f"a2c_n{n}_seed{s}.csv" for s in (0, 1, 2)] for n in (1, 2, 3)]),
+        ("Greedy", [[SW / f"greedy_seed{s}.csv"] for s in (0, 1, 2)]),
+    ]
     metrics = [("shockwave_index", "CV sóng lùi (thấp = tốt)"),
                ("mainline_mean_speed", "Tốc độ dòng chính"),
                ("throughput", "Throughput")]
-    fig, axes = plt.subplots(1, 3, figsize=(13, 4.2))
-    for ax, (col, title) in zip(axes, metrics):
-        vals, names = [], []
-        for name, fn in series:
-            rows = _merger_rows(_read_csv(LOGS / fn))
-            # CHỈ tính trên ván HOÀN TẤT lộ trình (outcome=success): tránh artifact CV-sóng-lùi thấp giả
-            # do ván va chạm SỚM (length ~43) có ít dao động tốc độ → CV thấp không phản ánh dòng chảy thật.
-            rows = [r for r in rows if r.get("outcome") == "success"]
+
+    def seedwise(groups, col):
+        """Trả (mean_qua_seed, std_qua_seed, tổng_n_success)."""
+        per_seed, n_succ = [], 0
+        for grp in groups:
+            rows = []
+            for fp in grp:
+                rows += [r for r in _merger_rows(_read_csv(fp)) if r.get("outcome") == "success"]
+            n_succ += len(rows)
             vs = [float(r[col]) for r in rows if r.get(col, "") not in ("", "None")]
             if vs:
-                names.append(name)
-                vals.append(sum(vs) / len(vs))
-        bars = ax.bar(names, vals, 0.5, color=COLORS["flow"])
-        for b, v in zip(bars, vals):
-            ax.text(b.get_x() + b.get_width() / 2, v, f"{v:.3f}", ha="center", va="bottom", fontsize=10)
+                per_seed.append(sum(vs) / len(vs))
+        if not per_seed:
+            return None, 0.0, n_succ
+        mean = sum(per_seed) / len(per_seed)
+        var = sum((x - mean) ** 2 for x in per_seed) / len(per_seed)
+        return mean, var ** 0.5, n_succ
+
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4.4))
+    for ax, (col, title) in zip(axes, metrics):
+        names, vals, errs, ns = [], [], [], []
+        for name, groups in series:
+            m, sd, n = seedwise(groups, col)
+            if m is not None:
+                names.append(name); vals.append(m); errs.append(sd); ns.append(n)
+        bars = ax.bar(names, vals, 0.5, yerr=errs, capsize=5, color=COLORS["flow"],
+                      error_kw=dict(ecolor="#222", lw=1.2))
+        for b, v, sd, n in zip(bars, vals, errs, ns):
+            ax.text(b.get_x() + b.get_width() / 2, v + sd, f"{v:.3f}±{sd:.3f}\n(n={n})",
+                    ha="center", va="bottom", fontsize=8.5)
         ax.set_title(title, fontsize=11)
+        ax.set_ylim(0, max(v + e for v, e in zip(vals, errs)) * 1.35)
         ax.grid(axis="y", alpha=0.3)
-    fig.suptitle("Mục tiêu 3 — Dòng giao thông sau nhập làn (high 84, e2e; chỉ ván hoàn tất lộ trình)", fontsize=12)
-    fig.tight_layout()
+    fig.suptitle("Mục tiêu 3 — Dòng giao thông sau nhập làn (high 84, e2e, 3 hạt giống; chỉ ván hoàn tất lộ trình)\n"
+                 "Lưu ý: CV = std/tốc-độ — tốc độ hành trình thấp của RL (cân bằng an toàn) làm CV cao; Greedy chỉ hoàn tất ~53% số ván.",
+                 fontsize=10.5)
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
     fig.savefig(out / "fig4_g3_flow.png", dpi=300)
     plt.close(fig)
 

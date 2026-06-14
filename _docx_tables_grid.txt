@@ -1,0 +1,264 @@
+===== TABLE T01  (1 rows x 2 cols) =====
+  R0: c0=bỘ GIÁO DỤC VÀ ĐÀO TẠO || c1=BỘ NÔNG NGHIỆP VÀ PTNT
+
+===== TABLE T02  (1 rows x 2 cols) =====
+  R0: c0=bỘ GIÁO DỤC VÀ ĐÀO TẠO || c1=BỘ NÔNG NGHIỆP VÀ PTNT
+
+===== TABLE T03  (2 rows x 2 cols) =====
+  R0: c0=Ngành : Kỹ thuật phần mềm || c1=
+  R1: c0=Mã số: || c1=
+
+===== TABLE T04  (2 rows x 2 cols) =====
+  R0: c0=NGƯỜI HƯỚNG DẪN || c1=1. TS. Lê Nguyễn Tuấn Thành
+  R1: c0= || c1=
+
+===== TABLE T05  (1 rows x 2 cols) =====
+  R0: c0= || c1=TRƯỜNG ĐẠI HỌC THUỶ LỢI KHOA CÔNG NGHỆ THÔNG TIN BẢN TÓM TẮT ĐỀ CƯƠNG ĐỒ ÁN TỐT NGHIỆP
+
+===== TABLE T06  (7 rows x 4 cols) =====
+  R0: c0=TT || c1=Thời gian || c2=Nội dung công việc || c3=Kết quả dự kiến đạt được
+  R1: c0=1 || c1=Tuần 1 - 2 || c2=Tìm hiểu bài toán giao thông, nghiên cứu lý thuyết về RL, MARL và làm quen với nền tảng GAMA, cơ chế kết nối với Python. || c3=Nắm vững lý thuyết, chạy thử thành công mô hình cơ sở MARL4AV, làm quen với nền tảng GAMA, cơ chế kết nối với Python.
+  R2: c0=2 || c1=Tuần 3 - 5 || c2=Phân tích kiến trúc hệ thống, thiết kế môi trường mô phỏng vật lý với kịch bản nhánh nhập làn (ramp) trên GAMA. || c3=Bản thiết kế môi trường mô phỏng hoàn thiện, xe sinh ra và di chuyển đúng quỹ đạo nhập làn.
+  R3: c0=3 || c1=Tuần 6 - 9 || c2=Thiết kế MDP (State, Action, Reward) và lập trình tích hợp các thuật toán học sâu (MAPPO/MAA2C) cho kịch bản nhập làn qua Python. || c3=Tác nhân bắt đầu quá trình huấn luyện (training), giao tiếp hai chiều giữa môi trường mô phỏng và Python ổn định.
+  R4: c0=4 || c1=Tuần 10 - 12 || c2=Chạy thực nghiệm, thu thập dữ liệu (vận tốc trung bình, số lần va chạm, thông lượng), tinh chỉnh siêu tham số. || c3=Đạt được mô hình hội tụ, xe biết tự động nhường đường và nhập làn không gây ùn tắc.
+  R5: c0=5 || c1=Tuần 13 || c2=Xử lý số liệu, vẽ biểu đồ so sánh các thuật toán và viết báo cáo đồ án tốt nghiệp. || c3=Hoàn thành quyển đồ án và slide bảo vệ.
+  R6: c0=6 || c1=Tuần 14 || c2=Nộp đồ án, chỉnh sửa theo góp ý của GVHD và chuẩn bị bảo vệ. || c3=Sẵn sàng bảo vệ trước hội đồng.
+
+===== TABLE T07  (10 rows x 2 cols) =====
+  R0: c0=[1] || c1=Le Nguyen Tuan Thanh (2023). Multi-agent reinforcement learning for traffic congestion on one-way multi-lane highways. Journal of Information and Telecommunication, 7:3, 255-269. https://www.tandfonline.com/doi/full/10.1080/24751839.2023.2182174.
+  R1: c0=[2] || c1=GAMA Platform. https://gama-platform.org.
+  R2: c0=[3] || c1=Terry, J.K., Black, B., Grammel, N., et al. (2021). PettingZoo: Gym for Multi-Agent Reinforcement Learning. https://arxiv.org/abs/2009.14471.
+  R3: c0=[4] || c1=Raffin, A., Hill, A., Gleave, A., Kanervisto, A., Ernestus, M., Dormann, N. (2021). Stable-Baselines3: Reliable Reinforcement Learning Implementations. Journal of Machine Learning Research, 22(268), 1-8. https://jmlr.org/papers/volume22/20-1364/20-1364.pdf.
+  R4: c0=[5] || c1=Yu, C., Velu, A., Vinitsky, E., Wang, Y., Bayen, A., Wu, Y. (2021). The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games (MAPPO). https://arxiv.org/abs/2103.01955
+  R5: c0= || c1=
+  R6: c0= || c1=
+  R7: c0= || c1=
+  R8: c0= || c1=
+  R9: c0= || c1=
+
+===== TABLE T08  (1 rows x 2 cols) =====
+  R0: c0= || c1=Tác giả ĐATN/KLTN Chữ ký Đỗ Tiến Phát
+
+===== TABLE T09  (21 rows x 3 cols) =====
+  R0: c0=Viết tắt || c1=Tiếng Anh || c2=Tiếng Việt
+  R1: c0=ABMS || c1=Agent-Based Modeling and Simulation || c2=Mô hình hóa và mô phỏng dựa trên tác tử
+  R2: c0=A2C || c1=Advantage Actor-Critic || c2=Thuật toán Actor-Critic với hàm lợi thế
+  R3: c0=AV || c1=Autonomous Vehicle || c2=Phương tiện tự hành
+  R4: c0=CTDE || c1=Centralized Training, Decentralized Execution || c2=Huấn luyện tập trung, thực thi phi tập trung
+  R5: c0=CV || c1=Coefficient of Variation || c2=Hệ số biến thiên
+  R6: c0=GAE || c1=Generalized Advantage Estimation || c2=Ước lượng lợi thế tổng quát
+  R7: c0=GAML || c1=GAma Modeling Language || c2=Ngôn ngữ mô hình hóa của nền tảng GAMA
+  R8: c0=HDV || c1=Human-Driven Vehicle || c2=Phương tiện do người lái
+  R9: c0=IDM || c1=Intelligent Driver Model || c2=Mô hình lái xe thông minh (bám đuôi)
+  R10: c0=MAA2C || c1=Multi-Agent A2C || c2=A2C đa tác tử với Critic tập trung
+  R11: c0=MAPPO || c1=Multi-Agent PPO || c2=PPO đa tác tử với Critic tập trung
+  R12: c0=MARL || c1=Multi-Agent Reinforcement Learning || c2=Học tăng cường đa tác tử
+  R13: c0=MDP || c1=Markov Decision Process || c2=Quá trình Quyết định Markov
+  R14: c0=MLP || c1=Multi-Layer Perceptron || c2=Mạng perceptron đa lớp
+  R15: c0=MOBIL || c1=Minimizing Overall Braking Induced by Lane changes || c2=Mô hình quyết định chuyển làn
+  R16: c0=NPC || c1=Non-Player Character || c2=Xe nền (không phải tác tử học)
+  R17: c0=PPO || c1=Proximal Policy Optimization || c2=Tối ưu chính sách lân cận
+  R18: c0=RL || c1=Reinforcement Learning || c2=Học tăng cường
+  R19: c0=SB3 || c1=Stable-Baselines3 || c2=Thư viện cài đặt thuật toán RL
+  R20: c0=POMDP || c1=Partially Observable Markov Decision Process || c2=Quá trình Quyết định Markov quan sát một phần
+
+===== TABLE T10  (6 rows x 5 cols) =====
+  R0: c0=Hướng nghiên cứu || c1=Đại diện || c2=Kịch bản || c3=Phương pháp || c4=Khoảng trống đồ án khai thác
+  R1: c0=Mô phỏng vi mô luật tĩnh || c1=IDM [10], MOBIL [11] || c2=Bám đuôi, chuyển làn || c3=Phương trình luật tay || c4=Không học, không phối hợp chủ động
+  R2: c0=MARL cho ùn tắc cao tốc || c1=MARL4AV [1] || c2=Đường thẳng nhiều làn || c3=MARL + ABMS (NetLogo) || c4=Chưa có kịch bản nhập làn; đồ án chuyển sang GAMA
+  R3: c0=MARL CTDE tổng quát || c1=MADDPG, MAPPO [2] || c2=Benchmark hợp tác || c3=Critic tập trung || c4=Chưa áp vào on-ramp trên GAMA
+  R4: c0=RL nhập làn xe tự hành || c1=Chen et al. [9] || c2=On-ramp mixed traffic || c3=MARL + safety prioritization || c4=Chưa định lượng mức lệ thuộc lưới an toàn
+  R5: c0=Đồ án này || c1=- || c2=On-ramp 3 làn + ramp trên GAMA || c3=MAPPO/MAA2C (CTDE) vs Greedy || c4=Ma trận mật độ × khiên + ablation nội tâm hóa an toàn
+
+===== TABLE T11  (10 rows x 3 cols) =====
+  R0: c0=STT || c1=Thư viện || c2=Vai trò trong đồ án
+  R1: c0=1 || c1=PyTorch || c2=Nền tảng học sâu: mạng Actor–Critic, lan truyền ngược, tối ưu Adam
+  R2: c0=2 || c1=Stable-Baselines3 (SB3) [6] || c2=Cài đặt PPO/A2C đã kiểm chứng; đồ án mở rộng bằng chính sách CTDE tùy biến
+  R3: c0=3 || c1=PettingZoo [5] || c2=Chuẩn API môi trường đa tác tử (Parallel API)
+  R4: c0=4 || c1=gama-pettingzoo / gama-client || c2=Cầu nối socket hai chiều GAMA ⇄ Python
+  R5: c0=5 || c1=SuperSuit || c2=Các wrapper đa tác tử: agent indicator, chuyển ParallelEnv → VecEnv
+  R6: c0=6 || c1=NumPy / Pandas || c2=Xử lý vector quan sát, tổng hợp số liệu episode
+  R7: c0=7 || c1=Matplotlib || c2=Sinh toàn bộ biểu đồ kết quả (learning curve, radar, boxplot…)
+  R8: c0=8 || c1=Streamlit || c2=Bảng điều khiển web cho toàn pipeline (venv riêng)
+  R9: c0=9 || c1=pytest || c2=Kiểm thử tự động các module phân tích/metrics/scenario
+
+===== TABLE T12  (12 rows x 3 cols) =====
+  R0: c0=Tham số || c1=Giá trị || c2=Ý nghĩa
+  R1: c0=number_of_lanes || c1=3 || c2=Số làn cao tốc
+  R2: c0=rescue_lane_y || c1=trên cùng (offset_y − lane_width) || c2=Làn khẩn cấp; xe hỏng dạt lên — không phải làn chạy của tác tử RL
+  R3: c0=lane_width || c1=3,5 m || c2=Bề rộng mỗi làn
+  R4: c0=road_length || c1=240 m || c2=Chiều dài đoạn đường
+  R5: c0=ramp_waypoints || c1=8 điểm || c2=Đường cong nhánh nhập làn
+  R6: c0=accel_lane_y || c1=dưới Làn 3 (offset_y + 3·lane_width + lane_width/2) || c2=Làn gia tốc — ramp chạy song song làn chính để xe lấy đà trước khi nhập
+  R7: c0=accel_start_x / accel_end_x || c1=48 m / 162 m || c2=Vùng tăng tốc — đoạn x bên trong làn gia tốc, nơi xe được cộng gia tốc
+  R8: c0=Điểm merge || c1=x = 180 m || c2=Vị trí hợp lưu vào làn ngoài cùng
+  R9: c0=speed_max || c1=1,0 (đơn vị mô phỏng) || c2=Tốc độ tối đa
+  R10: c0=acceleration / deceleration || c1=0,05 / 0,1 || c2=Mức tăng/giảm tốc mỗi hành động
+  R11: c0=collision_distance || c1=3,5 m || c2=Ngưỡng phát hiện va chạm
+
+===== TABLE T13  (4 rows x 4 cols) =====
+  R0: c0=Kịch bản || c1=nb_cars_max || c2=Chu kỳ sinh xe || c3=Mô tả
+  R1: c0=low || c1=24 || c2=10 || c3=Mật độ thấp — đường thưa, dễ tìm khe
+  R2: c0=medium || c1=54 || c2=5 || c3=Mật độ vừa
+  R3: c0=high || c1=84 || c2=3 || c3=Mật độ cao — ùn tắc, bài toán khó nhất (bộ số chính giai đoạn 2)
+
+===== TABLE T14  (3 rows x 3 cols) =====
+  R0: c0=Tác tử || c1=Vai trò || c2=Mục tiêu
+  R1: c0=merging_0 || c1=Xe nhập làn (trên ramp) || c2=Nhập vào dòng cao tốc an toàn, không va chạm, không hết đường
+  R2: c0=highway_0/1/2 || c1=3 xe cao tốc làn dưới || c2=Giữ tốc độ dòng chảy + nhường khoảng trống hợp lý cho xe ramp
+
+===== TABLE T15  (13 rows x 3 cols) =====
+  R0: c0=# || c1=Thành phần || c2=Ý nghĩa
+  R1: c0=0 || c1=norm_speed || c2=Tốc độ hiện tại (chuẩn hóa)
+  R2: c0=1 || c1=norm_progress || c2=Tiến độ đã đi trên ramp
+  R3: c0=2 || c1=norm_dist_to_merge || c2=Khoảng cách tới điểm merge
+  R4: c0=3 || c1=norm_lateral || c2=Độ lệch ngang so với làn mục tiêu
+  R5: c0=4 || c1=in_accel_zone || c2=Cờ đang trong vùng tăng tốc (0/1)
+  R6: c0=5–6 || c1=gap_front / speed_front || c2=Khoảng trống và tốc độ xe phía trước trên làn đích
+  R7: c0=7–8 || c1=gap_rear / speed_rear || c2=Khoảng trống và tốc độ xe phía sau trên làn đích
+  R8: c0=9 || c1=gap_safe || c2=Cờ khoảng trống đủ an toàn để nhập (0/1)
+  R9: c0=10–11 || c1=ramp_front_gap / speed || c2=Xe phía trước trên chính nhánh ramp
+  R10: c0=12 || c1=urgency || c2=Độ khẩn cấp (tăng dần khi sắp hết vùng tăng tốc)
+  R11: c0=13 || c1=last_action || c2=Hành động ở bước trước
+  R12: c0=14 || c1=patience || c2=Chỉ số kiên nhẫn tích lũy (số bước đã chờ)
+
+===== TABLE T16  (10 rows x 3 cols) =====
+  R0: c0=# || c1=Thành phần || c2=Ý nghĩa
+  R1: c0=0 || c1=norm_speed || c2=Tốc độ hiện tại của xe (chuẩn hóa)
+  R2: c0=1 || c1=norm_lane || c2=Làn đang chạy (chuẩn hóa)
+  R3: c0=2–3 || c1=gap / speed cùng làn trước || c2=Khoảng cách và tốc độ tương đối của xe ngay phía trước cùng làn
+  R4: c0=4–5 || c1=gap / speed trái-trước || c2=Xe phía trước ở làn bên trái
+  R5: c0=6–7 || c1=gap / speed trái-sau || c2=Xe phía sau ở làn bên trái
+  R6: c0=8–9 || c1=gap / speed phải-trước || c2=Xe phía trước ở làn bên phải
+  R7: c0=10–11 || c1=gap / speed phải-sau || c2=Xe phía sau ở làn bên phải
+  R8: c0=12–13 || c1=merger_gap / speed || c2=Xe ramp đang nhập làn gần nhất (khoảng cách + tốc độ) — tín hiệu để nhường
+  R9: c0=14 || c1=patience || c2=Chỉ số kiên nhẫn tích lũy của xe
+
+===== TABLE T17  (6 rows x 3 cols) =====
+  R0: c0=Action || c1=merging_0 (xe nhập làn) || c2=highway_0/1/2 (xe cao tốc)
+  R1: c0=0 || c1=Giảm tốc || c2=Tăng tốc
+  R2: c0=1 || c1=Giữ tốc || c2=Giữ tốc
+  R3: c0=2 || c1=Tăng tốc || c2=Giảm tốc
+  R4: c0=3 || c1=Nhập làn (chỉ hợp lệ trong vùng tăng tốc) || c2=Chuyển làn trái
+  R5: c0=4 || c1=Chờ || c2=Chuyển làn phải
+
+===== TABLE T18  (15 rows x 3 cols) =====
+  R0: c0=Thành phần || c1=Giá trị || c2=Loại
+  R1: c0=Nhập làn thành công (thưởng một lần khi merge) || c1=+50 || c2=Sự kiện
+  R2: c0=Va chạm || c1=−100 || c2=Terminal
+  R3: c0=Hết đường chưa nhập làn (failed_merge) || c1=−150 || c2=Terminal
+  R4: c0=Cơ sở mỗi bước || c1=−0,01 + 0,10 × tốc độ || c2=Dense
+  R5: c0=Tiến độ dense (potential-based) || c1=+k × Δ(tiến độ tới đích) mỗi bước || c2=Dense
+  R6: c0=Vào vùng tăng tốc (một lần) || c1=+15 || c2=Sự kiện
+  R7: c0=Trong vùng tăng tốc mỗi bước || c1=+0,05 (+0,05 nếu khoảng trống an toàn) || c2=Dense
+  R8: c0=Nhập làn đúng lúc (trong vùng + khoảng trống an toàn) || c1=+50 → +25 nghịch theo độ khẩn (nhập sớm thưởng cao hơn) || c2=Shaping
+  R9: c0=Nhập làn khi khoảng trống không an toàn || c1=−2,0 || c2=Shaping
+  R10: c0=Nhập làn ngoài vùng cho phép || c1=−0,5 || c2=Shaping
+  R11: c0=Ngồi trên khoảng trống an toàn mà không nhập (opportunity-cost) || c1=−(1,0 + độ_khẩn × 2,0) || c2=Shaping
+  R12: c0=Chênh tốc với xe trước làn đích khi cơ hội mở || c1=−(tốc − tốc_xe_trước) × 0,7 || c2=Shaping
+  R13: c0=Do dự trong vùng (giảm tốc/giữ/chờ) || c1=−2,0 / −0,5 / −3,0 || c2=Shaping
+  R14: c0=Phạt khiên tỷ lệ || c1=−k × (gia tốc chính sách yêu cầu − gia tốc khiên cho phép), k = 5 || c2=Shaping
+
+===== TABLE T19  (10 rows x 3 cols) =====
+  R0: c0=Thành phần || c1=Giá trị || c2=Loại
+  R1: c0=Thoát cuối đường an toàn || c1=+50 || c2=Terminal
+  R2: c0=Va chạm || c1=−100 || c2=Terminal
+  R3: c0=Cơ sở mỗi bước (giữ tốc độ) || c1=0,04 × tốc độ || c2=Dense
+  R4: c0=Thưởng dòng chảy — giữ tốc cao (flow-reward bật) || c1=+0,06 × tốc độ; +0,05 nếu tốc độ ≥ 0,7×tối đa || c2=Dense
+  R5: c0=Tốc độ quá thấp (< 0,2 × tối đa) || c1=−0,05 || c2=Shaping
+  R6: c0=Bám đuôi quá gần (gap < 20 m) || c1=−((20−gap)/20) × tốc độ × 1,3 || c2=Shaping
+  R7: c0=Tăng tốc khi gap < 18 m || c1=−0,8 || c2=Shaping
+  R8: c0=Thưởng hợp tác (nhường khi xe ramp đang merge gần) || c1=+0,3 ~ +0,4 || c2=Shaping
+  R9: c0=Phạt phanh vô cớ (giảm tốc khi không có xe ramp gần) || c1=−0,6 || c2=Shaping
+
+===== TABLE T20  (6 rows x 2 cols) =====
+  R0: c0=Thành phần || c1=Thông số
+  R1: c0=Hệ điều hành || c1=Windows 11 Pro for Workstations
+  R2: c0=Nền tảng mô phỏng || c1=GAMA Platform 1.9.x (chế độ headless, socket TCP cổng 1001)
+  R3: c0=Python || c1=3.10+ (môi trường ảo .venv; UI dùng .venv-ui riêng)
+  R4: c0=Thư viện học || c1=PyTorch + Stable-Baselines3, PettingZoo, SuperSuit, gama-pettingzoo
+  R5: c0=Mã nguồn || c1=models/Main_Traffic.gaml (~5.000 dòng GAML) + thư mục rl/ (~21 module Python) + bộ kiểm thử pytest
+
+===== TABLE T21  (9 rows x 3 cols) =====
+  R0: c0=Siêu tham số || c1=MAPPO || c2=MAA2C
+  R1: c0=Chính sách || c1=CentralizedCriticPolicy (CTDE) || c2=CentralizedCriticPolicy (CTDE)
+  R2: c0=Learning rate || c1=1e-4 (ổn định cho phiên dài; có cờ --learning-rate để khảo sát) || c2=7e-4 (pipeline thesis; mặc định code 3e-4)
+  R3: c0=n_steps (độ dài rollout) || c1=256 || c2=256
+  R4: c0=batch_size || c1=128 || c2=(cả rollout)
+  R5: c0=gamma / gae_lambda || c1=0,99 / 0,95 || c2=0,99 / 0,95
+  R6: c0=clip_range || c1=0,2 || c2=—
+  R7: c0=ent_coef (hệ số entropy) || c1=giảm dần 0,05 → 0,002 (giữ mức cao 65% đầu) || c2=giảm dần 0,05 → 0,002
+  R8: c0=Mạng / kích hoạt / khởi tạo || c1=64 / Tanh / Orthogonal(√2) || c2=như MAPPO
+
+===== TABLE T22  (4 rows x 5 cols) =====
+  R0: c0=Preset || c1=Số bước huấn luyện || c2=Episode đánh giá || c3=Hạt giống || c4=Mục đích
+  R1: c0=smoke || c1=400 || c2=2 || c3=[0] || c4=Kiểm tra pipeline
+  R2: c0=short || c1=200.000 || c2=20 || c3=[0] || c4=Kiểm tra nhanh sau thay đổi cấu hình
+  R3: c0=thesis || c1=200.000 || c2=50 || c3=[0–4] || c4=Bộ số chính của đồ án
+
+===== TABLE T23  (4 rows x 5 cols) =====
+  R0: c0=Mật độ || c1=MAA2C || c2=MAPPO || c3=Greedy || c4=Random
+  R1: c0=low || c1=86,4±3,9 | 87,2±4,1 || c2=83,6±11,8 | 75,2±22,8 || c3=96 | 82 || c4=0 | 0
+  R2: c0=medium || c1=89,2±1,6 | 84,8±3,0 || c2=83,6±8,6 | 76,8±17,9 || c3=96 | 2 || c4=0 | 0
+  R3: c0=high || c1=82,8±4,3 | 85,2±5,2 || c2=68,4±7,1 | 69,6±9,4 || c3=74 | 0 || c4=0 | 0
+
+===== TABLE T24  (4 rows x 5 cols) =====
+  R0: c0=Mật độ || c1=MAA2C || c2=MAPPO || c3=Greedy || c4=Random
+  R1: c0=low || c1=13,6 | 12,8 || c2=16,0 | 21,6 || c3=4 | 18 || c4=100 | 100
+  R2: c0=medium || c1=10,8 | 15,2 || c2=16,0 | 22,4 || c3=0 | 98 || c4=100 | 100
+  R3: c0=high || c1=16,4 | 14,8 || c2=31,2 | 30,4 || c3=22 | 100 || c4=100 | 100
+
+===== TABLE T25  (6 rows x 5 cols) =====
+  R0: c0=Mô hình (theo giai đoạn curriculum) || c1=Thành công || c2=Va chạm || c3=Nhường (G2) || c4=Không-khiên
+  R1: c0=PPO — Giai đoạn 2 (nhập làn + e2e) || c1=86±6% || c2=14±6% || c3=70±20% || c4=14±6%
+  R2: c0=PPO — Giai đoạn 3 (yield-hunt, tối ưu nhường) || c1=86±7% || c2=13±5% || c3=89±6% || c4=—
+  R3: c0=PPO — Giai đoạn 4 (propshield, cai khiên) || c1=83±9% || c2=17±9% || c3=— || c4=28±17%
+  R4: c0=MAA2C — Giai đoạn 2 (đánh giá lấy mẫu) || c1=73±7% || c2=27±7% || c3=37±4% || c4=52±7%
+  R5: c0=Greedy (baseline, luật tĩnh) || c1=53±12% || c2=47±12% || c3=0% || c4=0%
+
+===== TABLE T26  (6 rows x 3 cols) =====
+  R0: c0=Cấu hình || c1=Tất định (argmax) || c2=Lấy mẫu (stochastic)
+  R1: c0=MAPPO (3 hạt giống) || c1=100±0% || c2=97±5%
+  R2: c0=MAA2C (n_steps=64) † || c1=0% || c2=60%
+  R3: c0=MAA2C (n_steps=256) † || c1=0% || c2=60%
+  R4: c0=MAA2C + normalize_advantage † || c1=0% || c2=30%
+  R5: c0=MAA2C + lr 7e-4, entropy thấp (3 hạt giống) || c1=0±0% || c2=77±5%
+
+===== TABLE T27  (14 rows x 2 cols) =====
+  R0: c0=[1] || c1=Le Nguyen Tuan Thanh, "Multi-agent reinforcement learning for traffic congestion on one-way multi-lane highways," Journal of Information and Telecommunication, vol. 7, no. 3, pp. 255–269, 2023. [Online]. Available: https://www.tandfonline.com/doi/full/10.1080/24751839.2023.2182174.
+  R1: c0=[2] || c1=C. Yu, A. Velu, E. Vinitsky, J. Gao, Y. Wang, A. Bayen, and Y. Wu, "The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games," in Proc. NeurIPS Datasets and Benchmarks, 2022. [Online]. Available: https://arxiv.org/abs/2103.01955.
+  R2: c0=[3] || c1=J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov, "Proximal Policy Optimization Algorithms," arXiv preprint arXiv:1707.06347, 2017.
+  R3: c0=[4] || c1=V. Mnih, A. P. Badia, M. Mirza, A. Graves, T. Lillicrap, T. Harley, D. Silver, and K. Kavukcuoglu, "Asynchronous Methods for Deep Reinforcement Learning," in Proc. ICML, 2016.
+  R4: c0=[5] || c1=J. K. Terry, B. Black, N. Grammel, et al., "PettingZoo: Gym for Multi-Agent Reinforcement Learning," in Proc. NeurIPS, 2021. [Online]. Available: https://arxiv.org/abs/2009.14471.
+  R5: c0=[6] || c1=A. Raffin, A. Hill, A. Gleave, A. Kanervisto, M. Ernestus, and N. Dormann, "Stable-Baselines3: Reliable Reinforcement Learning Implementations," Journal of Machine Learning Research, vol. 22, no. 268, pp. 1–8, 2021.
+  R6: c0=[7] || c1=P. Taillandier, B. Gaudou, A. Grignard, et al., "Building, composing and experimenting complex spatial models with the GAMA platform," GeoInformatica, vol. 23, no. 2, pp. 299–322, 2019. [Online]. Available: https://gama-platform.org
+  R7: c0=[8] || c1=R. Lowe, Y. Wu, A. Tamar, J. Harb, P. Abbeel, and I. Mordatch, "Multi-Agent Actor-Critic for Mixed Cooperative-Competitive Environments," in Proc. NeurIPS, 2017.
+  R8: c0=[9] || c1=D. Chen, M. R. Hajidavalloo, Z. Li, K. Chen, Y. Wang, L. Jiang, and Y. Wang, "Deep Multi-agent Reinforcement Learning for Highway On-Ramp Merging in Mixed Traffic," IEEE Transactions on Intelligent Transportation Systems, 2023. [Online]. Available: https://arxiv.org/abs/2105.05701
+  R9: c0=[10] || c1=M. Treiber, A. Hennecke, and D. Helbing, "Congested traffic states in empirical observations and microscopic simulations," Physical Review E, vol. 62, no. 2, pp. 1805–1824, 2000.
+  R10: c0=[11] || c1=A. Kesting, M. Treiber, and D. Helbing, "General lane-changing model MOBIL for car-following models," Transportation Research Record, vol. 1999, no. 1, pp. 86–94, 2007.
+  R11: c0=[12] || c1=A. Y. Ng, D. Harada, and S. Russell, "Policy invariance under reward transformations: Theory and application to reward shaping," in Proc. ICML, 1999.
+  R12: c0=[13] || c1=R. S. Sutton and A. G. Barto, Reinforcement Learning: An Introduction, 2nd ed. Cambridge, MA: MIT Press, 2018.
+  R13: c0=[14] || c1=J. Schulman, P. Moritz, S. Levine, M. Jordan, and P. Abbeel, "High-Dimensional Continuous Control Using Generalized Advantage Estimation," in Proc. ICLR, 2016. [Online]. Available: https://arxiv.org/abs/1506.02438.
+
+===== TABLE T28  (13 rows x 4 cols) =====
+  R0: c0=Tham số || c1=MAPPO || c2=MAA2C || c3=Ghi chú
+  R1: c0=policy || c1=CentralizedCriticPolicy || c2=CentralizedCriticPolicy || c3=CTDE, dùng chung 4 tác tử
+  R2: c0=learning_rate || c1=1e-4 || c2=7e-4 || c3=PPO hạ 3e-4→1e-4 (sập muộn); A2C dùng 7e-4 ở pipeline thesis (mặc định code 3e-4)
+  R3: c0=n_steps || c1=256 || c2=256 || c3=A2C nâng 64→256 khớp PPO (sửa critic ev≈0)
+  R4: c0=batch_size || c1=128 || c2=(cả rollout) || c3=
+  R5: c0=n_epochs || c1=10 (mặc định SB3, không set tường minh) || c2=1 (A2C luôn 1) || c3=nguồn chênh lệch số bước gradient (mục 4.6.4)
+  R6: c0=gamma || c1=0,99 || c2=0,99 || c3=
+  R7: c0=gae_lambda || c1=0,95 || c2=0,95 || c3=
+  R8: c0=clip_range || c1=0,2 || c2=— || c3=
+  R9: c0=ent_coef || c1=0,05 → 0,002 (anneal, giữ 65% đầu) || c2=0,05 → 0,002 || c3=
+  R10: c0=vf_coef || c1=0,5 || c2=0,5 || c3=
+  R11: c0=max_grad_norm || c1=0,5 || c2=0,5 || c3=
+  R12: c0=Mạng || c1=MLP 2×64, Tanh, Orthogonal(√2) || c2=như MAPPO || c3=tách Actor 19D / Critic 60D
+
+===== TABLE T29  (6 rows x 3 cols) =====
+  R0: c0=Index || c1=merging_0 || c2=highway_0/1/2
+  R1: c0=0 || c1=decelerate || c2=accelerate
+  R2: c0=1 || c1=keep_speed || c2=keep_speed
+  R3: c0=2 || c1=accelerate || c2=decelerate
+  R4: c0=3 || c1=merge_attempt (chỉ trong vùng tăng tốc) || c2=lane_change_left
+  R5: c0=4 || c1=wait || c2=lane_change_right

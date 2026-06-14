@@ -1,0 +1,630 @@
+############ PHẦN A: ĐOẠN VĂN (style | text) ############
+[P001|CoverB] TRƯỜNG ĐẠI HỌC THỦY LỢI
+[P006|Cover] Đỗ tiến phát
+[P013|CoverT]  Phát triển kịch bản nhập làn trên đường cao tốc và đánh giá các thuật toán  học tăng cường cho bài toán điều khiển phương tiện tự hành
+[P021|Cover] ĐỒ ÁN TỐT NGHIỆP
+[P026|Cover] HÀ NỘI, NĂM 2026
+[P027|CoverB] TRƯỜNG ĐẠI HỌC THỦY LỢI
+[P030|Content] ĐỖ TIẾN PHÁT
+[P036|CoverT] Phát triển kịch bản nhập làn trên đường cao tốc và đánh giá các thuật toán  học tăng cường cho bài toán điều khiển phương tiện tự hành
+[P053|Normal] HÀ NỘI, NĂM 202…
+[P055|Normal] GÁY BÌA ĐỒ ÁN TỐT NGHIỆP, KHÓA LUẬN TỐT NGHIỆP
+[P060|Normal] Tên đề tài: Phát triển kịch bản nhập làn trên đường cao tốc và đánh giá các thuật toán học tăng cường cho bài toán điều khiển phương tiện tự hành.
+[P061|Normal] Sinh viên thực hiện: Đỗ Tiến Phát
+[P062|Normal] Lớp: 64KTPM1
+[P063|Normal] Mã sinh viên: 2251172447
+[P064|Normal] Số điện thoại: 0373371385
+[P065|Normal] Email:	 2251172447@e.tlu.edu.vn
+[P066|Normal] Giáo viên hướng dẫn: TS. Lê Nguyễn Tuấn Thành
+[P068|Normal] TÓM TẮT ĐỀ TÀI
+[P069|Normal] Trong thập kỷ qua, mô hình hóa và mô phỏng dựa trên tác nhân (ABMS) đã nổi lên như một cách tiếp cận đầy tiềm năng để nghiên cứu các hệ thống phức hợp trong thế giới thực, điển hình là tình trạng ùn tắc giao thông. Các hệ thống này có thể được mô hình hóa thành một tập hợp các tác nhân tự trị, có khả năng quan sát môi trường bên ngoài, tương tác với nhau và thực hiện các hành động phù hợp. Bên cạnh đó, học tăng cường (RL) – một nhánh của học máy mô hình hóa quá trình học của tác nhân dưới dạng quá trình quyết định Markov – đã đạt được những thành tựu đáng kinh ngạc trong nhiều lĩnh vực (như xe tự hành, Dota 2, v.v.), đặc biệt là với sự ra đời của học tăng cường sâu. Bằng cách tận dụng lợi thế của cả hai phương pháp này, học tăng cường đa tác nhân (MARL) trở thành một kỹ thuật tiên tiến để đi sâu giải quyết các bài toán phức hợp. Khác với kịch bản dòng chảy tự do trên đường thẳng, điểm nhập làn (on-ramp) tạo ra các nút thắt cổ chai phức tạp, đòi hỏi các phương tiện phải có khả năng nhận thức không gian, thương lượng khoảng trống và nhường đường an toàn. Kế thừa nền tảng đó, đồ án này đề xuất xây dựng môi trường mô phỏng kịch bản nhánh nhập làn đường cao tốc cho phương tiện tự hành, đồng thời tiến hành cài đặt và đánh giá hiệu năng của nhiều thuật toán học tăng cường đa tác nhân khác nhau trong việc tối ưu hóa lưu lượng và đảm bảo an toàn giao thông.
+[P072|Normal] CÁC MỤC TIÊU CHÍNH
+[P073|List Paragraph] Nghiên cứu cơ sở lý thuyết: Nền tảng mô phỏng GAMA, và các thuật toán học tăng cường đa tác nhân (MARL) từ cơ bản đến nâng cao.
+[P074|List Paragraph] Xây dựng môi trường mô phỏng kịch bản nhập làn: Lấy ý tưởng kiến trúc nền tảng MARL4AV, phát triển không gian mô phỏng cho hệ thống đường cao tốc để hỗ trợ kịch bản có lối nhập làn (ramps).
+[P075|List Paragraph] Thiết kế mô hình học máy cho tác nhân: Thiết kế lại quá trình quyết định Markov bao gồm không gian trạng thái, không gian hành động, và hàm phần thưởng đa mục tiêu phù hợp với hành vi nhập làn.
+[P076|List Paragraph] Cài đặt thử nghiệm và huấn luyện thuật toán: Tích hợp các thư viện Python (Stable-Baselines3 / PyTorch) để huấn luyện các tác nhân xe tự hành thông qua kết nối giữa môi trường mô phỏng và mã nguồn Python.
+[P077|List Paragraph] Đánh giá và so sánh hiệu năng: Đo lường hiệu quả của các mô hình RL khác nhau (vận tốc trung bình, tổng phần thưởng, khả năng giảm thiểu ùn tắc sóng lùi) so với các chính sách dựa trên quy tắc tĩnh (Greedy).
+[P094|Normal] KẾT QUẢ DỰ KIẾN
+[P095|List Paragraph] Xây dựng thành công môi trường mô phỏng trực quan kịch bản phương tiện nhập làn cao tốc trên nền tảng GAMA kết hợp Python.
+[P096|List Paragraph] Bộ mã nguồn hoạt động ổn định, các tác nhân xe tự hành học được chính sách tăng/giảm tốc và chuyển làn khéo léo để nhập dòng an toàn mà không gây hiệu ứng sóng lùi.
+[P097|List Paragraph] Báo cáo cung cấp đầy đủ các biểu đồ thống kê, so sánh định lượng được ưu/nhược điểm của từng thuật toán trong kịch bản nhập làn
+[P099|Normal] TIẾN ĐỘ THỰC HIỆN
+[P105|CoverB] LỜI CAM ĐOAN
+[P106|Content] Tác giả xin cam đoan đây là Đồ án tốt nghiệp/ Khóa luận tốt nghiệp của bản thân tác giả. Các kết quả trong Đồ án tốt nghiệp/Khóa luận tốt nghiệp này là trung thực, và không sao chép từ bất kỳ một nguồn nào và dưới bất kỳ hình thức nào.Việc tham khảo các nguồn tài liệu (nếu có) đã được thực hiện trích dẫn và ghi nguồn tài liệu tham khảo đúng quy định.
+[P109|CoverB] LỜI CÁM ƠN
+[P110|Content] Nội dung lời cám ơn do sinh viên quyết định. Trong suốt bốn năm học tập và rèn luyện tại Khoa Công nghệ thông tin, Trường Đại học Thủy Lợi, em đã nhận được rất nhiều sự quan tâm, hỗ trợ từ quý thầy cô và bạn bè. Những kiến thức về nền tảng lập trình, cấu trúc dữ liệu, trí tuệ nhân tạo cùng các phương pháp tư duy giải quyết vấn đề mà thầy cô truyền đạt là hành trang quan trọng nhất để em có thể hoàn thiện đồ án và tự tin bước vào con đường sự nghiệp phía trước.
+[P111|Content] Em xin gửi lời cảm ơn sâu sắc nhất tới TS. Lê Nguyễn Tuấn Thành – Người thầy đã giúp đỡ em thực hiện đồ án. Thầy không chỉ định hướng đề tài, cung cấp nền tảng tri thức về học tăng cường đa tác tử trong giao thông, mà còn góp ý cho em qua từng buổi trao đổi.
+[P112|Content] Em cũng xin chân thành cảm ơn các thầy cô trong Khoa Công nghệ thông tin đã tạo điều kiện thuận lợi cho em trong suốt quá trình học tập.
+[P113|Content] Đồ án được thực hiện bởi tất cả sự nỗ lực và nghiêm túc của bản thân, song cũng vì thời gian và kinh nghiệm còn hạn chế nên không thể tránh khỏi những sai sót. Em mong nhận  được sự góp ý quý báu từ thầy cô và Hội đồng để đồ án được hoàn thiện hơn nữa.
+[P114|Content] Em xin chân thành cảm ơn!
+[P115|CoverB] MỤC LỤC
+[P117|Heading 1N] DANH MỤC CÁC HÌNH ẢNH
+[P118|table of figures] Hình 1.1: Kịch bản nhập làn on-ramp - nút thắt cổ chai trên đường cao tốc	2
+[P119|table of figures] Hình 1.2: Vòng lặp tương tác tác tử – môi trường trong học tăng cường (MDP).	6
+[P120|table of figures] Hình 1.3: Kiến trúc Actor–Critic tổng quát	8
+[P121|table of figures] Hình 1.4: Kiến trúc CTDE — Actor phi tập trung, Critic tập trung	8
+[P122|table of figures] Hình 2.1: Kiến trúc tổng thể hệ thống: GAMA (môi trường) ⇄ Python (bộ não học).	11
+[P123|table of figures] Hình 2.2: Hình học môi trường nhập làn: 3 làn cao tốc + nhánh ramp + vùng tăng tốc + điểm merge.	12
+[P124|table of figures] Hình 2.3: Giao diện mô phỏng GAMA (experiment TrafficSimulation) với dashboard trực quan.	13
+[P125|table of figures] Hình 2.4: Sơ đồ tách quan sát 79D trong CentralizedCriticPolicy.	19
+[P126|table of figures] Hình 3.1: Chuỗi wrapper biến môi trường GAMA PettingZoo thành VecEnv của SB3.	22
+[P127|table of figures] Hình 3.2 Quy trình pipeline thực nghiệm tự động (run_experiments.py).	24
+[P128|table of figures] Hình 3.3: Đường cong học của huấn luyện curriculum (2 giai đoạn nền tảng).	26
+[P129|table of figures] Hình 4.1: Tỷ lệ thành công / va chạm theo mật độ và chế độ lưới an toàn (giai đoạn 1).	28
+[P130|table of figures] Hình 4.2: Kết quả ba mục tiêu (nhập làn an toàn / nhường chủ động / sóng lùi) theo checkpoint.	31
+[P131|table of figures] Hình 4.3: Ablation lưới an toàn — năng lực lái không khiên theo thiết kế phạt.	32
+[P132|table of figures] Hình 4.4: Histogram hành động và số lần khiên can thiệp mỗi episode.	32
+[P135|Heading 1N] DANH MỤC BẢNG BIỂU
+[P136|table of figures] Bảng 1.1: Tổng hợp các hướng nghiên cứu liên quan và vị trí của đồ án	3
+[P137|table of figures] Bảng 1.2: Tổng hợp các thư viện và framework sử dụng trong đồ án	5
+[P138|table of figures] Bảng 2.1: Tham số hình học và động học của môi trường mô phỏng	12
+[P139|table of figures] Bảng 2.2: Ba kịch bản mật độ giao thông	12
+[P140|table of figures] Bảng 2.3: Không gian quan sát 15 chiều của tác tử nhập làn merging_0	14
+[P141|table of figures] Bảng 2.4: Không gian quan sát 15 chiều của tác tử cao tốc highway_0/1/2	15
+[P142|table of figures] Bảng 2.5: Không gian hành động Discrete(5) theo vai trò tác tử	16
+[P143|table of figures] Bảng 2.6: Hàm phần thưởng của tác tử nhập làn merging_0	16
+[P144|table of figures] Bảng 2.7: Hàm phần thưởng của tác tử cao tốc highway_0/1/2	17
+[P145|table of figures] Bảng 3.1: Thông tin môi trường phát triển	20
+[P146|table of figures] Bảng 3.2: Siêu tham số huấn luyện MAPPO và MAA2C	23
+[P147|table of figures] Bảng 3.3: Các preset thực nghiệm	24
+[P148|table of figures] Bảng 4.1: Tỷ lệ thành công (%) — định dạng ô: khiên ON | khiên OFF; chính sách học ghi trung bình ± độ lệch chuẩn trên 5 hạt giống	27
+[P149|table of figures] Bảng 4.2: Tỷ lệ va chạm (%) — cùng định dạng	27
+[P150|table of figures] Bảng 4.3: Kết quả giai đoạn 2 (end-to-end, mật độ cao 84 xe, 3 hạt giống huấn luyện × 3 hạt giống đánh giá)	30
+[P151|table of figures] Bảng 4.4: So sánh PPO và A2C ở chế độ đánh giá tất định và lấy mẫu (gate giai đoạn 1 — nhập làn)	32
+[P155|Heading 1N] DANH MỤC CÁC TỪ VIẾT TẮT VÀ GIẢI THÍCH CÁC THUẬT NGỮ
+[P159|Normal] MỞ ĐẦU
+[P160|Content] Trong thập kỷ qua, mô hình hóa và mô phỏng dựa trên tác nhân (Agent-Based Modeling and Simulation - ABMS) đã nổi lên như một cách tiếp cận đầy tiềm năng dể nghiên cứu các hệ thống phức hợp trong thế giới thực, mà điển hình là tình trạng ùn tắc giao thông. Các hệ thống này có thể được mô hình hóa thành một tập hợp các tác nhân tự trị, có khả năng quan sát môi trường bên ngoài, tương tác với nhau và thực hiện các hành động phụ hợp.  Bên cạnh đó, học tăng cường (Reinforcement Learning - RL) - một nhánh của học máy mô hình hóa quá trình học của tác nhân dưới dạng Quá trình Quyết định Markov - đã đạt được những thành tựu đáng kinh ngạc trong nhiều lĩnh vực như xe tự hành, trò chơi điện tử phức tạp, điều khiển robot, đặc biệt là từ khi kết hợp với mạng nơ-ron sâu. Bằng cách tận dụng lợi thế của cả hai hướng này, học tăng cường đa tác tử (Multi-Agent Reinforcement Learning - MARL) trở thành kỹ thuật tiên tiến để giải quyết các bài toán giao thông phức hợp, nơi quyết định của mỗi phương tiện ảnh hưởng trực tiếp đến an toàn và hiệu quả của những phương tiện xung quanh.
+[P161|Content] Khác với kịch bản dòng chảy tự do trên đường thẳng, điểm nhập làn (on-ramp) tạo ra các nút thắt cổ chai phức tạp: xe trên nhánh phụ phải tăng tốc trên một đoạn đường giới hạn, quan sát và "thương lượng" khoảng trống với dòng xe đang chạy nhanh trên làn chính, rồi chọn đúng thời điểm để hòa vào dòng - trong khi các xe trên cao tốc phải quyết định có nhường hay không. Đây được xem là một trong những tình huống khó và nguy hiểm nhất đối với phương tiện tự hành, bởi an toàn của thao tác nhập làn không chỉ phụ thuộc vào một xe mà đòi hỏi sự phối hợp đa tác tử. Một thao tác nhập làn kém còn gây hệ quả lan truyền: xe phía sau phanh dây chuyền tạo thành sóng lùi (shockwave) làm giảm thông lượng của cả tuyến đường.
+[P162|Content] Kế thừa nền tảng nghiên cứu về MARL cho bài toán ùn tắc trên đường cao tốc một chiều nhiều làn của TS. Lê Nguyễn Tuấn Thành [1], đồ án này phát triển tiếp theo hai hướng: (i) xây dựng môi trường mô phỏng kịch bản nhánh nhập làn đường cao tốc cho phương tiện tự hành trên nền tảng GAMA, kết nối hai chiều với Python; và (ii) cài đặt, huấn luyện và đánh giá định lượng các thuật toán học tăng cường đa tác tử (MAPPO, MAA2C) theo kiến trúc huấn luyện tập trung - thực thi phi tập trung (CTDE), so sánh với chính sách cơ sở dựa trên luật tĩnh, trong việc tối ưu hóa lưu lượng và đảm bảo an toàn giao thông tại điểm nhập làn.
+[P163|Content] Mục tiêu đề tài.
+[P164|Content] Đồ án đặt ra các mục tiêu cụ thể sau: (1) Nghiên cứu cơ sở lý thuyết về nền tảng mô phỏng GAMA và các thuật toán học tăng cường đa tác tử từ cơ bản đến nâng cao; (2) Xây dựng môi trường mô phỏng kịch bản nhập làn - hệ thống đường cao tốc 3 làn có nhánh nhập làn, vùng tăng tốc, dòng xe nền điều khiển bằng mô hình vi mô IDM + MOBIL; (3) Thiết kế lại Quá trình Quyết định Markov đa tác tử gồm không gian trạng thái, không gian hành động và hàm phần thưởng đa mục tiêu phù hợp với hành vi nhập làn; (4) Cài đặt và huấn luyện các tác tử xe tự hành bằng thư viện Stable-Baselines3/PyTorch thông qua kết nối giữa môi trường mô phỏng và mã nguồn Python; (5) Đánh giá và so sánh hiệu năng các mô hình RL (tỷ lệ thành công, va chạm, vận tốc trung bình, thông lượng, chỉ số sóng lùi) so với chính sách dựa trên quy tắc tĩnh (Greedy) trên một ma trận thực nghiệm có kiểm soát.
+[P165|Content] Đối tượng và phạm vi nghiên cứu.
+[P166|Content] Đối tượng nghiên cứu là bài toán điều khiển phối hợp 4 phương tiện tự hành (1 xe nhập làn + 3 xe cao tốc) tại điểm nhập làn, được mô hình hóa thành MDP đa tác tử và giải bằng hai thuật toán on-policy MAPPO và MAA2C theo kiến trúc CTDE. Phạm vi nghiên cứu giới hạn trong môi trường mô phỏng tinh giản trên GAMA (hành động rời rạc 5 mức, di chuyển theo waypoint, không mô phỏng đầy đủ động học và cảm biến xe thật); ba kịch bản mật độ giao thông (thấp/vừa/cao) và hai chế độ lưới an toàn của môi trường (bật/tắt); đồ án tập trung đánh giá so sánh các thuật toán trên một MDP cố định, không đề xuất phương pháp MARL mới.
+[P167|Content] Phương pháp nghiên cứu.
+[P168|Content] Đồ án kết hợp nghiên cứu lý thuyết và thực nghiệm. Về lý thuyết: tìm hiểu RL/MDP, MARL và tính không dừng, các thuật toán Actor-Critic (A2C, PPO), kiến trúc CTDE, và mô hình giao thông vi mô (IDM, MOBIL). Về thực nghiệm: xây dựng môi trường mô phỏng trên GAMA kết nối Python qua giao thức PettingZoo; huấn luyện bằng Stable-Baselines3 với chính sách Actor-Critic tập trung tự cài đặt; thiết kế ma trận thực nghiệm 3 mật độ × 2 chế độ lưới an toàn × nhiều chính sách, mỗi cấu hình học chạy 5 hạt giống × 200.000 bước × 50 episode đánh giá; toàn bộ số liệu, biểu đồ, bảng so sánh được sinh tự động bởi pipeline để bảo đảm tính tái lập.
+[P169|Content] Kết quả chính.
+[P170|Content] Hệ thống mô phỏng và huấn luyện hoạt động ổn định ở cả hai giai đoạn bài toán: giai đoạn 1 (kết thúc tại điểm nhập làn) và giai đoạn 2 (end-to-end - xe nhập làn tự lái tiếp tới cuối đường). Ở chế độ end-to-end mật độ cao, qua 3 hạt giống huấn luyện độc lập, PPO đạt 86±6% thành công (gate nhập làn 100±0%) trong khi baseline Greedy chỉ 53±12% (va chạm 47±12%, và sụp về 0% khi gỡ khiên); thực nghiệm A/B lưới an toàn cho thấy năng lực của Greedy chủ yếu "vay mượn" từ cơ chế bảo vệ của môi trường, còn chính sách học đã nội hóa hành vi lái an toàn; hệ cũng chứng minh được phổ hành vi hợp tác – tự chủ theo trục huấn luyện (xe cao tốc chủ động nhường 89±6% ở giai đoạn yield-hunt) và định lượng được mức lệ thuộc lưới an toàn bằng thí nghiệm ablation.
+[P171|Content] Bố cục đồ án.
+[P172|Content] Ngoài phần Mở đầu và Kết luận, đồ án được tổ chức thành 4 chương: Chương 1 trình bày tổng quan đề tài, các công trình nghiên cứu liên quan, công cụ sử dụng và cơ sở lý thuyết. Chương 2 trình bày thiết kế môi trường mô phỏng nhập làn trên GAMA và quá trình mô hình hóa bài toán thành MDP đa tác tử. Chương 3 trình bày quá trình xây dựng hệ thống, cài đặt chính sách CTDE, huấn luyện và các kỹ thuật bảo đảm độ tin cậy thực nghiệm. Chương 4 trình bày kết quả thực nghiệm, phân tích so sánh và demo sản phẩm.
+[P174|Heading 1] TỔNG QUAN ĐỀ TÀI
+[P175|Heading 2] Tổng quan bài toán
+[P176|Content] Nhập làn (on-ramp merging) là tình huống một xe từ nhánh ramp phải tự căn khe rồi hòa vào dòng cao tốc đang chạy nhanh — đúng tình huống mà hệ mô phỏng trong đồ án tái dựng. Xét từ góc độ điều khiển phương tiện tự hành, bài toán này khó ở ba khía cạnh.
+[P177|Content] Khía cạnh đầu tiên là tính đa tác tử của tương tác. An toàn của thao tác nhập làn không chỉ do xe nhập làn quyết định; xe trên cao tốc cũng có thể giảm tốc nhường khoảng trống, giữ nguyên tốc độ, hoặc tăng tốc bịt khe. Lựa chọn của bên này làm thay đổi không gian quyết định của bên kia, nên đây thực chất là bài toán phối hợp nhiều tác tử, vừa hợp tác (cùng tránh va chạm, cùng giữ dòng chảy) vừa cạnh tranh cục bộ (mỗi xe muốn giữ tốc độ hành trình riêng), thuộc lớp mixed cooperative-competitive.
+[P178|Content] Tiếp theo là quan sát một phần (partial observability): mỗi xe chỉ thấy các xe lân cận trong tầm cảm biến chứ không có trạng thái toàn cục của cả tuyến, nên chính sách phải ra quyết định tốt chỉ từ thông tin cục bộ, đúng với điều kiện triển khai thật.
+[P179|Content] Cuối cùng, tín hiệu phần thưởng thưa xen lẫn dày: các sự kiện quan trọng nhất (nhập làn xong, va chạm) chỉ xuất hiện hiếm hoi ở cuối tình huống, còn hành vi từng bước lại cần tín hiệu dày để dẫn dắt việc học. Cân bằng hai loại tín hiệu này khi thiết kế hàm phần thưởng là một thách thức trung tâm.
+[P180|Content] Ngoài khía cạnh an toàn của từng xe, điểm nhập làn còn là nút thắt cổ chai của cả tuyến đường: một thao tác nhập làn kém buộc xe phía sau phanh gấp, tạo hiệu ứng phanh dây chuyền lan ngược về phía sau — hiện tượng sóng lùi (shockwave) — làm giảm tốc độ trung bình và thông lượng của toàn dòng xe. Do đó, một chính sách điều khiển tốt phải đồng thời đạt ba mục tiêu: (1) xe nhập làn vào dòng an toàn, (2) các xe trên cao tốc phối hợp nhường hợp lý, và (3) tổng thể dòng xe không bị ùn tắc sóng lùi
+[P182|Content] Việc nghiên cứu bài toán này trên phương tiện thật là không khả thi ở quy mô đồ án (chi phí, an toàn, pháp lý), vì vậy cách tiếp cận chuẩn của cộng đồng nghiên cứu là mô phỏng dựa trên tác tử: xây dựng môi trường ảo trong đó mỗi phương tiện là một tác nhân tự trị, rồi dùng học tăng cường để các tác nhân tự khám phá chiến lược điều khiển qua hàng trăm nghìn bước tương tác. Đồ án này đi theo hướng đó: môi trường nhập làn được xây dựng trên nền tảng GAMA, còn quá trình học được thực hiện bằng các thuật toán MARL hiện đại phía Python.
+[P183|Caption] Hình 1.1: Kịch bản nhập làn on-ramp - nút thắt cổ chai trên đường cao tốc
+[P185|Heading 2] Tổng quan các công trình nghiên cứu liên quan
+[P186|Heading 3] Mô phỏng giao thông dựa trên tác tử và mô hình vi mô
+[P187|Content] Mô hình vĩ mô nhìn dòng xe như một chất lỏng — chỉ quan tâm mật độ và lưu lượng. Mô hình vi mô thì theo dõi từng xe một [10]. Đồ án chọn hướng vi mô vì ở đây mỗi xe là một tác tử ra quyết định riêng. Hai mô hình vi mô được dùng cho xe nền: IDM [10] lo việc bám đuôi (xe chỉnh gia tốc theo khoảng cách và tốc độ tương đối với xe trước), còn MOBIL [11] lo việc đổi làn (cân lợi ích gia tốc với mức an toàn cho xe sau). Hai mô hình này có hành vi sát thực tế, được trích dẫn rộng rãi, và trong đồ án được dùng để điều khiển dòng xe nền (NPC — đại diện cho các phương tiện do người lái, HDV), tạo nên môi trường giao thông hỗn hợp (mixed traffic) mà các tác tử RL phải học cách hòa nhập.
+[P188|Content] Về nền tảng mô phỏng, GAMA Platform [7] là môi trường mô hình hóa dựa trên tác tử mã nguồn mở, hỗ trợ hình học không gian phức tạp, ngôn ngữ mô hình hóa riêng (GAML) và đặc biệt là chế độ headless giao tiếp qua socket — điều kiện cần để ghép nối với vòng lặp huấn luyện RL phía Python. Công trình nền tảng của đồ án là nghiên cứu của TS. Lê Nguyễn Tuấn Thành [1] về MARL cho bài toán ùn tắc trên đường cao tốc một chiều nhiều làn (kiến trúc MARL4AV), trong đó các tác tử xe học đồng thời trên môi trường mô phỏng dựa trên tác tử. Đồ án kế thừa kiến trúc tổng thể này và phát triển mới toàn bộ kịch bản nhập làn — vốn đòi hỏi hình học (nhánh ramp, vùng tăng tốc), không gian quan sát, hành động và hàm phần thưởng khác về chất so với kịch bản dòng chảy thẳng.
+[P189|Heading 3] Học tăng cường đa tác tử cho điều khiển phương tiện
+[P190|Content] Khi nhiều tác tử cùng học trong một môi trường, các phương pháp RL đơn tác tử gặp khó khăn vì môi trường trở nên không dừng dưới góc nhìn của từng tác tử (mục 1.4.2). Dòng nghiên cứu MARL hiện đại giải quyết vấn đề này bằng kiến trúc CTDE — huấn luyện tập trung, thực thi phi tập trung: Lowe và cộng sự đề xuất MADDPG [8] với Critic tập trung cho miền hành động liên tục; Yu và cộng sự [2] chứng minh PPO với Critic tập trung (MAPPO) đạt hiệu năng bất ngờ tốt trên nhiều benchmark hợp tác, trở thành baseline chuẩn của lĩnh vực. Các thuật toán on-policy (PPO, A2C) được ưa chuộng trong MARL vì học trực tiếp trên dữ liệu do chính sách hiện tại sinh ra; ngược lại các thuật toán off-policy dùng replay buffer (như DQN) gặp bất lợi vì buffer trộn lẫn dữ liệu sinh ra ở các thời điểm chính sách của các tác tử khác còn khác nhau, khiến ước lượng giá trị khó hội tụ.
+[P191|Heading 3] Bài toán nhập làn on-ramp trong nghiên cứu xe tự hành
+[P192|Content] Bài toán nhập làn bằng RL được nghiên cứu sôi động trong cộng đồng xe tự hành. Tiêu biểu, Chen và cộng sự [9] áp dụng MARL cho nhập làn cao tốc trong giao thông hỗn hợp (xe tự hành lẫn xe người lái), sử dụng cơ chế ưu tiên an toàn và reward shaping; nghiên cứu này xác nhận on-ramp merging là kịch bản chuẩn để đánh giá năng lực phối hợp của các thuật toán MARL. Một kỹ thuật phổ biến trong dòng nghiên cứu này là lưới an toàn (safety shield): tầng kiểm tra quy tắc nằm giữa quyết định của chính sách và việc thực thi, ghi đè các hành động chắc chắn dẫn tới va chạm. Lưới an toàn giúp quá trình huấn luyện và triển khai an toàn hơn, nhưng cũng đặt ra câu hỏi nghiên cứu quan trọng mà đồ án này khai thác sâu: năng lực của chính sách đến từ việc học hay vay mượn từ lưới an toàn? Đồ án trả lời câu hỏi đó bằng thực nghiệm A/B có kiểm soát — bật/tắt lưới an toàn đồng đều cho mọi chính sách.
+[P193|Caption] Bảng 1.1: Tổng hợp các hướng nghiên cứu liên quan và vị trí của đồ án
+[P194|Heading 2] Ngôn ngữ và công cụ sử dụng
+[P195|Heading 3] Nền tảng mô phỏng GAMA và ngôn ngữ GAML
+[P196|Content] Đồ án dựng môi trường trên GAMA [7] — một nền tảng mô phỏng dựa trên tác tử. Lý do chọn nó là thực dụng. GAMA có ngôn ngữ riêng GAML theo lối hướng tác tử: mỗi loại thực thể khai báo thành một species với thuộc tính và reflex — hành vi chạy lại mỗi chu kỳ mô phỏng. Hai đặc điểm khiến GAMA phù hợp với đồ án: (1) hỗ trợ hình học không gian tự do — nhánh ramp cong được định nghĩa bằng chuỗi waypoint, các vùng chức năng (vùng tăng tốc, điểm merge) đặt chính xác theo tọa độ; (2) chế độ headless chạy mô phỏng không giao diện và giao tiếp với chương trình ngoài qua socket TCP — cho phép vòng lặp huấn luyện Python điều khiển mô phỏng với tốc độ tối đa. Toàn bộ môi trường của đồ án nằm trong một mô hình GAML (models/Main_Traffic.gaml, khoảng 5.000 dòng) với hai experiment: TrafficMARLHeadless cho huấn luyện/đánh giá và TrafficSimulation cho demo trực quan có dashboard.
+[P197|Heading 3] Python và các thư viện học sâu
+[P198|Normal] Python được sử dụng làm ngôn ngữ chính cho toàn bộ "bộ não học": định nghĩa môi trường chuẩn hóa, cài đặt chính sách, huấn luyện, đánh giá, phân tích số liệu và sinh biểu đồ. Bảng 2 tổng hợp các thư viện chính:
+[P199|Caption] Bảng 1.2: Tổng hợp các thư viện và framework sử dụng trong đồ án
+[P200|Content] Lựa chọn Stable-Baselines3 thay vì tự cài đặt thuật toán từ đầu là quyết định có chủ đích: phần lõi PPO/A2C (GAE, clipping, vòng tối ưu) đã được cộng đồng kiểm chứng kỹ, giúp loại trừ sai số cài đặt khỏi kết quả so sánh thuật toán; phần giá trị khoa học riêng của đồ án (môi trường, MDP, chính sách CTDE, pipeline thực nghiệm) được xây dựng tùy biến bên trên.
+[P201|Heading 2] Cơ sở lý thuyết
+[P202|Heading 3] Học tăng cường và Quá trình Quyết định Markov
+[P203|Content] Học tăng cường [13] nghiên cứu cách một tác tử học hành động qua thử–sai với môi trường. Khung toán cho nó là Quá trình Quyết định Markov (MDP), bộ năm (S, A, P, R, γ). Gắn vào bài toán nhập làn: S là trạng thái giao thông quanh xe, A gồm 5 hành động rời rạc, R là phần thưởng tính trong GAML, còn quy luật chuyển trạng thái P(s'|s,a) do chính bộ mô phỏng GAMA quy định (Python không nắm tường minh). Hệ số γ ∈ [0,1) nói lên tác tử coi trọng tương lai đến đâu. Mỗi bước, nó thấy s_t, chọn a_t, nhận r_t, rồi sang s_{t+1} (Hình 2). Đích cần đạt là một chính sách π(a|s) tối đa hóa kỳ vọng tổng phần thưởng chiết khấu:
+[P204|Content] G = E[ Σ_t γ^t · r_t ]
+[P205|Content] Hai đại lượng cốt lõi đi cùng nhau. Hàm lợi thế A^π(s,a) = Q^π(s,a) − V^π(s) đo một hành động hơn (hay kém) mức trung bình của chính sách bao nhiêu: dương thì nên tăng xác suất chọn, âm thì giảm. Hàm giá trị V^π(s) đóng vai mốc so sánh — lợi ích kỳ vọng nếu cứ theo π từ trạng thái s. Hàm lợi thế chính là tín hiệu học của các thuật toán Actor–Critic trong đồ án.
+[P206|Content] Khi tác tử không quan sát được trạng thái đầy đủ mà chỉ một phần (như xe chỉ thấy lân cận), bài toán trở thành MDP quan sát một phần (POMDP); trong thực hành, quan sát cục bộ được thiết kế đủ giàu thông tin để chính sách vẫn học được hành vi tốt.
+[P207|Caption] Hình 1.2: Vòng lặp tương tác tác tử – môi trường trong học tăng cường (MDP).
+[P209|Heading 3] Học tăng cường đa tác tử và tính không dừng
+[P210|Content] Khi nhiều tác tử cùng học, mỗi tác tử trở thành một phần "môi trường" của những tác tử kia. Mà các chính sách thì liên tục đổi trong lúc huấn luyện. Hệ quả: môi trường nhìn từ một tác tử trở nên không dừng (non-stationary) [8] — cùng một trạng thái và hành động vẫn có thể cho kết cục khác nhau, tùy các tác tử còn lại đã học tới đâu. Đây là lý do MARL khó hội tụ hơn RL đơn tác tử. Nó cũng làm vỡ giả định tính dừng mà nhiều thuật toán (như Q-learning) dựa vào.
+[P211|Content] Bài toán nhập làn thuộc lớp hợp tác – cạnh tranh hỗn hợp: các xe cùng chia sẻ mục tiêu an toàn và dòng chảy mượt (hợp tác), nhưng mỗi xe có lợi ích tốc độ riêng (cạnh tranh cục bộ). Hai kỹ thuật chuẩn được đồ án áp dụng để xử lý các thách thức này được trình bày ở mục 1.4.4: Critic tập trung (giảm non-stationarity) và chính sách dùng chung (tận dụng dữ liệu giữa các tác tử).
+[P212|Heading 3] Thuật toán Actor–Critic: A2C và PPO
+[P213|Content] Họ thuật toán Actor–Critic kết hợp hai thành phần (Hình 3): Actor — mạng nơ-ron xuất phân phối xác suất hành động π_θ(a|s), và Critic — mạng ước lượng hàm giá trị V_φ(s). Critic dùng để tính hàm lợi thế (qua kỹ thuật ước lượng lợi thế tổng quát hóa GAE [14], dùng tham số λ để dung hòa độ chệch và phương sai), còn Actor cập nhật trọng số theo gradient chính sách:
+[P214|Content] ∇_θ J = E[ ∇_θ log π_θ(a|s) · Â(s,a) ]
+[P215|Content] A2C (Advantage Actor-Critic) [4] là dạng đồng bộ của kiến trúc này: thu một đoạn rollout (trong đồ án: 256 bước, khớp PPO), tính lợi thế, rồi thực hiện một bước cập nhật gradient trực tiếp trên dữ liệu đó. A2C đơn giản, ít siêu tham số, chi phí tính toán thấp; nhược điểm là biên độ mỗi bước cập nhật không bị ràng buộc nên chính sách có thể "nhảy" xa và dao động.
+[P216|Content] PPO (Proximal Policy Optimization) [3] cải tiến bằng mục tiêu thay thế có cắt ngọn (clipped surrogate objective): gọi ρ = π_new(a|s)/π_old(a|s) là tỉ lệ thay đổi xác suất hành động, PPO tối đa hóa
+[P217|Content] L = E[ min( ρ·Â , clip(ρ, 1−ε, 1+ε)·Â ) ]
+[P218|Content] với ε = 0,2. Cơ chế clip chặn lợi ích biên khi chính sách mới lệch quá xa chính sách cũ, cho phép tái sử dụng mỗi batch dữ liệu qua nhiều epoch tối ưu mà vẫn an toàn — PPO vì vậy thực hiện nhiều bước gradient hơn hẳn A2C trên cùng một lượng dữ liệu môi trường. Khác biệt về số bước cập nhật này về sau lý giải kết quả ở mục 4.6: với cùng ngân sách tương tác, PPO đẩy được xác suất của các hành động hiếm-nhưng-quyết-định lên đủ cao để argmax chọn đúng, trong khi A2C không làm được.
+[P219|Content] Cả A2C và PPO đều là thuật toán on-policy. Đồ án không sử dụng DQN vì đây là thuật toán off-policy dựa trên replay buffer: trong môi trường đa tác tử, buffer trộn lẫn các transition được sinh ra khi chính sách của các tác tử khác còn ở các phiên bản khác nhau, khiến ước lượng Q không hội tụ — lập luận này nhất quán với khuyến nghị của các công trình MADDPG [8] và MAPPO [2].
+[P220|Caption] Hình 1.3: Kiến trúc Actor–Critic tổng quát
+[P222|Heading 3] Kiến trúc CTDE: MAPPO và MAA2C
+[P223|Content] CTDE (Centralized Training, Decentralized Execution) [2], [8] là kiến trúc phổ biến trong MARL hiện nay, nhắm thẳng vào vấn đề non-stationarity (Hình 4):
+[P224|Bullet] Actor phi tập trung: mỗi tác tử chỉ đọc quan sát cục bộ của chính nó khi chọn hành động. Nhờ đó chính sách sau huấn luyện có thể triển khai độc lập trên từng xe — đúng ràng buộc thực tế (xe thật không có trạng thái toàn cục).
+[P225|Bullet] Critic tập trung: mấu chốt nằm ở đây. Khi huấn luyện, Critic được nhìn trạng thái toàn cục — ghép quan sát của mọi tác tử. Nó "thấy" các tác tử khác đang làm gì, nên ước lượng giá trị bớt nhiễu vì thay đổi chính sách của họ; phần lớn tính không dừng được khử. Critic chỉ chạy lúc huấn luyện, không vi phạm ràng buộc thực thi phi tập trung.
+[P226|Content] Áp dụng CTDE cho PPO và A2C thu được hai thuật toán được đánh giá trong đồ án: MAPPO [2] và MAA2C. Đồ án còn áp dụng thêm kỹ thuật chính sách dùng chung (parameter sharing) kèm chỉ thị tác tử (agent indicator) [5]: cả 4 tác tử dùng chung một bộ trọng số mạng, phân biệt vai trò bằng vector one-hot định danh nối vào quan sát. Kỹ thuật này nhân bốn lượng dữ liệu học cho mỗi bộ trọng số. Nó hợp khi các tác tử có cấu trúc quan sát đồng nhất. Vai trò khác nhau — xe nhập làn hay xe cao tốc — được mạng tự phân nhánh theo bit định danh.
+[P227|Caption] Hình 1.4: Kiến trúc CTDE — Actor phi tập trung, Critic tập trung
+[P229|Heading 3] Mô hình giao thông vi mô IDM và MOBIL
+[P230|Content] Để môi trường có dòng xe nền hành xử giống người lái thật, các xe NPC được điều khiển bằng cặp mô hình vi mô kinh điển:
+[P231|Content] IDM [10] điều khiển gia tốc bám đuôi của mỗi xe nền. Ý tưởng gọn: đi chậm lại khi tiến sát xe trước, và khi đang vượt tốc độ mong muốn. Công thức:
+[P232|Content] a = a_max · [ 1 − (v/v₀)^δ − (s(v,Δv)/s)² ],  với  s = s₀ + v·T + v·Δv / (2·√(a_max·b)),  số mũ δ = 4 (giá trị chuẩn Treiber, cố định trong mã nguồn)
+[P233|Content] Hai số hạng kéo gia tốc xuống: (v/v₀)⁴ ghì tốc độ về mức mong muốn v₀, còn (s*/s)² đẩy xe ra xa khi khoảng cách s thu hẹp. Khoảng cách an toàn động s* lớn dần theo thời gian giãn cách T và mức phanh êm b. Đây là hai tham số quyết định độ "lì" của dòng xe nền.
+[P234|Content] MOBIL [11] lo việc chuyển làn. Một xe nền chỉ đổi làn khi thấy đáng — tức tổng lợi ích gia tốc cho nó và các xe quanh nó vượt ngưỡng Δa_th — và khi vẫn an toàn, nghĩa là xe sau ở làn đích không phải phanh quá b_safe. Tham số lịch sự p điều chỉnh mức xe "để ý" tới thiệt hại gây cho người khác. Ghép IDM với MOBIL, dòng xe nền chạy vừa nhanh vừa giống thật. Điều đó cần cho thực nghiệm: chính sách tham lam thiếu phối hợp sẽ trả giá đúng như ngoài đời — lao vào khe hẹp là va chạm.
+[P235|Heading 3] Các độ đo đánh giá
+[P236|Content] Hiệu năng các chính sách được đo trên các episode đánh giá độc lập (không trộn dữ liệu huấn luyện) bằng bộ chỉ số sau:
+[P237|Bullet] Tỷ lệ thành công (success rate): phần trăm episode trong đó xe nhập làn hoàn thành nhập làn (giai đoạn 1) hoặc nhập làn xong và đi hết lộ trình (giai đoạn 2 — end-to-end).
+[P238|Bullet] Tỷ lệ va chạm (collision rate) và các loại thất bại khác (hết đường chưa nhập — failed merge; quá thời gian — timeout).
+[P239|Bullet] Tốc độ trung bình của xe nhập làn và tốc độ trung bình dòng chính (mainline mean speed) — chỉ số ùn tắc bền vững với nhiễu.
+[P240|Bullet] Thông lượng (throughput): số xe thoát khỏi đoạn đường trong một đơn vị thời gian.
+[P241|Bullet] Chỉ số sóng lùi (shockwave index): hệ số biến thiên (CV) của tốc độ dòng chính — dao động tốc độ lớn đồng nghĩa phanh dây chuyền nhiều; được tính trực tuyến bằng thuật toán Welford.
+[P242|Bullet] Tỷ lệ nhường hướng-merger (%G2): trong số các lần xe cao tốc giảm tốc, bao nhiêu phần trăm diễn ra khi có xe nhập làn ở gần — đo hành vi hợp tác thật (histogram hành động thuần túy dễ gây nhiễu vì không phân biệt giảm tốc do nhường hay do kẹt đường).
+[P243|Bullet] Số lần khiên can thiệp mỗi episode: đo mức độ chính sách bị lưới an toàn ghi đè — chỉ số "ỷ khiên" phục vụ phân tích nội tâm hóa kỹ năng an toàn (mục 4.6).
+[P244|Content] Các chỉ số của chính sách học được báo cáo dưới dạng trung bình ± độ lệch chuẩn qua nhiều hạt giống huấn luyện độc lập (giai đoạn 1: 5 hạt giống; giai đoạn 2: 3 hạt giống huấn luyện × 3 hạt giống đánh giá), kèm khoảng tin cậy 95% trong bảng so sánh tự động.
+[P247|Heading 1] THIẾT KẾ MÔI TRƯỜNG MÔ PHỎNG VÀ MÔ HÌNH HÓA BÀI TOÁN
+[P248|Content] Chương này trình bày phần thiết kế cốt lõi của đồ án: kiến trúc tổng thể hai nửa GAMA–Python (mục 2.1), môi trường mô phỏng nhập làn trên GAMA (mục 2.2), quá trình hình thức hóa bài toán thành MDP đa tác tử — không gian quan sát, hành động, phần thưởng và điều kiện kết thúc (mục 2.3), kiến trúc học CTDE với chính sách dùng chung (mục 2.4), và thiết kế chính sách cơ sở cùng lưới an toàn của môi trường — nền tảng cho thực nghiệm A/B ở Chương 4 (mục 2.5).
+[P249|Heading 2] Kiến trúc tổng thể hệ thống
+[P250|Content] Hệ thống gồm hai nửa ghép qua socket TCP (cổng 1001), phân tách rõ trách nhiệm (Hình 5):
+[P251|Bullet] GAMA — môi trường (thế giới mô phỏng): file models/Main_Traffic.gaml định nghĩa toàn bộ vật lý kịch bản: hình học đường 3 làn + nhánh ramp, dòng xe nền NPC chạy IDM + MOBIL, 4 tác tử RL, hệ thống tính quan sát/phần thưởng/tín hiệu kết thúc cho từng tác tử mỗi chu kỳ, và lưới an toàn. Nguyên tắc thiết kế: GAML là nguồn sự thật duy nhất về trạng thái và phần thưởng — Python không tính lại bất kỳ thành phần reward nào, chỉ nhận giá trị qua giao thức.
+[P252|Bullet] Python — bộ não học (thư mục `rl/`): nhận quan sát từ GAMA qua chuẩn PettingZoo, biến đổi qua chuỗi wrapper thành định dạng VecEnv của Stable-Baselines3, chạy thuật toán MAPPO/MAA2C với chính sách CTDE tùy biến, rồi gửi hành động ngược về GAMA. Toàn bộ pipeline thực nghiệm (baseline → huấn luyện → đánh giá → biểu đồ → bảng so sánh) được điều phối tự động.
+[P253|Content] Mỗi chu kỳ mô phỏng diễn ra vòng đồng bộ bốn bước: (1) GAMA đọc hành động từ Python và gán cho từng xe RL; (2) các xe thực thi hành động — đổi tốc độ/làn/vị trí, quét va chạm, tính phần thưởng; (3) tầng thu thập gom quan sát/phần thưởng/tín hiệu kết thúc của cả 4 tác tử đẩy lên socket; (4) Python đưa quan sát qua chính sách, chọn hành động cho bước kế tiếp.
+[P254|Caption] Hình 2.1: Kiến trúc tổng thể hệ thống: GAMA (môi trường) ⇄ Python (bộ não học).
+[P256|Heading 2] Môi trường mô phỏng nhập làn trên GAMA
+[P257|Heading 3] Hình học và động học
+[P258|Content] Môi trường mô phỏng một đoạn cao tốc 3 làn có nhánh nhập làn (Hình 6), với các tham số chính ở Bảng 2.1:
+[P259|Caption] Bảng 2.1: Tham số hình học và động học của môi trường mô phỏng
+[P260|Caption] Hình 2.2: Hình học môi trường nhập làn: làn cứu hộ (trên cùng) + 3 làn cao tốc + nhánh ramp + vùng tăng tốc + điểm merge.
+[P262|Heading 3] Dòng xe nền NPC và kịch bản mật độ
+[P263|Content] Toàn bộ xe nền (NPC) được điều khiển bằng IDM (bám đuôi) và MOBIL (chuyển làn) — hai mô hình vi mô có thể trích dẫn khoa học (mục 1.4.5), thay cho luật tự chế. Lựa chọn này có hai tác dụng. Một là dòng chính chạy nhanh và thật hơn: tốc độ trung bình tăng từ ~0,30 lên ~0,65 đơn vị sau khi chuyển đổi. Hai là môi trường đủ khó — xe tham lam lao bừa sẽ va chạm thật, thay vì được dòng xe "tự né".
+[P264|Normal] Mật độ giao thông được tham số hóa thành ba kịch bản (Bảng 5) phục vụ ma trận thực nghiệm; xe nhập làn NPC cũng được sinh định kỳ trên ramp theo xác suất để tạo bối cảnh nhập làn liên tục:
+[P265|Caption] Bảng 2.2: Ba kịch bản mật độ giao thông
+[P266|Content] Hai kịch bản low/medium chỉ dùng cho ma trận thực nghiệm giai đoạn 1 (pipeline tự vá tham số vào GAML rồi khôi phục sau khi chạy — mục 3.5.1); toàn bộ huấn luyện curriculum và đánh giá end-to-end ở giai đoạn 2 đều thực hiện ở mật độ high.
+[P267|Content] Môi trường còn có hệ thống xe hỏng hai pha (xe dừng giữa làn rồi dạt vào lề) tạo nút thắt ngẫu nhiên để quan sát hiện tượng ùn tắc lan truyền, và các cơ chế nền: cân bằng mật độ dòng chính (balance_traffic), hồi sinh xe nhập làn merging_0 khi chết (respawn — xe cao tốc thì rời hẳn, không hồi sinh), đo sóng lùi trực tuyến (sample_shockwave bằng thuật toán Welford).
+[P268|Heading 3] Tác tử trong mô hình GAML
+[P269|Content] Mọi phương tiện đều là thể hiện của species car, phân biệt qua thuộc tính: rl_agent_id (xe RL hay NPC), merge_mode (xe ramp hay xe dòng chính), in_accel_zone (đang trong vùng tăng tốc). Xe RL nhận hành động từ Python qua thuộc tính action_rl và tích lũy reward_val/cumulative_reward, terminal_reason. Hai species cầu nối — PzBridgeAgent (giữ các map observations/rewards/terminations/action-spaces theo chuẩn PettingZoo) và petz_collect_tick (mỗi chu kỳ quét 4 tác tử, gom dữ liệu đẩy lên socket) — đóng vai trò tầng giao thức, tách biệt hoàn toàn với logic mô phỏng.
+[P270|Caption] Hình 2.3: Giao diện mô phỏng GAMA (experiment TrafficSimulation) với dashboard trực quan.
+[P272|Heading 2]  Mô hình hóa bài toán dưới dạng MDP đa tác tử
+[P273|Heading 3] Các tác tử và chiến lược học
+[P274|Content] Bốn tác tử học đồng thời:
+[P275|Content] Chiến lược học là chính sách dùng chung + chỉ thị tác tử (mục 1.4.4): một mạng duy nhất cho cả 4 tác tử, vai trò phân biệt bằng one-hot ID 4 chiều nối vào quan sát. Thiết kế thay thế — tách riêng đầu Actor theo vai trò — đã được cân nhắc và loại bỏ: tác tử merging_0 chỉ chiếm 1/4 dữ liệu, đầu mạng riêng cho nó sẽ đói dữ liệu nghiêm trọng, trong khi chính sách dùng chung cho phép các kỹ năng chung (điều tốc, giữ khoảng cách) được học từ dữ liệu của cả 4 xe.
+[P276|Content] Vị trí xuất phát của các tác tử được thiết kế theo thời điểm gặp nhau (timing): highway_1 được sinh sao cho tới điểm merge gần như cùng lúc với merging_0 — bảo đảm tình huống "có xe cần nhường" xuất hiện trong phần lớn episode, để hành vi nhường có cơ hội được học.
+[P277|Heading 3] Không gian quan sát
+[P278|Content] Quan sát được tổ chức ba tầng phục vụ kiến trúc CTDE:
+[P279|Bullet] Quan sát cục bộ cho Actor — 19 chiều: 15 chiều cảm biến + 4 chiều one-hot định danh tác tử.
+[P280|Bullet] Trạng thái toàn cục cho Critic — 60 chiều: ghép 15 chiều cơ sở của cả 4 tác tử theo thứ tự cố định.
+[P281|Bullet] Vector đưa vào mô hình SB3 — 79 chiều: [cục bộ 19D | toàn cục 60D]; chính sách tự tách hai phần (mục 3.3).
+[P282|Content] 15 chiều cảm biến của xe nhập làn (Bảng 2.3) được thiết kế bao phủ đúng các yếu tố một người lái cân nhắc khi nhập làn: trạng thái bản thân, quan hệ với làn đích, và bối cảnh trên ramp:
+[P283|Caption] Bảng 2.3: Không gian quan sát 15 chiều của tác tử nhập làn merging_0
+[P284|Content] Không gian quan sát của xe cao tốc cũng gồm 15 chiều (Bảng 2.4), nhưng tập trung vào radar đa hướng để nhận biết xe xung quanh và xe ramp đang nhập làn — phục vụ hành vi nhường có chủ đích.
+[P285|Caption] Bảng 2.4: Không gian quan sát 15 chiều của tác tử cao tốc highway_0/1/2
+[P286|Content] Radar năm hướng (cùng làn trước; trái trước/sau; phải trước/sau) cho phép xe cao tốc vừa giữ an toàn dọc, vừa cân nhắc đổi làn, vừa phát hiện xe ramp để chủ động nhường.
+[P287|Heading 3] Không gian hành động
+[P288|Content] Không gian hành động là Discrete(5) — 5 hành động rời rạc, nhưng ngữ nghĩa khác nhau theo vai trò (Bảng 2.5):
+[P289|Caption] Bảng 2.5: Không gian hành động Discrete(5) theo vai trò tác tử
+[P291|Content] Cùng chỉ số hành động nhưng ý nghĩa khác nhau (thậm chí ngược nhau ở action 0/2) là hệ quả của chính sách dùng chung trên hai vai trò dị thể; mạng phân biệt được nhờ one-hot định danh trong quan sát. Đây là một điểm thiết kế cần minh bạch: nó đơn giản hóa kiến trúc đáng kể, đổi lại mạng phải tự học "bảng tra ngữ nghĩa" theo bit định danh — thực nghiệm cho thấy điều này không cản trở việc học.
+[P292|Content] Hành động rời rạc 5 mức là một lựa chọn tinh giản có chủ đích (và có giới hạn đã được định lượng ở mục 4.6): nó không biểu diễn được điều khiển gia tốc liên tục, do đó phần điều-tốc-tinh được môi trường hỗ trợ qua lưới an toàn.
+[P293|Heading 3] Hàm phần thưởng đa mục tiêu
+[P294|Content] Toàn bộ phần thưởng được tính trong GAML — nguồn sự thật duy nhất. Thiết kế reward trải qua nhiều vòng lặp thực nghiệm; phiên bản cuối (Bảng 2.6, 2.7) kết hợp ba loại tín hiệu: terminal (kết cục episode), dense (định hướng từng bước) và shaping (định hình hành vi).
+[P295|Caption] Bảng 2.6: Hàm phần thưởng của tác tử nhập làn merging_0
+[P296|Caption] Bảng 2.7: Hàm phần thưởng của tác tử cao tốc highway_0/1/2
+[P297|Content] Hai thành phần in đậm là đóng góp thiết kế quan trọng nhất, được bổ sung ở giai đoạn 2 của đồ án:
+[P298|Bullet] Tiến độ dense theo thế năng (potential-based dense progress). Thay vì chỉ thưởng lớn một lần khi nhập làn, chính sách nhận tín hiệu tỷ lệ với mức tiến bộ về đích ở mỗi bước. Ng và cộng sự [12] chứng minh một tính chất hữu ích: nếu phần thưởng thêm vào có dạng thế năng F = γ·Φ(s') − Φ(s), chính sách tối ưu không đổi. Đồ án khai thác đúng điều này — thêm tín hiệu dày dẫn đường mà không làm lệch mục tiêu học, nhờ gán công lao (credit assignment) tức thì. Trong thực nghiệm của đồ án, đây là một trong hai chìa khóa giúp Critic từ chỗ "mù" (explained variance ≈ 0) học được thật (ev tới 0,85).
+[P299|Bullet] Phạt can-thiệp-khiên tỷ lệ. Mỗi khi lưới an toàn phải cắt gia tốc của chính sách, chính sách bị trừ điểm tỷ lệ với mức cắt (k = 5) thay vì phạt nhị phân −1 chỉ khi can thiệp khẩn. Phạt tỷ lệ tạo gradient cho cả những lần "cắt nhẹ hằng ngày", ép chính sách dần tự điều tốc thay vì ỷ lại khiên — hiệu quả được định lượng ở mục 4.6.
+[P300|Heading 3] Điều kiện kết thúc episode
+[P301|Bullet] merging_0: success (ở chế độ kết-thúc-tại-điểm-nhập: nhập làn xong là kết thúc; ở chế độ end-to-end: nhập làn xong rồi đi gần hết đường mới kết thúc), collision, failed_merge (hết ramp/quá điểm merge mà chưa nhập), timeout (vượt số bước tối đa).
+[P302|Bullet] highway_0/1/2: exited (ra khỏi cuối đường an toàn), collision, timeout.
+[P303|Content] Khi merging_0 kết thúc thì toàn bộ episode kết thúc và môi trường reset — đây là quy ước quan trọng cho tính đúng đắn của vòng huấn luyện (mục 3.5).
+[P304|Heading 2] Kiến trúc học CTDE và chính sách dùng chung
+[P305|Content] Tổng hợp các thiết kế ở trên, kiến trúc học của đồ án như sau: cả 4 tác tử dùng chung một mạng CentralizedCriticPolicy gồm hai nhánh tách biệt — Actor đọc 19 chiều cục bộ (15 cảm biến + 4 định danh) và xuất phân phối trên 5 hành động; Critic đọc 60 chiều toàn cục (ghép quan sát 4 tác tử) và xuất giá trị trạng thái V(s). Cả hai nhánh là MLP 2 lớp ẩn 64 nơ-ron, kích hoạt Tanh, khởi tạo trực giao (orthogonal, gain = √2) — cấu hình chuẩn theo khuyến nghị của MAPPO [2] cho bài toán điều khiển nhỏ. Trong thực thi (đánh giá/demo), chỉ nhánh Actor được dùng và chỉ cần quan sát cục bộ — đúng nguyên tắc phi tập trung.
+[P306|Caption] Hình 2.4: Sơ đồ tách quan sát 79D trong CentralizedCriticPolicy.
+[P308|Heading 2] Chính sách cơ sở (baseline) và lưới an toàn của môi trường
+[P309|Heading 3] Baseline không học
+[P310|Content] Để trả lời câu hỏi "việc học có đáng giá không", đồ án so sánh chính sách học với baseline Greedy (tham lam) — mô phỏng người lái hung hăng: luôn tăng tốc tối đa, cố nhập làn sớm nhất có thể, vượt làn khi bị chặn; không có khả năng chờ khe hay khớp tốc độ. Greedy kế thừa tinh thần của chiến lược move-forward-greedy trong mô hình tham chiếu [1]. Baseline chạy trên cùng môi trường, cùng lưới an toàn, cùng bộ tình huống giao thông (paired seed — mục 3.5) với chính sách học, bảo đảm so sánh công bằng từng lớp.
+[P311|Content] (Chế độ "Heuristic" trên giao diện GAMA dùng một bộ luật thận trọng riêng phía GAML phục vụ demo trực quan, độc lập với baseline so sánh chạy headless.)
+[P312|Heading 3] Lưới an toàn của môi trường — thiết kế cho thực nghiệm A/B
+[P313|Content] Môi trường có hai cơ chế bảo vệ chủ động ghi đè hành động ("khiên"), áp đồng đều cho mọi xe — cả RL lẫn baseline:
+[P314|Bullet] Khiên bám đuôi — IDM-cap dọc: gia tốc thực thi bị chặn trên theo giới hạn an toàn kiểu IDM so với xe phía trước (applied = min(gia_tốc_chính_sách, gia_tốc_an_toàn_IDM)) — xe bị ép giảm tốc khi quá gần, bất kể chính sách yêu cầu gì. Áp cho xe nhập làn (giai đoạn sau khi nhập, khi tự lái e2e) và cả ba xe cao tốc.
+[P315|Bullet] Khiên ngang — cổng đổi làn: hành động chuyển làn chỉ được thực thi khi khoảng trống trước và sau trên làn đích vượt ngưỡng an toàn; nếu không, lệnh đổi làn bị chặn (giữ làn). Ngưỡng trước (8 m) lớn hơn ngưỡng sau (6 m) vì quãng đường phanh phía trước dài hơn. Cơ chế này phân biệt hai loại xe: với xe NPC, môi trường dùng đầy đủ tiêu chí an toàn đổi làn MOBIL [11] (chỉ đổi làn khi gia tốc xe theo sau ở làn đích không vượt ngưỡng phanh an toàn b_safe, kiểm tra cả hai hướng — Kesting 2007); với tác tử RL, cổng dùng ngưỡng gap cố định 8 m/6 m như một phiên bản hình học rút gọn của cùng nguyên lý "không ép xe sau phanh gấp". Hai hằng số 8 m/6 m được hiệu chỉnh thực nghiệm cho hình học và mật độ của kịch bản.
+[P316|Content] Về tính công bằng: một cơ chế thứ ba — cổng nhập làn is_merge_gap_safe (chỉ cho nhập khi gap đủ) — đã được TẮT cho mọi chính sách, để baseline Greedy và RL hoàn toàn bình đẳng ở thời điểm nhập làn: cả hai đều phải tự học/tự quyết căn khe, không được lưới đỡ. Hàm is_merge_gap_safe() vẫn được tính nhưng chỉ phục vụ quan sát/phần thưởng/dashboard, không còn chặn hành động. Do đó năng lực "nhập làn an toàn 100%" của PPO là thuần của chính sách học, không có khiên nào can thiệp vào pha nhập làn.
+[P317|Content] Hai chế độ tắt khiên phục vụ hai thực nghiệm khác nhau: (a) cờ `enable_safety_shield` (giai đoạn 1) bật/tắt đồng đều cho cả một lần chạy — công cụ cho thực nghiệm A/B ở mục 4.2–4.5; (b) cờ `pz_no_shield` (giai đoạn 2, chỉ khi đánh giá) tắt cả hai khiên chủ động (IDM-cap dọc + khiên ngang) để đo mức nội-tâm-hóa an toàn của mô hình end-to-end (ablation, mục 4.6.3). Các cơ chế nền khác (chống kẹt, hồi sinh) luôn bật cho mọi chính sách nên không ảnh hưởng công bằng. Bộ đếm số lần khiên can thiệp mỗi episode được xuất ra như chỉ số đo mức "ỷ khiên".
+[P318|Heading 1] XÂY DỰNG HỆ THỐNG VÀ HUẤN LUYỆN
+[P319|Heading 2] Giới thiệu chung và môi trường phát triển
+[P320|Content] Chương này trình bày quá trình hiện thực hóa thiết kế ở Chương 2 thành hệ thống chạy được: cầu nối GAMA–Python và chuỗi wrapper môi trường (3.2), cài đặt chính sách CTDE (3.3), cấu hình huấn luyện hai thuật toán (3.4), pipeline thực nghiệm tự động cùng các cơ chế bảo đảm độ tin cậy và tái lập (3.5), quá trình chẩn đoán – sửa một lỗi hạ tầng quyết định đến khả năng học của hệ (3.6), các kỹ thuật định hình phần thưởng nâng cao và huấn luyện curriculum (3.7), và bảng điều khiển cùng kiểm thử (3.8).
+[P321|Caption] Bảng 3.1: Thông tin môi trường phát triển
+[P322|Heading 2] Cầu nối GAMA–Python và chuỗi wrapper môi trường
+[P323|Content] Stable-Baselines3 làm việc với giao diện VecEnv đơn tác tử, trong khi GAMA xuất ra môi trường PettingZoo đa tác tử. Khoảng cách này được nối bằng chuỗi wrapper (Hình 8):
+[P324|Content] GamaParallelEnv → PadPossibleAgents → AgentIndicator (15D→19D) → GlobalState (19D→79D) → MarkovVectorEnv → GamaMarkovSB3VecEnv
+[P325|Normal] Vai trò từng tầng:
+[P326|Bullet] `GamaParallelEnv` (gama-pettingzoo): hiện thực Parallel API của PettingZoo trên socket GAMA — reset() nạp lại mô phỏng, step(actions) gửi hành động 4 tác tử và nhận về quan sát/phần thưởng/cờ kết thúc.
+[P327|Bullet] `PadPossibleAgents` (tự cài đặt): bảo đảm danh sách tác tử luôn đủ 4 slot cố định kể cả khi một tác tử đã chết — điều kiện cần để vector hóa ổn định.
+[P328|Bullet] `AgentIndicator` (SuperSuit): nối one-hot định danh 4 chiều vào quan sát của từng tác tử (15D → 19D).
+[P329|Bullet] `GlobalState` (tự cài đặt): ghép quan sát cơ sở của cả 4 tác tử thành trạng thái toàn cục 60D và nối vào sau quan sát cục bộ (19D → 79D) — chuẩn bị dữ liệu cho Critic tập trung.
+[P330|Bullet] `MarkovVectorEnv` (SuperSuit): "trải phẳng" 4 tác tử thành 4 sub-environment của một VecEnv — mỗi tác tử trở thành một luồng dữ liệu song song đối với SB3.
+[P331|Bullet] `GamaMarkovSB3VecEnv` (tự cài đặt): tầng tương thích cuối, xử lý các chi tiết riêng của GAMA (reset bootstrap, đồng bộ episode), trong đó có cơ chế reset-on-merging-death (mục 3.5.3).
+[P332|Content] Ngoài ra, module gama_compat.py chứa các bản vá tương thích cho thư viện cầu nối: sửa race condition trên socket, cache không gian quan sát/hành động, bootstrap lại sau reset, ép mã hóa UTF-8 trên Windows. Đây là phần "đường ống nước" ít hào nhoáng nhưng chiếm đáng kể công sức kỹ thuật và quyết định độ ổn định của các phiên huấn luyện dài hàng giờ.
+[P333|Caption] Hình 3.1: Chuỗi wrapper biến môi trường GAMA PettingZoo thành VecEnv của SB3.
+[P335|Heading 2] Cài đặt chính sách Actor–Critic tập trung (CentralizedCriticPolicy)
+[P336|Content] Chính sách CTDE được cài đặt bằng cách kế thừa ActorCriticPolicy của SB3 với một bộ trích đặc trưng tùy biến (CentralizedCriticExtractor): vector 79D đi vào được tách đôi — 19 chiều đầu (quan sát cục bộ) đưa vào nhánh đặc trưng của Actor, 60 chiều sau (trạng thái toàn cục) đưa vào nhánh đặc trưng của Critic. Nhờ tách ở tầng trích đặc trưng, toàn bộ phần còn lại của SB3 (vòng PPO/A2C, GAE, tối ưu) dùng lại nguyên vẹn — chính sách CTDE hoạt động với cả hai thuật toán mà không sửa lõi thư viện.
+[P337|Content] Cấu hình mạng theo chuẩn MAPPO: hai lớp ẩn 64 nơ-ron mỗi nhánh, kích hoạt Tanh, khởi tạo trực giao với gain √2. Một mạng duy nhất được dùng chung cho cả 4 tác tử (parameter sharing) — về phía SB3, dữ liệu của 4 tác tử đơn giản là 4 luồng kinh nghiệm chảy vào cùng một mô hình.
+[P338|Heading 2] Huấn luyện MAPPO và MAA2C
+[P339|Content] Mỗi phiên huấn luyện (rl/train_marl.py) tạo mô hình PPO hoặc A2C mới từ đầu (không nạp lại trọng số cũ, trừ chế độ warmstart của curriculum), gắn chính sách CentralizedCriticPolicy, với callback ghi số liệu từng episode ra CSV và lưu checkpoint định kỳ mỗi 50.000 bước. Ngân sách mỗi phiên tùy thực nghiệm: 200.000 bước cho ma trận giai đoạn 1 (preset thesis — checkpoint tại 50k/100k/150k/200k) và 300.000 bước cho mỗi giai đoạn của curriculum end-to-end (checkpoint tới 300k — mục 3.7). Toàn bộ pipeline so sánh thuật toán được điều phối bởi run_thesis_overnight.sh, gọi lặp lại chính rl/train_marl.py cho từng giai đoạn của PPO và A2C.
+[P340|Content] Quy ước đơn vị thời gian. Đơn vị nhỏ nhất là tick — một chu kỳ mô phỏng GAMA, trong đó mỗi xe đi một bước và mỗi tác tử ra một quyết định (một bước môi trường RL tương ứng đúng một tick). Còn "bước" trong cụm "200.000 bước" là timestep mà Stable-Baselines3 đếm khi huấn luyện: do 4 tác tử cùng học song song, mỗi tick sinh 4 transition, nên timesteps ≈ 4 × số tick. Như vậy 200k bước huấn luyện ứng với khoảng 50.000 tick môi trường, còn mỗi giai đoạn curriculum 300k bước ứng với ~75.000 tick. Một episode (ván) là chuỗi tick liên tiếp từ khi xe xuất hiện đến khi kết thúc — tối đa 300–500 tick ở chế độ kết-thúc-tại-điểm-nhập (300 cho curriculum, 500 cho ma trận giai đoạn 1) và ở chế độ end-to-end là 600 tick khi huấn luyện / 800 tick khi đánh giá. Lưu ý tick là thời gian mô phỏng trừu tượng, không quy ra giây thực; tốc độ được đo bằng đơn vị quãng đường trên mỗi tick (speed_max = 1,0 đơn vị/tick).
+[P341|Caption] Bảng 3.2: Siêu tham số huấn luyện MAPPO và MAA2C
+[P342|Content] Hai lựa chọn cấu hình cần nói rõ: (1) Entropy annealing — hệ số entropy cao ở đầu khuyến khích khám phá (thử hành động nhập làn đủ nhiều để biết nó có giá trị), rồi giảm dần để chính sách "kết tinh"; lịch giảm này quan trọng với bài toán có hành động hiếm sống còn như nhập làn. (2) Học suất của PPO được hạ xuống 1e-4 cho các phiên dài sau khi quan sát hiện tượng sập muộn ở 3e-4 — một ví dụ về loại quyết định chỉ rút ra được từ thực nghiệm.
+[P343|Heading 2] Quy trình thực nghiệm tự động và tính tái lập
+[P344|Heading 3] Pipeline điều phối
+[P346|Content] Toàn bộ một lần thực nghiệm được điều phối bởi một lệnh duy nhất (rl/run_experiments.py), theo trình tự (Hình 10): vá tham số mật độ vào GAML theo kịch bản (--scenario low/medium/high) và tùy chọn tắt lưới an toàn (--shield off) → chạy baseline → với mỗi cặp (thuật toán × hạt giống): huấn luyện 200k bước → chọn checkpoint tốt nhất → đánh giá 50 episode → sinh toàn bộ biểu đồ và bảng so sánh (CSV + LaTeX) → khôi phục file GAML về mặc định. Mỗi lần chạy tự tạo thư mục kết quả riêng theo nhãn thời gian, không bao giờ ghi đè kết quả cũ.
+[P347|Content] Cơ chế chọn checkpoint tốt nhất đáng nói riêng: mô hình ở bước cuối cùng không nhất thiết là tốt nhất do hiện tượng sụt giảm muộn (catastrophic forgetting / late collapse) thường gặp trong MARL. Pipeline đánh giá tất cả checkpoint định kỳ và chọn điểm có điểm số cao nhất — quyết định dựa trên số liệu thay vì lấy mù checkpoint cuối.
+[P348|Caption] Hình 3.2 Quy trình pipeline thực nghiệm tự động (run_experiments.py).
+[P350|Caption] Bảng 3.3: Các preset thực nghiệm
+[P351|Heading 3] Giao thông tái lập theo hạt giống (paired evaluation)
+[P352|Content] Một phát hiện kỹ thuật trong quá trình xây dựng: wrapper mặc định chỉ đặt hạt giống ở phạm vi experiment sau khi nạp lại mô phỏng, không gieo lại bộ sinh số ngẫu nhiên của simulation đang chạy — hậu quả là mọi episode sinh ra cùng một cấu hình giao thông, khiến 50 episode đánh giá của một chính sách tất định thực chất chỉ là 50 lần lặp một tình huống duy nhất. Đồ án khắc phục bằng biến pz_sim_seed được Python đẩy xuống GAML ngay sau mỗi reset; reflex sinh xe nền gieo lại RNG từ biến này trước khi spawn. Kết quả: mỗi episode là một tình huống giao thông khác nhau, tái lập được, và bắt cặp (paired) — cùng hạt giống thì mọi chính sách gặp đúng cùng tình huống. Tính chất paired làm tăng độ mạnh thống kê của so sánh giữa các chính sách.
+[P353|Heading 3] Reset-on-merging-death
+[P354|Content] Pipeline ban đầu không reset môi trường khi merging_0 chết giữa chừng (wrapper vector hóa với black_death=True che tín hiệu kết thúc của từng tác tử), khiến rollout buffer chứa các transition "ma" của tác tử đã chết, gây nhiễu gradient. Cơ chế khắc phục: khi merging_0 kết thúc vì bất kỳ lý do gì, toàn bộ môi trường được ép reset — thống nhất ngữ nghĩa "một episode = một lần nhập làn" giữa huấn luyện và đánh giá.
+[P355|Heading 2] Chẩn đoán và sửa lỗi nuốt tín hiệu kết thúc episode
+[P356|Heading 2] Định hình phần thưởng nâng cao và huấn luyện curriculum
+[P357|Heading 3] Hai kỹ thuật reward giai đoạn 2
+[P358|Content] Như đã nêu ở mục 2.3.4, giai đoạn 2 bổ sung tiến độ dense theo thế năng (potential-based, không đổi chính sách tối ưu [12]) và phạt can-thiệp-khiên tỷ lệ (k = 5). Cặp kỹ thuật này giải quyết hai vấn đề độc lập: tín hiệu dense giúp Critic học được trên hành trình dài (end-to-end, tới 600 bước/episode khi huấn luyện); phạt tỷ lệ ép chính sách nội tâm hóa kỹ năng điều tốc thay vì ủy thác cho lưới an toàn.
+[P359|Heading 3] Huấn luyện curriculum nhiều giai đoạn
+[P360|Content] Để mô hình cuối có thể tái lập từ đầu mà không phụ thuộc chuỗi huấn luyện lịch sử (vốn gồm nhiều lần warmstart nối tiếp), đồ án xây dựng một curriculum chạy bằng một lệnh. Hai giai đoạn nền tảng (bash train_curriculum.sh, ~3 giờ, 600k bước):
+[P361|Bullet] Giai đoạn 1 — học nhập làn (300k bước, từ đầu): môi trường kết thúc tại điểm nhập làn — bài toán ngắn, tín hiệu rõ, chính sách học được kỹ năng cốt lõi: chọn khe, căn thời điểm, khớp tốc độ.
+[P362|Bullet] Giai đoạn 2 — học end-to-end + hợp tác (300k bước, warmstart từ GĐ1): môi trường mở rộng end-to-end — chính sách đã biết nhập làn nay học lái tiếp an toàn sau điểm nhập và hành vi nhường của các xe cao tốc.
+[P363|Content] Trên nền hai giai đoạn đó, pipeline so sánh thuật toán (bash run_thesis_overnight.sh) bổ sung Giai đoạn 3 (cho cả PPO và A2C), train tiếp 300k rồi quét checkpoint và chọn theo mục tiêu. Một Giai đoạn 4 chuyên hóa khác được thực hiện riêng bằng bash run_stage4_propshield.sh (fine-tune từ checkpoint Giai đoạn 3 tốt nhất). Cùng một dòng curriculum nhưng cho ra các checkpoint tối ưu các mục tiêu khác nhau (các dòng trong Bảng 4.3):
+[P364|Bullet] Giai đoạn 3 — yield-hunt (tối ưu hợp tác, Goal 2): train tiếp từ checkpoint tốt nhất của GĐ2, rồi chọn checkpoint có %nhường cao nhất với ràng buộc success ≥ 80% (ngưỡng này ngăn việc "nhường ảo" do làm kẹt cả dòng). Kết quả nâng hành vi nhường lên 89±6%.
+[P365|Bullet] Giai đoạn 4 — propshield (cai khiên, `run_stage4_propshield.sh` — script riêng chạy sau): fine-tune tiếp từ checkpoint Giai đoạn 3 với phạt can-thiệp-khiên tỷ lệ, rồi chọn checkpoint có năng lực không-khiên cao nhất (ràng buộc khiên ≥ 80%) — nhằm nội tâm hóa kỹ năng điều tốc. Kết quả nâng no-shield từ 14% lên 28±17% (variance cao — mục 4.6.3).
+[P366|Content] Đáng lưu ý, mọi giai đoạn đều huấn luyện ở mật độ cao (high — 84 xe, đường 240 m, cùng lưới an toàn); các giai đoạn chỉ khác nhau ở chế độ kết thúc episode (kết thúc tại điểm nhập làn so với end-to-end) và tiêu chí chọn checkpoint, không khác môi trường. Script huấn luyện tự kiểm tra nb_cars_max = 84 trong file GAML trước khi chạy và dừng ngay nếu mật độ đã bị vá khác đi — bảo đảm không bao giờ huấn luyện nhầm kịch bản và mọi mô hình so sánh được trên cùng một môi trường đồng nhất.
+[P367|Content] Cách tiếp cận "từ dễ đến khó" này là cần thiết: huấn luyện trực tiếp bài toán khó từ đầu (from-scratch trên kịch bản khan hiếm khe) sập không hội tụ, trong khi warmstart từ nền ổn định cho kết quả ổn định — nhất quán với kinh nghiệm chung về curriculum learning trong RL. Việc chọn checkpoint theo mục tiêu (thay vì lấy checkpoint cuối) là then chốt: checkpoint cuối thường tối ưu mục tiêu cá nhân của xe nhập làn nhưng "quên" hành vi nhường (catastrophic forgetting). Đường cong học của các giai đoạn được ghi tự động phục vụ biểu đồ báo cáo. Toàn bộ pipeline (3 giai đoạn train × PPO/A2C + Giai đoạn 4 propshield + baseline Greedy) được chạy lại trên 3 hạt giống huấn luyện độc lập để báo cáo trung bình ± độ lệch chuẩn (Chương 4).
+[P368|Caption] Hình 3.3: Đường cong học của huấn luyện curriculum (2 giai đoạn nền tảng).
+[P370|Heading 1] KẾT QUẢ THỰC NGHIỆM VÀ ĐÁNH GIÁ
+[P371|Heading 2] Thiết lập thực nghiệm
+[P372|Content] Thực nghiệm được tiến hành theo hai giai đoạn bài toán:
+[P373|Bullet] Giai đoạn 1 — kết thúc tại điểm nhập làn (terminate-at-merge): episode kết thúc ngay khi xe nhập làn vào được dòng chính (hoặc thất bại). Đây là giai đoạn khảo sát ma trận đầy đủ: 3 mật độ (low 24 xe, medium 54 xe, high 84 xe) × 2 chế độ lưới an toàn (khiên ON/OFF) × các chính sách (MAA2C, MAPPO, Greedy, Random — Random về sau được lược khỏi bộ so sánh chính theo đề cương vì chỉ đóng vai trò sàn tuyệt đối). Mỗi chính sách học chạy preset thesis: 5 hạt giống × 200.000 bước huấn luyện × 50 episode đánh giá (chế độ lấy mẫu — stochastic).
+[P374|Bullet] Giai đoạn 2 — end-to-end (e2e): đường 240 m, mật độ cao 84 xe; xe nhập làn phải tự lái tiếp bằng RL tới cuối đường sau khi nhập — episode chỉ kết thúc tại cuối đường. Chế độ này bắt được cả tai nạn hậu-nhập-làn lẫn sóng lùi trọn hành trình, là chế độ đánh giá chuẩn của các kết luận chính.
+[P375|Content] Giao thông được gieo lại theo hạt giống (mục 3.5.2) nên mỗi episode là một tình huống khác nhau, tái lập được và bắt cặp giữa các chính sách. Mọi biểu đồ và bảng tổng hợp chỉ tính trên các episode đánh giá và baseline (không trộn rollout huấn luyện); riêng các chỉ số "tốc độ nhập làn" và "bước nhập làn trung bình" chỉ tính trên episode nhập làn thành công để tránh sai lệch diễn giải. Nhờ vậy biểu đồ luôn khớp bảng số. Phần lớn số liệu truy được về file gốc trong outputs/.
+[P376|Heading 2] Kết quả giai đoạn 1 — ma trận mật độ × lưới an toàn
+[P377|Caption] Bảng 4.1: Tỷ lệ thành công (%) — định dạng ô: khiên ON | khiên OFF; chính sách học ghi trung bình ± độ lệch chuẩn trên 5 hạt giống
+[P378|Caption] Bảng 4.2: Tỷ lệ va chạm (%) — cùng định dạng
+[P380|Normal] Random đạt 0% thành công và 100% va chạm ở mọi cấu hình — xác nhận môi trường không tầm thường (không thể nhập làn "ăn may") và đóng vai trò sàn tuyệt đối của bài toán.
+[P381|Caption] Hình 4.1: Tỷ lệ thành công / va chạm theo mật độ và chế độ lưới an toàn (giai đoạn 1).
+[P383|Heading 2] Phân tích so sánh thuật toán: MAA2C và MAPPO
+[P384|Content] Xét chế độ khiên ON (môi trường tiêu chuẩn), ở giai đoạn 1 với đánh giá lấy mẫu (stochastic), MAA2C đạt kết quả cao và ổn định nhất: 82,8–89,2% thành công ở cả ba mật độ với độ lệch chuẩn rất nhỏ (1,6–4,3%). MAPPO thấp hơn (68,4–83,6%) và phương sai theo hạt giống lớn hơn rõ rệt (tới ±11,8%). Ở mật độ cao, khoảng cách nới rộng: MAA2C 82,8% so với MAPPO 68,4%.
+[P385|Content] Lý giải kỹ thuật: với cùng ngân sách 200k bước và mạng nhỏ, cập nhật trực tiếp của A2C (một bước gradient mỗi rollout, entropy cao) tỏ ra ổn định cho bài toán phối hợp 4 tác tử quy mô nhỏ; PPO với cơ chế clip + nhiều epoch tối ưu trên mỗi batch dễ rơi vào các cực tiểu cục bộ khác nhau tùy hạt giống, sinh phương sai cao.
+[P386|Content] Tuy nhiên — và đây là một phát hiện phương pháp luận quan trọng của đồ án — thứ hạng giữa hai thuật toán phụ thuộc vào chế độ đánh giá, được phân tích đầy đủ ở mục 4.6.4 sau khi có kết quả giai đoạn 2: kết luận "MAA2C vượt MAPPO" ở trên đo bằng đánh giá lấy mẫu; khi đánh giá tất định (argmax — chế độ triển khai thực tế), bức tranh đảo ngược hoàn toàn.
+[P387|Heading 2] Phân tích A/B lưới an toàn: năng lực thật của chính sách
+[P388|Content] Đây là phát hiện trung tâm của giai đoạn 1. So sánh từng chính sách giữa hai chế độ khiên ON/OFF (Bảng 4.1, 4.2):
+[P389|Content] Greedy phụ thuộc hoàn toàn vào lưới an toàn. Khi có khiên, Greedy đạt 96% ở mật độ thấp/vừa — nhìn bề ngoài ngang ngửa, thậm chí nhỉnh hơn các chính sách học. Nhưng khi tắt khiên, Greedy sụp theo mật độ: 82% (low) → 2% (medium) → 0% (high), với tỷ lệ va chạm tăng tương ứng tới 98–100%. Diễn giải: Greedy không hề biết lái an toàn — nó tăng tốc và lao vào làn bất chấp, và toàn bộ phần "tránh va chạm" do cơ chế bảo vệ của môi trường gánh hộ. Năng lực biểu kiến của nó là năng lực vay mượn.
+[P390|Content] Chính sách học đã nội hóa hành vi an toàn. Cùng điều kiện gỡ khiên, MAA2C gần như không suy giảm (86,4→87,2% ở low; 89,2→84,8% ở medium; 82,8→85,2% ở high), MAPPO giảm vừa phải. Chính sách học giữ được hành vi tránh va chạm ngay cả khi không còn lưới bảo vệ, vì hành vi đó đã được học từ tín hiệu phần thưởng (phạt va chạm, phạt bám đuôi) chứ không phải được "ban" từ môi trường.
+[P391|Content] Hệ quả: khi đặt mọi chính sách vào cùng điều kiện không lưới an toàn — điều kiện sát thực tế triển khai hơn — chính sách học cao hơn hẳn: ở medium, MAA2C 84,8% so với Greedy 2%; ở high, MAA2C 85,2% so với Greedy 0%. Đây là minh chứng định lượng trực tiếp cho giá trị của việc học so với luật tay tĩnh, và là câu trả lời của đồ án cho câu hỏi nghiên cứu đặt ra ở mục 1.2.3.
+[P392|Heading 2] Ảnh hưởng của mật độ giao thông và độ ổn định theo hạt giống
+[P393|Content] Theo mật độ. Vai trò của lưới an toàn tăng theo mật độ: Greedy không khiên còn sống được ở đường thưa (82% — vẫn dễ tìm khe trống), nhưng sụp hoàn toàn ở mật độ vừa và cao. Ngược lại, chính sách học suy giảm nhẹ và có kiểm soát khi mật độ tăng (MAPPO 83,6→68,4%; MAA2C giữ 82,8–89,2% xuyên suốt) — không có hiện tượng sụp đổ.
+[P394|Content] Theo hạt giống. Độ lệch chuẩn giữa 5 hạt giống phản ánh độ tin cậy của thuật toán: MAA2C rất ổn định (1,6–5,2% ở mọi cấu hình); MAPPO dao động hơn (7,1–11,8% khi có khiên) và bùng lên 17,9–22,8% khi gỡ khiên — một số hạt giống sập hẳn (có seed chỉ đạt 30%). Quan sát phụ này có ý nghĩa riêng: lưới an toàn không chỉ ảnh hưởng kết quả trung bình mà mà còn giúp ổn định hóa quá trình huấn luyện — môi trường có khiên "tha thứ" các pha khám phá nguy hiểm ở đầu huấn luyện, giúp PPO tránh được các quỹ đạo học xấu.
+[P395|Heading 2] Kết quả giai đoạn 2 — bài toán end-to-end
+[P396|Heading 3] Kết quả tổng hợp
+[P397|Content] Sau khi sửa lỗi nuốt tín hiệu kết thúc episode (mục 3.6) và áp dụng reward giai đoạn 2 (mục 3.7), toàn bộ pipeline giai đoạn 2 được chạy lại tái lập trên 3 hạt giống huấn luyện độc lập (run_thesis_overnight.sh, mỗi đêm một hạt giống), mỗi mô hình đánh giá end-to-end ở mật độ cao (84 xe), 3 hạt giống đánh giá × 10 episode, cùng toàn bộ lưới an toàn (so sánh công bằng từng lớp). Các con số dưới đây là trung bình ± độ lệch chuẩn qua 3 hạt giống huấn luyện (mỗi hạt giống lấy trung bình trên 3 hạt giống đánh giá). PPO đánh giá ở chế độ tất định (argmax) — chế độ triển khai; MAA2C ở chế độ lấy mẫu — chế độ vận hành duy nhất của nó (xem mục 4.6.4).
+[P398|Caption] Bảng 4.3: Kết quả giai đoạn 2 (end-to-end, mật độ cao 84 xe, 3 hạt giống huấn luyện × 3 hạt giống đánh giá)
+[P400|Content] (Cột "Nhường (G2)": % số lần giảm tốc của xe cao tốc diễn ra khi có xe nhập làn ở gần. Cột "Không-khiên": tỷ lệ thành công khi đánh giá với lưới an toàn tắt hoàn toàn — ablation. Dấu "—": không áp dụng cho cấu hình đó. Mỗi giai đoạn PPO là một checkpoint chuyên hóa khác nhau của cùng một dòng curriculum — chọn theo mục tiêu ưu tiên: success, nhường, hay năng lực không-khiên.)
+[P401|Content] Kết luận 1 — RL cao hơn rõ rệt baseline ở mật độ cao. Cùng toàn bộ lưới an toàn, PPO đạt 86±6% thành công (gate nhập làn 100±0%) trong khi Greedy chỉ 53±12% và đâm 47±12%; khi gỡ khiên, Greedy sụp về 0% còn PPO/A2C vẫn giữ được năng lực. Khác biệt thuần túy là chất lượng quyết định học được: Greedy lao vào sớm mà không khớp tốc độ; chính sách học biết chọn khe, căn thời điểm và khớp tốc — hành vi kiểu "zipper merge" quan sát được trực quan trên demo. Kết quả ổn định qua 3 hạt giống huấn luyện (gate nhập làn 100% ở cả ba), khẳng định tính tái lập.
+[P402|Heading 3] Phổ hành vi hợp tác – tự chủ theo trục huấn luyện
+[P403|Content] So sánh các checkpoint của cùng một dòng huấn luyện cho thấy chính sách dịch chuyển dọc theo một phổ hành vi hợp tác – tự chủ. Giai đoạn yield-hunt (mục 3.7.2) — train tiếp rồi chọn checkpoint theo %nhường với ràng buộc success ≥80% — đẩy hành vi hợp tác lên đỉnh: các xe cao tốc chủ động nhường 89±6% số lần giảm tốc khi có xe nhập làn gần (đo bằng chỉ số %G2 tự thiết kế, loại được nhiễu của histogram hành động thuần túy), ổn định qua cả 3 hạt giống huấn luyện (81%, 94%, 92%). Ngược lại, checkpoint chỉ tối ưu nhập làn (Giai đoạn 2) có hành vi nhường dao động mạnh theo hạt giống (70±20%). Ở một số hạt giống, xe nhập làn tự tìm được khe tốt đến mức gần như không cần ai nhường (42%) mà vẫn đạt success cao. Cả hai trạng thái đều đạt mục tiêu an toàn; chúng khác nhau ở điểm cân bằng giữa hợp tác và lưu lượng — và quan trọng với ứng dụng, chọn được bằng checkpoint tùy yêu cầu vận hành.
+[P404|Caption] Hình 4.2: Kết quả ba mục tiêu (nhập làn an toàn / nhường chủ động / sóng lùi) theo checkpoint.
+[P407|Heading 3] Ablation lưới an toàn: định lượng mức nội tâm hóa kỹ năng an toàn
+[P408|Content] Đánh giá lại các mô hình với lưới an toàn tắt hoàn toàn (--no-shield) bộc lộ giới hạn cấu trúc của không gian hành động: với 5 mức rời rạc, chính sách không biểu diễn được điều-tốc-liên-tục, nên đã "ủy thác" một phần kỹ năng điều tốc tinh cho khiên IDM-cap. Mô hình Giai đoạn 2 (chỉ tối ưu nhập làn) khi lái trần chỉ còn 14±6% thành công dù có khiên đạt 86% — chênh lệch chính là phần kỹ năng "vay mượn" từ khiên.
+[P409|Content] Thí nghiệm propshield (Giai đoạn 4) kiểm tra giả thuyết kỹ năng này có thể nội tâm hóa qua thiết kế reward: chuyển phạt can-thiệp-khiên từ nhị phân −1 (chỉ kích hoạt ở pha khẩn cấp) sang tỷ lệ theo mức cắt gia tốc, tạo gradient học cho cả những lần khiên "cắt nhẹ hằng ngày". Thăm dò ban đầu (1 hạt giống) cho chuỗi tiến triển khích lệ: phạt nhị phân → 10% không-khiên; phạt tỷ lệ k=1 → 30%; k=5 → 50%. Tuy nhiên, xác minh lại trên 3 hạt giống huấn luyện độc lập cho kết quả 28±17% — cải thiện trung bình rõ so với 14% (gấp đôi), nhưng độ lệch chuẩn rất lớn (các hạt giống cho 50%, 23%, 10%): cai khiên qua reward shaping là khả thi nhưng chưa ổn định ở thiết kế hiện tại — chỉ một phần các lần huấn luyện đạt mức 50%. Mức lệ thuộc khiên đo trực tiếp bằng số lần can thiệp/episode giảm tương ứng ở các hạt giống thành công. Đây là kết quả trung thực: vừa định lượng được một hạn chế kiến trúc (hành động rời rạc), vừa chỉ ra hướng khắc phục chưa hoàn chỉnh cần nghiên cứu tiếp (phạt mạnh hơn để ổn định hóa; xa hơn là hành động liên tục hoặc shield-annealing — Kết luận).
+[P410|Caption] Hình 4.3: Ablation lưới an toàn — năng lực lái không khiên theo thiết kế phạt.
+[P412|Caption] Hình 4.4: Histogram hành động và số lần khiên can thiệp mỗi episode.
+[P414|Heading 3] So sánh PPO – A2C ở giai đoạn 2: hiện tượng deterministic collapse
+[P415|Normal] Giai đoạn 2 lặp lại so sánh thuật toán trong điều kiện đã kiểm soát chặt (cùng curriculum, cùng hạt giống, môi trường đã sửa lỗi). Kết quả lật ngược thứ hạng giai đoạn 1 — và chỉ ra nguyên nhân sâu:
+[P416|Caption] Bảng 4.4: So sánh PPO và A2C ở chế độ đánh giá tất định và lấy mẫu (gate giai đoạn 1 — nhập làn)
+[P417|Content] Ba cấu hình A2C trung gian là chuỗi thí nghiệm chẩn đoán, khảo sát trên 1 hạt giống — seed 0. Hai dòng biên (MAPPO và cấu hình A2C tốt nhất) được xác minh trên 3 hạt giống huấn luyện: MAPPO argmax tuyệt đối ổn định 100±0%; A2C tất định bằng 0 ở cả ba hạt giống trong khi lấy mẫu đạt 77±5%.
+[P418|Content] Về lớp mask đánh giá (công bố minh bạch). Khi đánh giá tất định của riêng merging_0, công cụ eval có một lớp heuristic tùy chọn (evaluate_marl.py) ưu tiên hành động nhập làn trong vùng tăng tốc khi khoảng trống đã an toàn và triệt hành vi thụ động khi tốc độ quá thấp — nhằm tránh argmax "kẹt" khi phân phối gần đều. Lớp này áp đồng đều cho mọi thuật toán nên không phá tính công bằng. Để loại trừ khả năng con số 100% của MAPPO là nhờ lớp mask, đã chạy lại gate với cờ --no-eval-mask (tắt hoàn toàn mask): MAPPO vẫn 100%, MAA2C vẫn 0% — xác nhận kết quả là của chính sách thuần, mask không làm thay đổi thứ hạng hay con số gate. Mọi số trong Bảng 4.3/4.4 báo cáo ở chế độ mặc định (mask bật) nhưng đã được kiểm chứng bất biến khi tắt mask.
+[P419|Content] MAA2C có học (60–77% ở chế độ lấy mẫu) nhưng mắc hiện tượng deterministic collapse: phân phối hành động của nó không bao giờ "nhọn" về hành động nhập làn — argmax tại mọi trạng thái chỉ chọn giữ/tăng tốc, nên đánh giá tất định cho đúng 0% (xác nhận trên cả 3 hạt giống). Bản chất bài toán là hành-động-hiếm-sống-còn: "tăng tốc" đúng ở hầu hết các bước nên trở thành mode của phân phối; "nhập làn" chỉ cần đúng ở vài bước quyết định và chỉ xuất hiện qua lấy mẫu.
+[P420|Content] Vì sao PPO thoát được? Đối chứng then chốt: explained variance của Critic xấp xỉ 0 ở cả hai thuật toán trong gate này, vậy mà MAPPO vẫn đạt 100% argmax — chứng tỏ chất lượng Critic không phải yếu tố quyết định. Yếu tố quyết định là cơ chế cập nhật trọn gói của PPO: nhiều epoch mỗi batch, cộng clipping và chuẩn hóa advantage theo minibatch. Con số nói rõ hơn lời. Trên cùng ngân sách 300k bước, PPO chạy ~23.400 bước gradient (≈293 rollout × 10 epoch × 8 minibatch); A2C chỉ ~293 (một cập nhật mỗi rollout). Chênh gần hai bậc độ lớn — đủ để đẩy xác suất hành động nhập làn vượt 0,5 tại đúng các trạng thái quyết định. Thí nghiệm tách thành phần (đắp từng yếu tố sang A2C: rollout dài hơn, bật normalize_advantage) đều không đủ tái tạo hiệu ứng.
+[P421|Content] Phát hiện này hóa giải mâu thuẫn bề mặt giữa hai giai đoạn: "MAA2C 83–89% vượt MAPPO" (giai đoạn 1) đo bằng lấy mẫu, "MAPPO 100% vượt MAA2C 0%" (giai đoạn 2) đo bằng argmax — không mâu thuẫn, chỉ khác thước đo. Kết luận cho triển khai thực tế: MAPPO cho chính sách nhọn, chạy tất định được (deployable); MAA2C dù đạt tới 77±5% nhưng chỉ ở chế độ lấy mẫu. Điều này nghĩa là hành vi của nó có tính ngẫu nhiên, khó chấp nhận cho phương tiện thật. Đây cũng là khuyến nghị phương pháp luận: các nghiên cứu so sánh thuật toán MARL phải báo cáo rõ chế độ đánh giá, vì thứ hạng có thể đảo ngược hoàn toàn.
+[P422|Heading 3] Tính tái lập
+[P423|Content] Toàn bộ pipeline giai đoạn 2 tái lập được từ đầu bằng một lệnh (bash run_thesis_overnight.sh, không sửa mã nguồn), và đã chạy 3 lần độc lập với 3 hạt giống huấn luyện cho kết quả nhất quán: gate nhập làn from-scratch đạt 100% ở cả ba hạt giống (độ lệch chuẩn 0), end-to-end đạt 86±6% — chứng minh kết quả không phụ thuộc chuỗi huấn luyện lịch sử lẫn một hạt giống may mắn. Bộ 7 biểu đồ báo cáo sinh tự động bằng python rl/make_thesis_plots.py từ đúng các file số liệu gốc.
+[P424|Heading 2] Demo sản phẩm
+[P425|Content] Demo trực quan trên GAMA GUI. Experiment TrafficSimulation cho phép quan sát trực tiếp mô hình đã huấn luyện điều khiển xe: xe nhập làn (màu đỏ tươi) chạy trên ramp, tăng tốc trong vùng lấy đà, chờ đúng khe rồi nhập vào dòng; các xe cao tốc (màu lam) giảm tốc nhường khi cần. Dashboard hiển thị trực tiếp tốc độ dòng chính, số va chạm, thông lượng và chỉ số sóng lùi theo thời gian thực. Người dùng chọn được chính sách điều khiển (mô hình Python đã huấn luyện / luật Heuristic / điều khiển tay) để so sánh hành vi bằng mắt.
+[P426|Heading 2] Nhận xét và đánh giá tổng hợp
+[P427|Normal] Ưu điểm đạt được:
+[P428|Bullet] Hệ thống mô phỏng – học – đánh giá khép kín và tự động: một lệnh chạy trọn pipeline; mỗi con số trong báo cáo truy vết được về file nguồn; mô hình chủ lực tái lập từ đầu bằng một lệnh.
+[P429|Bullet] Chính sách học đạt 86±6% thành công ở chế độ end-to-end mật độ cao (gate nhập làn 100±0%, qua 3 hạt giống), cao hơn baseline Greedy khoảng 33 điểm phần trăm (53±12%, và 0% khi gỡ khiên); ba mục tiêu của đề cương (nhập làn an toàn, phối hợp nhường 89±6%, kiểm soát sóng lùi) đều đạt và đo được định lượng.
+[P430|Bullet] Thiết kế thực nghiệm có chiều sâu phương pháp luận: ma trận mật độ × lưới an toàn tách bạch "năng lực học được" khỏi "trợ giúp môi trường"; ablation khiên định lượng mức nội tâm hóa; phân tích deterministic collapse cảnh báo về chế độ đánh giá.
+[P431|Bullet] Các phát hiện kỹ thuật (lỗi nuốt tín hiệu kết thúc episode + công cụ probe; gieo lại RNG giao thông theo hạt giống; reset-on-merging-death) có giá trị tổng quát cho mọi hệ RL ghép qua cầu nối mô phỏng.
+[P432|Normal] Hạn chế:
+[P433|Bullet] Mô phỏng tinh giản: hành động rời rạc + di chuyển waypoint, chưa phải động học/cảm biến xe thật — kết luận giới hạn trong phạm vi MDP đã định nghĩa.
+[P434|Bullet] Hành động rời rạc 5 mức không biểu diễn được điều-tốc-liên-tục — chính sách còn lệ thuộc một phần vào khiên IDM-cap. Phạt khiên tỷ lệ nâng được năng lực không-khiên (14→28±17% qua 3 hạt giống, đỉnh 50%) nhưng chưa ổn định — đây là hạn chế chưa giải quyết trọn vẹn, cần phạt mạnh hơn hoặc hành động liên tục.
+[P435|Bullet] Chính sách dùng chung cho hai vai trò ngữ nghĩa khác nhau là lựa chọn thiết kế đơn giản hóa, không tương đương hai chính sách chuyên biệt.
+[P436|Bullet] Một instance GAMA duy nhất (không vector hóa song song) khiến thời gian huấn luyện dài; giao thông đa dạng theo hạt giống mới áp dụng cho đánh giá/baseline, vòng huấn luyện vẫn chạy trên một bố cục cố định.
+[P447|Heading 1] KẾT LUẬN
+[P448|Content] Đồ án tốt nghiệp "Phát triển kịch bản nhập làn trên đường cao tốc và đánh giá các thuật toán học tăng cường cho bài toán điều khiển phương tiện tự hành" đã hoàn thành các mục tiêu đề ra trong đề cương, với các kết quả chính sau:
+[P449|Content] Trước hết là môi trường. Đồ án đã dựng mô phỏng nhập làn trên GAMA: 3 làn cao tốc, nhánh ramp 8 waypoint kèm vùng tăng tốc và điểm hợp lưu. Dòng xe nền chạy IDM + MOBIL. Ba kịch bản mật độ tham số hóa, lưới an toàn bật/tắt được, và kết nối hai chiều ổn định với Python qua chuẩn PettingZoo.
+[P450|Content] Tiếp đến là mô hình hóa. Bài toán nhập làn được phát biểu thành một MDP đa tác tử đầy đủ: 4 tác tử dị thể (1 nhập làn + 3 cao tốc), quan sát 15 chiều mỗi tác tử bám đúng các yếu tố quyết định khi nhập làn, hành động rời rạc 5 mức theo vai trò. Hàm phần thưởng đa mục tiêu trộn ba loại tín hiệu — terminal, dense, shaping — trong đó tiến độ dense theo thế năng và phạt can-thiệp-khiên tỷ lệ là hai thiết kế then chốt.
+[P451|Content] Sang phần thuật toán: MAPPO và MAA2C được cài đặt, huấn luyện theo kiến trúc CTDE (Actor 19D phi tập trung, Critic 60D tập trung, chính sách dùng chung kèm chỉ thị tác tử) trên Stable-Baselines3. Đi kèm là pipeline thực nghiệm tái lập được: giao thông gieo theo hạt giống và bắt cặp giữa các chính sách, chọn checkpoint theo số liệu, mỗi lần chạy ghi vào một thư mục riêng. Mô hình nền tảng huấn luyện lại từ đầu chỉ bằng một lệnh curriculum hai giai đoạn (nhập làn → end-to-end); hai giai đoạn chuyên hóa (yield-hunt, propshield) chạy tiếp bằng script riêng.
+[P452|Content] Kết quả đánh giá định lượng (qua 3 hạt giống huấn luyện độc lập) trả lời câu hỏi trung tâm "việc học có đáng giá so với luật tĩnh không": ở chế độ end-to-end mật độ cao, PPO đạt 86±6% thành công so với 53±12% của baseline Greedy; thực nghiệm A/B lưới an toàn cho thấy năng lực của Greedy chủ yếu vay mượn từ cơ chế bảo vệ của môi trường (gỡ khiên sụp về 0%) trong khi chính sách học giữ được năng lực — chứng minh việc học mang lại năng lực an toàn nội tại. Đó chưa phải tất cả. Đồ án còn phát hiện phổ hành vi hợp tác – tự chủ theo trục huấn luyện: ở giai đoạn yield-hunt, xe cao tốc chủ động nhường 89±6%, trong khi một checkpoint khác lại tự tìm khe kiểu zipper mà không cần ai nhường. Ablation đo được mức lệ thuộc lưới an toàn, và cho thấy phạt tỷ lệ nâng năng lực lái-không-khiên từ 14% lên 28±17% (đỉnh 50%) tuy chưa ổn định. Cuối cùng là hiện tượng deterministic collapse của A2C — dẫn tới một khuyến nghị phương pháp luận: so sánh thuật toán MARL phải nói rõ chế độ đánh giá là lấy mẫu hay tất định.
+[P453|Content] Bài học kinh nghiệm cá nhân. Qua đồ án, em đã được trải qua đầy đủ quy trình của một nghiên cứu thực nghiệm về học tăng cường: từ đọc hiểu bài báo khoa học quốc tế, xây dựng môi trường mô phỏng dựa trên tác tử, thiết kế MDP và hàm phần thưởng, cài đặt thuật toán học sâu trên PyTorch/Stable-Baselines3, đến thiết kế ma trận thực nghiệm có kiểm soát, phân tích số liệu trung thực và truy vết được. Đặc biệt, quá trình nhiều tuần gỡ lỗi hiện tượng "huấn luyện không học được" đã dạy em rằng trong các hệ học máy phức hợp, việc kiểm chứng có kỷ luật từng tầng (dữ liệu → môi trường → thuật toán) và tự viết công cụ chẩn đoán đúng chỗ thường hiệu quả hơn là chỉnh thuật toán theo cảm tính.
+[P454|Content] Hướng phát triển. (1) Mở rộng sang không gian hành động liên tục (mức gia tốc trong khoảng [−b, +a]) — ablation đã chỉ ra đây là nút thắt khiến chính sách ủy thác điều-tốc-tinh cho lưới an toàn; kết hợp shield-annealing (giảm dần lưới trong huấn luyện) hướng tới chính sách tự an toàn hoàn toàn. (2) Khảo sát các phương pháp MARL có phân rã giá trị (QMIX, value decomposition) so với CTDE hiện tại. (3) Vector hóa nhiều instance GAMA song song để rút ngắn thời gian huấn luyện và mở rộng quy mô thực nghiệm. (4) Đưa giao thông đa dạng theo hạt giống vào cả vòng huấn luyện để tăng khả năng tổng quát hóa. (5) Tiến tới kịch bản phức hợp hơn: nhiều điểm nhập làn nối tiếp, tỷ lệ thâm nhập xe tự hành thay đổi, hoặc phối hợp với điều khiển đèn ramp metering.
+[P455|Content] Dù đã nỗ lực hết mình, do thời gian và kinh nghiệm còn hạn chế, đồ án không tránh khỏi thiếu sót. Em rất mong nhận được sự góp ý quý báu từ quý Thầy/Cô và Hội đồng để đồ án được hoàn thiện và phát triển hơn nữa trong tương lai.
+[P465|Heading 1N] PHỤ LỤC
+[P466|Heading 2] Phụ lục A: Bảng siêu tham số đầy đủ của hai thuật toán
+[P468|Heading 2] Phụ lục B: Ý nghĩa hành động theo vai trò (ACTION_MEANINGS)
+[P470|Heading 2] Phụ lục C: Cấu trúc mã nguồn
+[P471|Normal] ├── models/
+[P472|Normal] │   └── Main_Traffic.gaml      # Môi trường mô phỏng MARL (4 tác tử + NPC IDM/MOBIL)
+[P473|Normal] ├── rl/
+[P474|Normal] │   ├── config.py              # Preset, kịch bản mật độ, ACTION_MEANINGS
+[P475|Normal] │   ├── marl_env.py            # Chuỗi wrapper GAMA → SB3 VecEnv
+[P476|Normal] │   ├── centralized_policy.py  # CentralizedCriticPolicy (CTDE)
+[P477|Normal] │   ├── train_marl.py          # Huấn luyện MAPPO/MAA2C
+[P478|Normal] │   ├── evaluate_marl.py       # Đánh giá + histogram hành động
+[P479|Normal] │   ├── baselines.py           # Baseline Greedy
+[P480|Normal] │   ├── run_experiments.py     # Điều phối pipeline tự động
+[P481|Normal] │   ├── scenario_utils.py      # Vá kịch bản mật độ + bật/tắt khiên vào GAML
+[P482|Normal] │   ├── gama_compat.py         # Tầng tương thích cầu nối
+[P483|Normal] │   ├── gama_episode_reset.py  # Reset + gieo giao thông theo hạt giống
+[P484|Normal] │   ├── analysis.py / plots.py / metrics.py   # Bảng so sánh, biểu đồ, chỉ số
+[P485|Normal] │   ├── make_thesis_plots.py   # Bộ biểu đồ báo cáo
+[P486|Normal] │   ├── probe_reward_stream.py # Công cụ chẩn đoán dòng reward/done thô
+[P487|Normal] │   └── smoke_test_env.py      # Kiểm tra kết nối nhanh
+[P488|Normal] │
+[P489|Normal] ├── train_curriculum.sh        # Curriculum 2 giai đoạn nền tảng (tái lập mô hình)
+[P490|Normal] ├── run_thesis_overnight.sh    # Pipeline 3 giai đoạn (S1→S2→S3) × PPO+A2C+Greedy + eval ma trận
+[P491|Normal] ├── run_stage4_propshield.sh   # Fine-tune cai khiên (propshield) từ model best
+[P492|Normal] └── outputs/                   # models / logs / plots theo từng lần chạy
+[P493|Heading 2] Phụ lục D: Các lệnh tái lập kết quả chính
+[P494|Bullet] Kiểm tra kết nối GAMA trước khi chạy dài
+[P495|Content] python rl/smoke_test_env.py
+[P496|Bullet] Ma trận thực nghiệm giai đoạn 1 (mỗi lệnh ~5h)
+[P497|Content] python rl/run_experiments.py --preset thesis --scenario low    --shield on
+[P498|Content] python rl/run_experiments.py --preset thesis --scenario medium --shield on
+[P499|Content] python rl/run_experiments.py --preset thesis --scenario high   --shield on
+[P500|Content] python rl/run_experiments.py --preset thesis --scenario low    --shield off
+[P501|Content] python rl/run_experiments.py --preset thesis --scenario medium --shield off
+[P502|Content] python rl/run_experiments.py --preset thesis --scenario high   --shield off
+[P503|Bullet] Tái lập mô hình từ đầu — 2 giai đoạn nền tảng (curriculum, ~3h)
+[P504|Content] bash train_curriculum.sh
+[P505|Bullet] Pipeline qua đêm — 3 giai đoạn (S1→S2→S3) × PPO+A2C + Greedy + eval ma trận 3 hạt giống (mỗi hạt giống một đêm; tự sinh summary + biểu đồ)
+[P506|Content] bash run_thesis_overnight.sh 1001 0   # rồi 1001 1, 1001 2 cho 3 hạt giống
+[P507|Bullet] Đánh giá end-to-end chuẩn (có khiên) và ablation (bỏ khiên)
+[P508|Content] python rl/evaluate_marl.py --algo ppo --model <model.zip> --episodes 10 --seed 0 --max-episode-steps 800 --eval-continue --postmerge-window 400 --rl-postmerge
+[P509|Content] python rl/evaluate_marl.py ... --no-shield
+[P510|Bullet] Sinh bộ biểu đồ báo cáo
+[P511|Content] python rl/make_thesis_plots.py
+
+############ PHẦN B: BẢNG (đầy đủ ô) ############
+
+----- BẢNG #0 (1 hàng × 2 cột) -----
+  | bỘ GIÁO DỤC VÀ ĐÀO TẠO | BỘ NÔNG NGHIỆP VÀ PTNT
+
+----- BẢNG #1 (1 hàng × 2 cột) -----
+  | bỘ GIÁO DỤC VÀ ĐÀO TẠO | BỘ NÔNG NGHIỆP VÀ PTNT
+
+----- BẢNG #2 (2 hàng × 2 cột) -----
+  | Ngành : Kỹ thuật phần mềm | 
+  | Mã số: | 
+
+----- BẢNG #3 (2 hàng × 2 cột) -----
+  | NGƯỜI HƯỚNG DẪN | 1. TS. Lê Nguyễn Tuấn Thành
+  |  | 
+
+----- BẢNG #4 (1 hàng × 2 cột) -----
+  |  | TRƯỜNG ĐẠI HỌC THUỶ LỢI 
+KHOA CÔNG NGHỆ THÔNG TIN
+
+BẢN TÓM TẮT ĐỀ CƯƠNG ĐỒ ÁN TỐT NGHIỆP
+
+----- BẢNG #5 (7 hàng × 4 cột) -----
+  | TT | Thời gian | Nội dung công việc | Kết quả dự kiến đạt được
+  | 1 | Tuần 1 - 2 | Tìm hiểu bài toán giao thông, nghiên cứu lý thuyết về RL, MARL và làm quen với nền tảng GAMA, cơ chế kết nối với Python. | Nắm vững lý thuyết, chạy thử thành công mô hình cơ sở MARL4AV, làm quen với nền tảng GAMA, cơ chế kết nối với Python.
+  | 2 | Tuần 3 - 5 | Phân tích kiến trúc hệ thống, thiết kế môi trường mô phỏng vật lý với kịch bản nhánh nhập làn (ramp) trên GAMA. | Bản thiết kế môi trường mô phỏng hoàn thiện, xe sinh ra và di chuyển đúng quỹ đạo nhập làn.
+  | 3 | Tuần 6 - 9 | Thiết kế MDP (State, Action, Reward) và lập trình tích hợp các thuật toán học sâu (MAPPO/MAA2C) cho kịch bản nhập làn qua Python. | Tác nhân bắt đầu quá trình huấn luyện (training), giao tiếp hai chiều giữa môi trường mô phỏng và Python ổn định.
+  | 4 | Tuần 10 - 12 | Chạy thực nghiệm, thu thập dữ liệu (vận tốc trung bình, số lần va chạm, thông lượng), tinh chỉnh siêu tham số. | Đạt được mô hình hội tụ, xe biết tự động nhường đường và nhập làn không gây ùn tắc.
+  | 5 | Tuần 13 | Xử lý số liệu, vẽ biểu đồ so sánh các thuật toán và viết báo cáo đồ án tốt nghiệp. | Hoàn thành quyển đồ án và slide bảo vệ.
+  | 6 | Tuần 14 | Nộp đồ án, chỉnh sửa theo góp ý của GVHD và chuẩn bị bảo vệ. | Sẵn sàng bảo vệ trước hội đồng.
+
+----- BẢNG #6 (1 hàng × 2 cột) -----
+  |  | Tác giả ĐATN/KLTN
+                                       Chữ ký
+
+                                  Đỗ Tiến Phát
+
+----- BẢNG #7 (21 hàng × 3 cột) -----
+  | Viết tắt | Tiếng Anh | Tiếng Việt
+  | ABMS | Agent-Based Modeling and Simulation | Mô hình hóa và mô phỏng dựa trên tác tử
+  | A2C | Advantage Actor-Critic | Thuật toán Actor-Critic với hàm lợi thế
+  | AV | Autonomous Vehicle | Phương tiện tự hành
+  | CTDE | Centralized Training, Decentralized Execution | Huấn luyện tập trung, thực thi phi tập trung
+  | CV | Coefficient of Variation | Hệ số biến thiên
+  | GAE | Generalized Advantage Estimation | Ước lượng lợi thế tổng quát
+  | GAML | GAma Modeling Language | Ngôn ngữ mô hình hóa của nền tảng GAMA
+  | HDV | Human-Driven Vehicle | Phương tiện do người lái
+  | IDM | Intelligent Driver Model | Mô hình lái xe thông minh (bám đuôi)
+  | MAA2C | Multi-Agent A2C | A2C đa tác tử với Critic tập trung
+  | MAPPO | Multi-Agent PPO | PPO đa tác tử với Critic tập trung
+  | MARL | Multi-Agent Reinforcement Learning | Học tăng cường đa tác tử
+  | MDP | Markov Decision Process | Quá trình Quyết định Markov
+  | MLP | Multi-Layer Perceptron | Mạng perceptron đa lớp
+  | MOBIL | Minimizing Overall Braking Induced by Lane changes | Mô hình quyết định chuyển làn
+  | NPC | Non-Player Character | Xe nền (không phải tác tử học)
+  | PPO | Proximal Policy Optimization | Tối ưu chính sách lân cận
+  | RL | Reinforcement Learning | Học tăng cường
+  | SB3 | Stable-Baselines3 | Thư viện cài đặt thuật toán RL
+  | TTC | Time To Collision | Thời gian tới va chạm
+
+----- BẢNG #8 (6 hàng × 5 cột) -----
+  | Hướng nghiên cứu | Đại diện | Kịch bản | Phương pháp | Khoảng trống đồ án khai thác
+  | Mô phỏng vi mô luật tĩnh | IDM [10], MOBIL [11] | Bám đuôi, chuyển làn | Phương trình luật tay | Không học, không phối hợp chủ động
+  | MARL cho ùn tắc cao tốc | MARL4AV [1] | Đường thẳng nhiều làn | MARL + ABMS (NetLogo) | Chưa có kịch bản nhập làn; đồ án chuyển sang GAMA
+  | MARL CTDE tổng quát | MADDPG, MAPPO [2] | Benchmark hợp tác | Critic tập trung | Chưa áp vào on-ramp trên GAMA
+  | RL nhập làn xe tự hành | Chen et al. [9] | On-ramp mixed traffic | MARL + safety prioritization | Chưa định lượng mức lệ thuộc lưới an toàn
+  | Đồ án này | - | On-ramp 3 làn + ramp trên GAMA | MAPPO/MAA2C (CTDE) vs Greedy | Ma trận mật độ × khiên + ablation nội tâm hóa an toàn
+
+----- BẢNG #9 (10 hàng × 3 cột) -----
+  | STT | Thư viện | Vai trò trong đồ án
+  | 1 | PyTorch | Nền tảng học sâu: mạng Actor–Critic, lan truyền ngược, tối ưu Adam
+  | 2 | Stable-Baselines3 (SB3) [6] | Cài đặt PPO/A2C đã kiểm chứng; đồ án mở rộng bằng chính sách CTDE tùy biến
+  | 3 | PettingZoo [5] | Chuẩn API môi trường đa tác tử (Parallel API)
+  | 4 | gama-pettingzoo / gama-client | Cầu nối socket hai chiều GAMA ⇄ Python
+  | 5 | SuperSuit | Các wrapper đa tác tử: agent indicator, chuyển ParallelEnv → VecEnv
+  | 6 | NumPy / Pandas | Xử lý vector quan sát, tổng hợp số liệu episode
+  | 7 | Matplotlib | Sinh toàn bộ biểu đồ kết quả (learning curve, radar, boxplot…)
+  | 8 | Streamlit | Bảng điều khiển web cho toàn pipeline (venv riêng)
+  | 9 | pytest | Kiểm thử tự động các module phân tích/metrics/scenario
+
+----- BẢNG #10 (12 hàng × 3 cột) -----
+  | Tham số | Giá trị | Ý nghĩa
+  | number_of_lanes | 3 | Số làn cao tốc
+  | rescue_lane_y | trên cùng (offset_y − lane_width) | Làn khẩn cấp; xe hỏng dạt lên — không phải làn chạy của tác tử RL
+  | lane_width | 3,5 m | Bề rộng mỗi làn
+  | road_length | 240 m | Chiều dài đoạn đường
+  | ramp_waypoints | 8 điểm | Đường cong nhánh nhập làn
+  | accel_lane_y | dưới Làn 3 (offset_y + 3·lane_width + lane_width/2) | Làn gia tốc — ramp chạy song song làn chính để xe lấy đà trước khi nhập
+  | accel_start_x / accel_end_x | 48 m / 162 m | Vùng tăng tốc — đoạn x bên trong làn gia tốc, nơi xe được cộng gia tốc
+  | Điểm merge | x = 180 m | Vị trí hợp lưu vào làn ngoài cùng
+  | speed_max | 1,0 (đơn vị mô phỏng) | Tốc độ tối đa
+  | acceleration / deceleration | 0,05 / 0,1 | Mức tăng/giảm tốc mỗi hành động
+  | collision_distance | 3,5 m | Ngưỡng phát hiện va chạm
+
+----- BẢNG #11 (4 hàng × 4 cột) -----
+  | Kịch bản | nb_cars_max | Chu kỳ sinh xe | Mô tả
+  | low | 24 | 10 | Mật độ thấp — đường thưa, dễ tìm khe
+  | medium | 54 | 5 | Mật độ vừa
+  | high | 84 | 3 | Mật độ cao — ùn tắc, bài toán khó nhất (bộ số chính giai đoạn 2)
+
+----- BẢNG #12 (3 hàng × 3 cột) -----
+  | Tác tử | Vai trò | Mục tiêu
+  | merging_0 | Xe nhập làn (trên ramp) | Nhập vào dòng cao tốc an toàn, không va chạm, không hết đường
+  | highway_0/1/2 | 3 xe cao tốc làn dưới | Giữ tốc độ dòng chảy + nhường khoảng trống hợp lý cho xe ramp
+
+----- BẢNG #13 (13 hàng × 3 cột) -----
+  | # | Thành phần | Ý nghĩa
+  | 0 | norm_speed | Tốc độ hiện tại (chuẩn hóa)
+  | 1 | norm_progress | Tiến độ đã đi trên ramp
+  | 2 | norm_dist_to_merge | Khoảng cách tới điểm merge
+  | 3 | norm_lateral | Độ lệch ngang so với làn mục tiêu
+  | 4 | in_accel_zone | Cờ đang trong vùng tăng tốc (0/1)
+  | 5–6 | gap_front / speed_front | Khoảng trống và tốc độ xe phía trước trên làn đích
+  | 7–8 | gap_rear / speed_rear | Khoảng trống và tốc độ xe phía sau trên làn đích
+  | 9 | gap_safe | Cờ khoảng trống đủ an toàn để nhập (0/1)
+  | 10–11 | ramp_front_gap / speed | Xe phía trước trên chính nhánh ramp
+  | 12 | urgency | Độ khẩn cấp (tăng dần khi sắp hết vùng tăng tốc)
+  | 13 | last_action | Hành động ở bước trước
+  | 14 | patience | Chỉ số kiên nhẫn tích lũy (số bước đã chờ)
+
+----- BẢNG #14 (10 hàng × 3 cột) -----
+  | # | Thành phần | Ý nghĩa
+  | 0 | norm_speed | Tốc độ hiện tại của xe (chuẩn hóa)
+  | 1 | norm_lane | Làn đang chạy (chuẩn hóa)
+  | 2–3 | gap / speed cùng làn trước | Khoảng cách và tốc độ tương đối của xe ngay phía trước cùng làn
+  | 4–5 | gap / speed trái-trước | Xe phía trước ở làn bên trái
+  | 6–7 | gap / speed trái-sau | Xe phía sau ở làn bên trái
+  | 8–9 | gap / speed phải-trước | Xe phía trước ở làn bên phải
+  | 10–11 | gap / speed phải-sau | Xe phía sau ở làn bên phải
+  | 12–13 | merger_gap / speed | Xe ramp đang nhập làn gần nhất (khoảng cách + tốc độ) — tín hiệu để nhường
+  | 14 | patience | Chỉ số kiên nhẫn tích lũy của xe
+
+----- BẢNG #15 (6 hàng × 3 cột) -----
+  | Action | merging_0 (xe nhập làn) | highway_0/1/2 (xe cao tốc)
+  | 0 | Giảm tốc | Tăng tốc
+  | 1 | Giữ tốc | Giữ tốc
+  | 2 | Tăng tốc | Giảm tốc
+  | 3 | Nhập làn (chỉ hợp lệ trong vùng tăng tốc) | Chuyển làn trái
+  | 4 | Chờ | Chuyển làn phải
+
+----- BẢNG #16 (15 hàng × 3 cột) -----
+  | Thành phần | Giá trị | Loại
+  | Nhập làn thành công (thưởng một lần khi merge) | +50 | Sự kiện
+  | Va chạm | −100 | Terminal
+  | Hết đường chưa nhập làn (failed_merge) | −150 | Terminal
+  | Cơ sở mỗi bước | −0,01 + 0,10 × tốc độ | Dense
+  | Tiến độ dense (potential-based) | +k × Δ(tiến độ tới đích) mỗi bước | Dense
+  | Vào vùng tăng tốc (một lần) | +15 | Sự kiện
+  | Trong vùng tăng tốc mỗi bước | +0,05 (+0,05 nếu khoảng trống an toàn) | Dense
+  | Nhập làn đúng lúc (trong vùng + khoảng trống an toàn) | +50 → +25 nghịch theo độ khẩn (nhập sớm thưởng cao hơn) | Shaping
+  | Nhập làn khi khoảng trống không an toàn | −2,0 | Shaping
+  | Nhập làn ngoài vùng cho phép | −0,5 | Shaping
+  | Ngồi trên khoảng trống an toàn mà không nhập (opportunity-cost) | −(1,0 + độ_khẩn × 2,0) | Shaping
+  | Chênh tốc với xe trước làn đích khi cơ hội mở | −(tốc − tốc_xe_trước) × 0,7 | Shaping
+  | Do dự trong vùng (giảm tốc/giữ/chờ) | −2,0 / −0,5 / −3,0 | Shaping
+  | Phạt khiên tỷ lệ | −k × (gia tốc chính sách yêu cầu − gia tốc khiên cho phép), k = 5 | Shaping
+
+----- BẢNG #17 (10 hàng × 3 cột) -----
+  | Thành phần | Giá trị | Loại
+  | Thoát cuối đường an toàn | +50 | Terminal
+  | Va chạm | −100 | Terminal
+  | Cơ sở mỗi bước (giữ tốc độ) | 0,04 × tốc độ | Dense
+  | Thưởng dòng chảy — giữ tốc cao (flow-reward bật) | +0,06 × tốc độ; +0,05 nếu tốc độ ≥ 0,7×tối đa | Dense
+  | Tốc độ quá thấp (< 0,2 × tối đa) | −0,05 | Shaping
+  | Bám đuôi quá gần (gap < 20 m) | −((20−gap)/20) × tốc độ × 1,3 | Shaping
+  | Tăng tốc khi gap < 18 m | −0,8 | Shaping
+  | Thưởng hợp tác (nhường khi xe ramp đang merge gần) | +0,3 ~ +0,4 | Shaping
+  | Phạt phanh vô cớ (giảm tốc khi không có xe ramp gần) | −0,6 | Shaping
+
+----- BẢNG #18 (6 hàng × 2 cột) -----
+  | Thành phần | Thông số
+  | Hệ điều hành | Windows 11 Pro for Workstations
+  | Nền tảng mô phỏng | GAMA Platform 1.9.x (chế độ headless, socket TCP cổng 1001)
+  | Python | 3.10+ (môi trường ảo .venv; UI dùng .venv-ui riêng)
+  | Thư viện học | PyTorch + Stable-Baselines3, PettingZoo, SuperSuit, gama-pettingzoo
+  | Mã nguồn | models/Main_Traffic.gaml (~4.500 dòng GAML) + thư mục rl/ (~15 module Python) + bộ kiểm thử pytest
+
+----- BẢNG #19 (9 hàng × 3 cột) -----
+  | Siêu tham số | MAPPO | MAA2C
+  | Chính sách | CentralizedCriticPolicy (CTDE) | CentralizedCriticPolicy (CTDE)
+  | Learning rate | 1e-4 (ổn định cho phiên dài; có cờ --learning-rate để khảo sát) | 7e-4 (pipeline thesis; mặc định code 3e-4)
+  | n_steps (độ dài rollout) | 256 | 256
+  | batch_size | 128 | (cả rollout)
+  | gamma / gae_lambda | 0,99 / 0,95 | 0,99 / 0,95
+  | clip_range | 0,2 | —
+  | ent_coef (hệ số entropy) | giảm dần 0,05 → 0,002 (giữ mức cao 65% đầu) | giảm dần 0,05 → 0,002
+  | Mạng / kích hoạt / khởi tạo | 64 / Tanh / Orthogonal(√2) | như MAPPO
+
+----- BẢNG #20 (4 hàng × 5 cột) -----
+  | Preset | Số bước huấn luyện | Episode đánh giá | Hạt giống | Mục đích
+  | smoke | 400 | 2 | [0] | Kiểm tra pipeline
+  | short | 200.000 | 20 | [0] | Kiểm tra nhanh sau thay đổi cấu hình
+  | thesis | 200.000 | 50 | [0–4] | Bộ số chính của đồ án
+
+----- BẢNG #21 (4 hàng × 5 cột) -----
+  | Mật độ | MAA2C | MAPPO | Greedy | Random
+  | low | 86,4±3,9 | 87,2±4,1 | 83,6±11,8 | 75,2±22,8 | 96 | 82 | 0 | 0
+  | medium | 89,2±1,6 | 84,8±3,0 | 83,6±8,6 | 76,8±17,9 | 96 | 2 | 0 | 0
+  | high | 82,8±4,3 | 85,2±5,2 | 68,4±7,1 | 69,6±9,4 | 74 | 0 | 0 | 0
+
+----- BẢNG #22 (4 hàng × 5 cột) -----
+  | Mật độ | MAA2C | MAPPO | Greedy | Random
+  | low | 13,6 | 12,8 | 16,0 | 21,6 | 4 | 18 | 100 | 100
+  | medium | 10,8 | 15,2 | 16,0 | 22,4 | 0 | 98 | 100 | 100
+  | high | 16,4 | 14,8 | 31,2 | 30,4 | 22 | 100 | 100 | 100
+
+----- BẢNG #23 (6 hàng × 5 cột) -----
+  | Mô hình (theo giai đoạn curriculum) | Thành công | Va chạm | Nhường (G2) | Không-khiên
+  | PPO — Giai đoạn 2 (nhập làn + e2e) | 86±6% | 14±6% | 70±20% | 14±6%
+  | PPO — Giai đoạn 3 (yield-hunt, tối ưu nhường) | 86±7% | 13±5% | 89±6% | —
+  | PPO — Giai đoạn 4 (propshield, cai khiên) | 83±9% | 17±9% | — | 28±17%
+  | MAA2C — Giai đoạn 2 (đánh giá lấy mẫu) | 73±7% | 27±7% | 37±4% | 52±7%
+  | Greedy (baseline, luật tĩnh) | 53±12% | 47±12% | 0% | 0%
+
+----- BẢNG #24 (6 hàng × 3 cột) -----
+  | Cấu hình | Tất định (argmax) | Lấy mẫu (stochastic)
+  | MAPPO (3 hạt giống) | 100±0% | 97±5%
+  | MAA2C (n_steps=64) † | 0% | 60%
+  | MAA2C (n_steps=256) † | 0% | 60%
+  | MAA2C + normalize_advantage † | 0% | 30%
+  | MAA2C + lr 7e-4, entropy thấp (3 hạt giống) | 0±0% | 77±5%
+
+----- BẢNG #25 (13 hàng × 4 cột) -----
+  | Tham số | MAPPO | MAA2C | Ghi chú
+  | policy | CentralizedCriticPolicy | CentralizedCriticPolicy | CTDE, dùng chung 4 tác tử
+  | learning_rate | 1e-4 | 7e-4 | PPO hạ 3e-4→1e-4 (sập muộn); A2C dùng 7e-4 ở pipeline thesis (mặc định code 3e-4)
+  | n_steps | 256 | 256 | A2C nâng 64→256 khớp PPO (sửa critic ev≈0)
+  | batch_size | 128 | (cả rollout) | 
+  | n_epochs | 10 (mặc định SB3, không set tường minh) | 1 (A2C luôn 1) | nguồn chênh lệch số bước gradient (mục 4.6.4)
+  | gamma | 0,99 | 0,99 | 
+  | gae_lambda | 0,95 | 0,95 | 
+  | clip_range | 0,2 | — | 
+  | ent_coef | 0,05 → 0,002 (anneal, giữ 65% đầu) | 0,05 → 0,002 | 
+  | vf_coef | 0,5 | 0,5 | 
+  | max_grad_norm | 0,5 | 0,5 | 
+  | Mạng | MLP 2×64, Tanh, Orthogonal(√2) | như MAPPO | tách Actor 19D / Critic 60D
+
+----- BẢNG #26 (6 hàng × 3 cột) -----
+  | Index | merging_0 | highway_0/1/2
+  | 0 | decelerate | accelerate
+  | 1 | keep_speed | keep_speed
+  | 2 | accelerate | decelerate
+  | 3 | merge_attempt (chỉ trong vùng tăng tốc) | lane_change_left
+  | 4 | wait | lane_change_right
+
+############ PHẦN C: TEXT THÔ TỪ XML (gồm references field) ############
+TÀI LIỆU THAM KHẢO <w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblCellSpacing w:w="15" w:type="dxa"/><w:tblCellMar><w:top w:w="15" w:type="dxa"/><w:left w:w="15" w:type="dxa"/><w:bottom w:w="15" w:type="dxa"/><w:right w:w="15" w:type="dxa"/></w:tblCellMar><w:tblLook w:val="04A0" w:firstRow="1" w:lastRow="0" w:firstColumn="1" w:lastColumn="0" w:noHBand="0" w:noVBand="1"/></w:tblPr><w:tblGrid><w:gridCol w:w="379"/><w:gridCol w:w="8693"/></w:tblGrid><w:tr w:rsidR="004C4C64" w14:paraId="21520F79" w14:textId="77777777"><w:trPr><w:divId w:val="972098054"/><w:tblCellSpacing w:w="15" w:type="dxa"/></w:trPr><w:tc><w:tcPr><w:tcW w:w="50" w:type="pct"/><w:hideMark/></w:tcPr><w:p w14:paraId="1541C652" w14:textId="09C6012C" w:rsidR="004C4C64" w:rsidRDefault="004C4C64"><w:pPr><w:pStyle w:val="Bibliography"/><w:rPr><w:noProof/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:t xml:space="preserve">[1]  <w:tcPr><w:tcW w:w="0" w:type="auto"/><w:hideMark/></w:tcPr><w:p w14:paraId="1761E31A" w14:textId="427D206A" w:rsidR="004C4C64" w:rsidRDefault="00B26EC9"><w:pPr><w:pStyle w:val="Bibliography"/><w:rPr><w:noProof/></w:rPr></w:pPr><w:r w:rsidRPr="00950606"><w:rPr><w:bCs/><w:szCs w:val="26"/></w:rPr><w:t>Le Nguyen Tuan Thanh (2023). Multi-agent reinforcement learning for traffic congestion on one-way multi-lane highways. Journal of Information and Telecommunication, 7:3, 255-269.   https://www.tandfonline.com/doi/full/10.1080/24751839.2023.2182174 . <w:trPr><w:divId w:val="972098054"/><w:tblCellSpacing w:w="15" w:type="dxa"/></w:trPr><w:tc><w:tcPr><w:tcW w:w="50" w:type="pct"/><w:hideMark/></w:tcPr><w:p w14:paraId="6428632E" w14:textId="77777777" w:rsidR="004C4C64" w:rsidRDefault="004C4C64"><w:pPr><w:pStyle w:val="Bibliography"/><w:rPr><w:noProof/></w:rPr></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:t xml:space="preserve">[2]  <w:tcPr><w:tcW w:w="0" w:type="auto"/><w:hideMark/></w:tcPr><w:p w14:paraId="7C71CDD3" w14:textId="466C4418" w:rsidR="004C4C64" w:rsidRDefault="00B26EC9"><w:pPr><w:pStyle w:val="Bibliography"/><w:rPr><w:noProof/></w:rPr></w:pPr><w:r w:rsidRPr="00A76948"><w:rPr><w:bCs/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">GAMA Platform.  https://gama-platform.org . <w:trPr><w:divId w:val="972098054"/><w:tblCellSpacing w:w="15" w:type="dxa"/></w:trPr><w:tc><w:tcPr><w:tcW w:w="50" w:type="pct"/><w:hideMark/></w:tcPr><w:p w14:paraId="4476364E" w14:textId="77777777" w:rsidR="004C4C64" w:rsidRDefault="004C4C64"><w:pPr><w:pStyle w:val="Bibliography"/><w:rPr><w:noProof/></w:rPr></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:t xml:space="preserve">[3]  <w:tcPr><w:tcW w:w="0" w:type="auto"/><w:hideMark/></w:tcPr><w:p w14:paraId="060E30CC" w14:textId="0C98366A" w:rsidR="004C4C64" w:rsidRDefault="00B26EC9"><w:pPr><w:pStyle w:val="Bibliography"/><w:rPr><w:noProof/></w:rPr></w:pPr><w:r w:rsidRPr="00A76948"><w:rPr><w:bCs/><w:szCs w:val="26"/></w:rPr><w:t>Terry, J.K., Black, B., Grammel, N., et al. (2021). PettingZoo: Gym for Multi-Agent Reinforcement Learning .  https://arxiv.org/abs/2009.14471 . <w:trPr><w:divId w:val="972098054"/><w:tblCellSpacing w:w="15" w:type="dxa"/></w:trPr><w:tc><w:tcPr><w:tcW w:w="50" w:type="pct"/><w:hideMark/></w:tcPr><w:p w14:paraId="6ECFE2A1" w14:textId="77777777" w:rsidR="004C4C64" w:rsidRDefault="004C4C64"><w:pPr><w:pStyle w:val="Bibliography"/><w:rPr><w:noProof/></w:rPr></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:t xml:space="preserve">[4]  <w:tcPr><w:tcW w:w="0" w:type="auto"/><w:hideMark/></w:tcPr><w:p w14:paraId="383633CC" w14:textId="2CB0902F" w:rsidR="004C4C64" w:rsidRDefault="00B26EC9"><w:pPr><w:pStyle w:val="Bibliography"/><w:rPr><w:noProof/></w:rPr></w:pPr><w:r w:rsidRPr="00A76948"><w:rPr><w:bCs/><w:szCs w:val="26"/></w:rPr><w:t>Raffin, A., Hill, A., Gleave, A., Kanervisto, A., Ernestus, M., Dormann, N. (2021). Stable-Baselines3: Reliable Reinforcement Learning Implementations. Journal of Machine Learning Research, 22(268), 1-8 .   https://jmlr.org/papers/volume22/2
