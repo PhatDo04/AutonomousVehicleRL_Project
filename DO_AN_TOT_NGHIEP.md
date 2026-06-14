@@ -299,7 +299,6 @@ Em xin chân thành cảm ơn!
 | PPO | Proximal Policy Optimization | Thuật toán on-policy giới hạn bước cập nhật bằng cắt-ngọn tỉ lệ xác suất |
 | RL | Reinforcement Learning | Học tăng cường |
 | SB3 | Stable-Baselines3 | Thư viện cài đặt thuật toán RL |
-| TTC | Time To Collision | Thời gian tới va chạm |
 
 ---
 
@@ -373,7 +372,7 @@ Bảng 1 tổng hợp các hướng nghiên cứu liên quan và vị trí của
 
 ### 1.3.1. Nền tảng mô phỏng GAMA và ngôn ngữ GAML
 
-Đồ án dựng môi trường trên GAMA [7] — một nền tảng mô phỏng dựa trên tác tử. Lý do chọn nó là thực dụng. GAMA có ngôn ngữ riêng **GAML** theo lối hướng tác tử: mỗi loại thực thể khai báo thành một *species* với thuộc tính và *reflex* — hành vi chạy lại mỗi chu kỳ mô phỏng. Hai đặc điểm khiến GAMA phù hợp với đồ án: (1) hỗ trợ hình học không gian tự do — nhánh ramp cong được định nghĩa bằng chuỗi waypoint, các vùng chức năng (vùng tăng tốc, điểm merge) đặt chính xác theo tọa độ; (2) chế độ **headless** chạy mô phỏng không giao diện và giao tiếp với chương trình ngoài qua socket TCP — cho phép vòng lặp huấn luyện Python điều khiển mô phỏng với tốc độ tối đa. Toàn bộ môi trường của đồ án nằm trong một mô hình GAML (`models/Main_Traffic.gaml`, khoảng 4.500 dòng) với hai experiment: `TrafficMARLHeadless` cho huấn luyện/đánh giá và `TrafficSimulation` cho demo trực quan có dashboard.
+Đồ án dựng môi trường trên GAMA [7] — một nền tảng mô phỏng dựa trên tác tử. Lý do chọn nó là thực dụng. GAMA có ngôn ngữ riêng **GAML** theo lối hướng tác tử: mỗi loại thực thể khai báo thành một *species* với thuộc tính và *reflex* — hành vi chạy lại mỗi chu kỳ mô phỏng. Hai đặc điểm khiến GAMA phù hợp với đồ án: (1) hỗ trợ hình học không gian tự do — nhánh ramp cong được định nghĩa bằng chuỗi waypoint, các vùng chức năng (vùng tăng tốc, điểm merge) đặt chính xác theo tọa độ; (2) chế độ **headless** chạy mô phỏng không giao diện và giao tiếp với chương trình ngoài qua socket TCP — cho phép vòng lặp huấn luyện Python điều khiển mô phỏng với tốc độ tối đa. Toàn bộ môi trường của đồ án nằm trong một mô hình GAML (`models/Main_Traffic.gaml`, khoảng 5.000 dòng) với hai experiment: `TrafficMARLHeadless` cho huấn luyện/đánh giá và `TrafficSimulation` cho demo trực quan có dashboard.
 
 ### 1.3.2. Python và các thư viện học sâu
 
@@ -613,7 +612,7 @@ Hành động rời rạc 5 mức là một **lựa chọn tinh giản có chủ
 
 ### 2.3.4. Hàm phần thưởng đa mục tiêu
 
-Toàn bộ phần thưởng được tính trong GAML — nguồn sự thật duy nhất. Thiết kế reward trải qua nhiều vòng lặp thực nghiệm; phiên bản cuối (Bảng 9, 9) kết hợp ba loại tín hiệu: **terminal** (kết cục episode), **dense** (định hướng từng bước) và **shaping** (định hình hành vi).
+Toàn bộ phần thưởng được tính trong GAML — nguồn sự thật duy nhất. Thiết kế reward trải qua nhiều vòng lặp thực nghiệm; phiên bản cuối (Bảng 9, 10) kết hợp ba loại tín hiệu: **terminal** (kết cục episode), **dense** (định hướng từng bước) và **shaping** (định hình hành vi).
 
 *Bảng 9: Hàm phần thưởng của tác tử nhập làn merging_0*
 
@@ -621,7 +620,7 @@ Toàn bộ phần thưởng được tính trong GAML — nguồn sự thật du
 |---|---|---|
 | Nhập làn thành công (thưởng một lần khi merge) | +50 | Sự kiện |
 | Va chạm | −100 | Terminal |
-| Hết đường chưa nhập làn | −50 | Terminal |
+| Hết đường chưa nhập làn (failed_merge) | −150 | Terminal |
 | Cơ sở mỗi bước | −0,01 + 0,10 × tốc độ | Dense |
 | **Tiến độ dense (potential-based)** | +k × Δ(tiến độ tới đích) mỗi bước | Dense |
 | Vào vùng tăng tốc (một lần) | +15 | Sự kiện |
@@ -701,7 +700,7 @@ Chương này trình bày quá trình hiện thực hóa thiết kế ở Chươ
 | Nền tảng mô phỏng | GAMA Platform 1.9.x (chế độ headless, socket TCP cổng 1001) |
 | Python | 3.10+ (môi trường ảo `.venv`; UI dùng `.venv-ui` riêng) |
 | Thư viện học | PyTorch + Stable-Baselines3, PettingZoo, SuperSuit, gama-pettingzoo |
-| Mã nguồn | `models/Main_Traffic.gaml` (~4.500 dòng GAML) + thư mục `rl/` (~15 module Python) + bộ kiểm thử pytest |
+| Mã nguồn | `models/Main_Traffic.gaml` (~5.000 dòng GAML) + thư mục `rl/` (~20 module Python) + bộ kiểm thử pytest |
 
 ## 3.2. Cầu nối GAMA–Python và chuỗi wrapper môi trường
 
@@ -732,7 +731,7 @@ Cấu hình mạng theo chuẩn MAPPO: hai lớp ẩn 64 nơ-ron mỗi nhánh, k
 
 Mỗi phiên huấn luyện (`rl/train_marl.py`) tạo mô hình PPO hoặc A2C **mới từ đầu** (không nạp lại trọng số cũ, trừ chế độ warmstart của curriculum), gắn chính sách `CentralizedCriticPolicy`, với callback ghi số liệu từng episode ra CSV và lưu checkpoint định kỳ **mỗi 50.000 bước**. Ngân sách mỗi phiên tùy thực nghiệm: **200.000 bước** cho ma trận giai đoạn 1 (preset `thesis` — checkpoint tại 50k/100k/150k/200k) và **300.000 bước** cho mỗi giai đoạn của curriculum end-to-end (checkpoint tới 300k — mục 3.7). Toàn bộ pipeline so sánh thuật toán được điều phối bởi `run_thesis_overnight.sh`, gọi lặp lại chính `rl/train_marl.py` cho từng giai đoạn của PPO và A2C.
 
-> **Quy ước đơn vị thời gian.** Đơn vị nhỏ nhất là *tick* — một chu kỳ mô phỏng GAMA, trong đó mỗi xe đi một bước và mỗi tác tử ra một quyết định (một *bước môi trường* RL tương ứng đúng một tick). Còn "bước" trong cụm "200.000 bước" là *timestep* mà Stable-Baselines3 đếm khi huấn luyện: do 4 tác tử cùng học song song, mỗi tick sinh 4 transition, nên **timesteps ≈ 4 × số tick**. Như vậy 200k bước huấn luyện ứng với khoảng 50.000 tick môi trường, còn mỗi giai đoạn curriculum 300k bước ứng với ~75.000 tick. Một *episode* (ván) là chuỗi tick liên tiếp từ khi xe xuất hiện đến khi kết thúc — tối đa 300–500 tick ở chế độ kết-thúc-tại-điểm-nhập (300 cho curriculum, 500 cho ma trận giai đoạn 1) và 800 tick ở chế độ end-to-end. Lưu ý tick là thời gian mô phỏng trừu tượng, không quy ra giây thực; tốc độ được đo bằng đơn vị quãng đường trên mỗi tick (speed_max = 1,0 đơn vị/tick).
+> **Quy ước đơn vị thời gian.** Đơn vị nhỏ nhất là *tick* — một chu kỳ mô phỏng GAMA, trong đó mỗi xe đi một bước và mỗi tác tử ra một quyết định (một *bước môi trường* RL tương ứng đúng một tick). Còn "bước" trong cụm "200.000 bước" là *timestep* mà Stable-Baselines3 đếm khi huấn luyện: do 4 tác tử cùng học song song, mỗi tick sinh 4 transition, nên **timesteps ≈ 4 × số tick**. Như vậy 200k bước huấn luyện ứng với khoảng 50.000 tick môi trường, còn mỗi giai đoạn curriculum 300k bước ứng với ~75.000 tick. Một *episode* (ván) là chuỗi tick liên tiếp từ khi xe xuất hiện đến khi kết thúc — tối đa 300–500 tick ở chế độ kết-thúc-tại-điểm-nhập (300 cho curriculum, 500 cho ma trận giai đoạn 1) và ở chế độ end-to-end là 600 tick khi huấn luyện / 800 tick khi đánh giá. Lưu ý tick là thời gian mô phỏng trừu tượng, không quy ra giây thực; tốc độ được đo bằng đơn vị quãng đường trên mỗi tick (speed_max = 1,0 đơn vị/tick).
 
 Bảng 11 tổng hợp siêu tham số:
 
@@ -797,7 +796,7 @@ Pipeline ban đầu không reset môi trường khi `merging_0` chết giữa ch
 
 ### 3.7.1. Hai kỹ thuật reward giai đoạn 2
 
-Như đã nêu ở mục 2.3.4, giai đoạn 2 bổ sung **tiến độ dense theo thế năng** (potential-based, không đổi chính sách tối ưu [12]) và **phạt can-thiệp-khiên tỷ lệ** (k = 5). Cặp kỹ thuật này giải quyết hai vấn đề độc lập: tín hiệu dense giúp Critic học được trên hành trình dài (end-to-end, tới 800 bước/episode); phạt tỷ lệ ép chính sách nội tâm hóa kỹ năng điều tốc thay vì ủy thác cho lưới an toàn.
+Như đã nêu ở mục 2.3.4, giai đoạn 2 bổ sung **tiến độ dense theo thế năng** (potential-based, không đổi chính sách tối ưu [12]) và **phạt can-thiệp-khiên tỷ lệ** (k = 5). Cặp kỹ thuật này giải quyết hai vấn đề độc lập: tín hiệu dense giúp Critic học được trên hành trình dài (end-to-end, tới 600 bước/episode khi huấn luyện); phạt tỷ lệ ép chính sách nội tâm hóa kỹ năng điều tốc thay vì ủy thác cho lưới an toàn.
 
 ### 3.7.2. Huấn luyện curriculum nhiều giai đoạn
 
@@ -870,7 +869,7 @@ Tuy nhiên — và đây là một phát hiện phương pháp luận quan trọ
 
 ## 4.4. Phân tích A/B lưới an toàn: năng lực thật của chính sách
 
-Đây là phát hiện trung tâm của giai đoạn 1. So sánh từng chính sách giữa hai chế độ khiên ON/OFF (Bảng 13, 13):
+Đây là phát hiện trung tâm của giai đoạn 1. So sánh từng chính sách giữa hai chế độ khiên ON/OFF (Bảng 13, 14):
 
 **Greedy phụ thuộc hoàn toàn vào lưới an toàn.** Khi có khiên, Greedy đạt 96% ở mật độ thấp/vừa — nhìn bề ngoài ngang ngửa, thậm chí nhỉnh hơn các chính sách học. Nhưng khi tắt khiên, Greedy sụp theo mật độ: **82% (low) → 2% (medium) → 0% (high)**, với tỷ lệ va chạm tăng tương ứng tới 98–100%. Diễn giải: Greedy không hề *biết* lái an toàn — nó tăng tốc và lao vào làn bất chấp, và toàn bộ phần "tránh va chạm" do cơ chế bảo vệ của môi trường gánh hộ. Năng lực biểu kiến của nó là năng lực **vay mượn**.
 
@@ -935,7 +934,7 @@ Giai đoạn 2 lặp lại so sánh thuật toán trong điều kiện đã ki�
 
 († Ba cấu hình A2C trung gian là chuỗi thí nghiệm chẩn đoán, khảo sát trên 1 hạt giống — seed 0. Hai dòng biên (MAPPO và cấu hình A2C tốt nhất) được xác minh trên 3 hạt giống huấn luyện: MAPPO argmax tuyệt đối ổn định 100±0%; A2C tất định **bằng 0 ở cả ba hạt giống** trong khi lấy mẫu đạt 77±5%.)
 
-**Về lớp mask đánh giá (công bố minh bạch).** Khi đánh giá *tất định* của riêng `merging_0`, công cụ eval có một lớp heuristic tùy chọn (`evaluate_marl.py`) ưu tiên hành động nhập làn trong vùng tăng tốc khi khoảng trống đã an toàn và triệt hành vi thụ động khi tốc độ quá thấp — nhằm tránh argmax "kẹt" khi phân phối gần đều. Lớp này **áp đồng đều cho mọi thuật toán** nên không phá tính công bằng. Để loại trừ khả năng con số 100% của MAPPO là nhờ lớp mask, đã chạy lại gate với cờ `--no-eval-mask` (tắt hoàn toàn mask): **MAPPO vẫn 100%, MAA2C vẫn 0%** — xác nhận kết quả là của *chính sách thuần*, mask không làm thay đổi thứ hạng hay con số gate. Mọi số trong Bảng 15/15 báo cáo ở chế độ mặc định (mask bật) nhưng đã được kiểm chứng bất biến khi tắt mask.
+**Về lớp mask đánh giá (công bố minh bạch).** Khi đánh giá *tất định* của riêng `merging_0`, công cụ eval có một lớp heuristic tùy chọn (`evaluate_marl.py`) ưu tiên hành động nhập làn trong vùng tăng tốc khi khoảng trống đã an toàn và triệt hành vi thụ động khi tốc độ quá thấp — nhằm tránh argmax "kẹt" khi phân phối gần đều. Lớp này **áp đồng đều cho mọi thuật toán** nên không phá tính công bằng. Để loại trừ khả năng con số 100% của MAPPO là nhờ lớp mask, đã chạy lại gate với cờ `--no-eval-mask` (tắt hoàn toàn mask): **MAPPO vẫn 100%, MAA2C vẫn 0%** — xác nhận kết quả là của *chính sách thuần*, mask không làm thay đổi thứ hạng hay con số gate. Mọi số trong Bảng 15/16 báo cáo ở chế độ mặc định (mask bật) nhưng đã được kiểm chứng bất biến khi tắt mask.
 
 MAA2C *có học* (60–77% ở chế độ lấy mẫu) nhưng mắc hiện tượng **deterministic collapse**: phân phối hành động của nó không bao giờ "nhọn" về hành động nhập làn — argmax tại mọi trạng thái chỉ chọn giữ/tăng tốc, nên đánh giá tất định cho đúng 0% (xác nhận trên cả 3 hạt giống). Bản chất bài toán là **hành-động-hiếm-sống-còn**: "tăng tốc" đúng ở hầu hết các bước nên trở thành mode của phân phối; "nhập làn" chỉ cần đúng ở vài bước quyết định và chỉ xuất hiện qua lấy mẫu.
 
@@ -983,7 +982,7 @@ Trước hết là môi trường. Đồ án đã dựng mô phỏng nhập làn
 
 Tiếp đến là mô hình hóa. Bài toán nhập làn được phát biểu thành một MDP đa tác tử đầy đủ: 4 tác tử dị thể (1 nhập làn + 3 cao tốc), quan sát 15 chiều mỗi tác tử bám đúng các yếu tố quyết định khi nhập làn, hành động rời rạc 5 mức theo vai trò. Hàm phần thưởng đa mục tiêu trộn ba loại tín hiệu — terminal, dense, shaping — trong đó tiến độ dense theo thế năng và phạt can-thiệp-khiên tỷ lệ là hai thiết kế then chốt.
 
-Sang phần thuật toán: MAPPO và MAA2C được cài đặt, huấn luyện theo kiến trúc CTDE (Actor 19D phi tập trung, Critic 60D tập trung, chính sách dùng chung kèm chỉ thị tác tử) trên Stable-Baselines3. Đi kèm là pipeline thực nghiệm tái lập được: giao thông gieo theo hạt giống và bắt cặp giữa các chính sách, chọn checkpoint theo số liệu, mỗi lần chạy ghi vào một thư mục riêng. Mô hình chủ lực huấn luyện lại từ đầu chỉ bằng một lệnh curriculum (2 giai đoạn nền tảng + 2 giai đoạn chuyên hóa).
+Sang phần thuật toán: MAPPO và MAA2C được cài đặt, huấn luyện theo kiến trúc CTDE (Actor 19D phi tập trung, Critic 60D tập trung, chính sách dùng chung kèm chỉ thị tác tử) trên Stable-Baselines3. Đi kèm là pipeline thực nghiệm tái lập được: giao thông gieo theo hạt giống và bắt cặp giữa các chính sách, chọn checkpoint theo số liệu, mỗi lần chạy ghi vào một thư mục riêng. Mô hình nền tảng huấn luyện lại từ đầu chỉ bằng một lệnh curriculum hai giai đoạn (nhập làn → end-to-end); hai giai đoạn chuyên hóa (yield-hunt, propshield) chạy tiếp bằng script riêng.
 
 Kết quả đánh giá định lượng (qua 3 hạt giống huấn luyện độc lập) trả lời câu hỏi trung tâm "việc học có đáng giá so với luật tĩnh không": ở chế độ end-to-end mật độ cao, PPO đạt 86±6% thành công so với 53±12% của baseline Greedy; thực nghiệm A/B lưới an toàn cho thấy năng lực của Greedy chủ yếu vay mượn từ cơ chế bảo vệ của môi trường (gỡ khiên sụp về 0%) trong khi chính sách học giữ được năng lực — chứng minh việc học mang lại **năng lực an toàn nội tại**. Đó chưa phải tất cả. Đồ án còn phát hiện phổ hành vi hợp tác – tự chủ theo trục huấn luyện: ở giai đoạn yield-hunt, xe cao tốc chủ động nhường 89±6%, trong khi một checkpoint khác lại tự tìm khe kiểu zipper mà không cần ai nhường. Ablation đo được mức lệ thuộc lưới an toàn, và cho thấy phạt tỷ lệ nâng năng lực lái-không-khiên từ 14% lên 28±17% (đỉnh 50%) tuy chưa ổn định. Cuối cùng là hiện tượng deterministic collapse của A2C — dẫn tới một khuyến nghị phương pháp luận: so sánh thuật toán MARL phải nói rõ chế độ đánh giá là lấy mẫu hay tất định.
 
