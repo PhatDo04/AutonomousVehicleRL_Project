@@ -293,6 +293,7 @@ Em xin chân thành cảm ơn!
 | MADDPG | Multi-Agent Deep Deterministic Policy Gradient | Thuật toán Actor-Critic đa tác tử (Lowe 2017), Critic tập trung cho hành động liên tục |
 | MARL | Multi-Agent Reinforcement Learning | Học tăng cường đa tác tử |
 | MDP | Markov Decision Process | Quá trình Quyết định Markov |
+| POMDP | Partially Observable Markov Decision Process | Quá trình Quyết định Markov quan sát một phần |
 | MLP | Multi-Layer Perceptron | Mạng perceptron đa lớp |
 | MOBIL | Minimizing Overall Braking Induced by Lane changes | Mô hình quyết định đổi làn của xe nền, cân lợi ích gia tốc với an toàn (Kesting) |
 | NPC | Non-Player Character | Xe nền (không phải tác tử học) |
@@ -497,16 +498,18 @@ Môi trường mô phỏng một đoạn cao tốc 3 làn có nhánh nhập làn
 | Tham số | Giá trị | Ý nghĩa |
 |---|---|---|
 | `number_of_lanes` | 3 | Số làn cao tốc |
+| `rescue_lane_y` | `offset_y − lane_width` (trên cùng) | Làn cứu hộ — xe hỏng dạt lên (pha 2); không phải làn chạy của tác tử RL |
 | `lane_width` | 3,5 m | Bề rộng mỗi làn |
 | `road_length` | 240 m | Chiều dài đoạn đường (đủ dài để đo sóng lùi và hành trình sau nhập làn ở giai đoạn 2) |
 | `ramp_waypoints` | 8 điểm | Đường cong nhánh nhập làn |
-| Vùng tăng tốc | x = 48 m → 162 m | Đoạn ramp song song làn chính để xe lấy đà |
-| Điểm merge | x = 180 m | Vị trí hợp lưu vào làn ngoài cùng |
+| `accel_lane_y` | dưới Làn 3 (`offset_y + 3·lane_width + lane_width/2`) | Làn gia tốc — ramp chạy song song làn chính để xe lấy đà trước khi nhập |
+| `accel_start_x` / `accel_end_x` | 48 m / 162 m | Vùng tăng tốc — đoạn x *bên trong* làn gia tốc, nơi xe được cộng gia tốc |
+| `merge_x` | 180 m | Điểm hợp lưu muộn nhất vào Làn 3 (cuối làn gia tốc) |
 | `speed_max` | 1,0 (đơn vị mô phỏng) | Tốc độ tối đa |
 | `acceleration` / `deceleration` | 0,05 / 0,1 | Mức tăng/giảm tốc mỗi hành động |
 | `collision_distance` | 3,5 m | Ngưỡng phát hiện va chạm |
 
-*Hình 6: Hình học môi trường nhập làn: 3 làn cao tốc + nhánh ramp + vùng tăng tốc + điểm merge.*
+*Hình 6: Hình học môi trường nhập làn: làn cứu hộ (trên cùng) + 3 làn cao tốc + làn gia tốc/nhánh ramp + điểm merge.*
 
 ### 2.2.2. Dòng xe nền NPC và kịch bản mật độ
 
@@ -524,7 +527,7 @@ Mật độ giao thông được tham số hóa thành ba kịch bản (Bảng 5
 
 Hai kịch bản `low`/`medium` chỉ dùng cho ma trận thực nghiệm giai đoạn 1 (pipeline tự vá tham số vào GAML rồi khôi phục sau khi chạy — mục 3.5.1); toàn bộ huấn luyện curriculum và đánh giá end-to-end ở giai đoạn 2 đều thực hiện ở mật độ `high` (84 xe). Ba mức mật độ (24/54/84 xe) giữ tỷ lệ xe trên mỗi mét tăng dần để khảo sát độ khó từ thưa đến ùn tắc.
 
-Môi trường còn có hệ thống **xe hỏng hai pha** (xe dừng giữa làn rồi dạt vào lề) tạo nút thắt ngẫu nhiên để quan sát hiện tượng ùn tắc lan truyền, và các cơ chế nền: cân bằng mật độ dòng chính (`balance_traffic`), hồi sinh xe nhập làn `merging_0` khi chết (respawn — xe cao tốc thì rời hẳn, không hồi sinh), đo sóng lùi trực tuyến (`sample_shockwave` bằng thuật toán Welford).
+Môi trường còn có hệ thống **xe hỏng hai pha** mô phỏng sự cố giao thông: **pha 1** — xe NPC bị hỏng **dừng ngay giữa làn chạy** (tối đa ~120 tick), tạo nút thắt cổ chai buộc các xe sau phải né hoặc giảm tốc; **pha 2** — xe hỏng **dạt lên làn cứu hộ trên cùng** (≤40 tick) rồi hoặc tự nhập lại dòng (rejoin) hoặc được "kéo đi" (biến mất, xác suất nhỏ). Cơ chế này (xác suất hỏng ~0,0003/cycle) tạo nút tắc ngẫu nhiên để quan sát ùn tắc lan truyền và buộc chính sách học cách xử lý chướng ngại bất ngờ. Ngoài ra còn các cơ chế nền: cân bằng mật độ dòng chính (`balance_traffic`), hồi sinh xe nhập làn `merging_0` khi chết (respawn — xe cao tốc thì rời hẳn, không hồi sinh), đo sóng lùi trực tuyến (`sample_shockwave` bằng thuật toán Welford).
 
 ### 2.2.3. Tác tử trong mô hình GAML
 
@@ -646,6 +649,7 @@ Toàn bộ phần thưởng được tính trong GAML — nguồn sự thật du
 | Tăng tốc khi gap < 18 m | −0,8 | Shaping |
 | Thưởng hợp tác (nhường khi xe ramp đang merge gần) | +0,3 ~ +0,4 | Shaping |
 | Phạt phanh vô cớ (giảm tốc khi không có xe ramp gần) | −0,6 | Shaping |
+| Phạt đổi làn (action 3/4): cơ bản / bị khiên chặn / dao động liên tục | −0,3 / −2,0 / −2,1 | Shaping |
 
 Hai thành phần in đậm là đóng góp thiết kế quan trọng nhất, được bổ sung ở giai đoạn 2 của đồ án:
 
@@ -697,7 +701,7 @@ Chương này trình bày quá trình hiện thực hóa thiết kế ở Chươ
 | Thành phần | Thông số |
 |---|---|
 | Hệ điều hành | Windows 11 Pro for Workstations |
-| Nền tảng mô phỏng | GAMA Platform 1.9.x (chế độ headless, socket TCP cổng 1001) |
+| Nền tảng mô phỏng | GAMA Platform (kiểm trên bản 2025.6.x; chế độ headless, socket TCP cổng 1001) |
 | Python | 3.10+ (môi trường ảo `.venv`; UI dùng `.venv-ui` riêng) |
 | Thư viện học | PyTorch + Stable-Baselines3, PettingZoo, SuperSuit, gama-pettingzoo |
 | Mã nguồn | `models/Main_Traffic.gaml` (~5.000 dòng GAML) + thư mục `rl/` (~20 module Python) + bộ kiểm thử pytest |
@@ -729,7 +733,7 @@ Cấu hình mạng theo chuẩn MAPPO: hai lớp ẩn 64 nơ-ron mỗi nhánh, k
 
 ## 3.4. Huấn luyện MAPPO và MAA2C
 
-Mỗi phiên huấn luyện (`rl/train_marl.py`) tạo mô hình PPO hoặc A2C **mới từ đầu** (không nạp lại trọng số cũ, trừ chế độ warmstart của curriculum), gắn chính sách `CentralizedCriticPolicy`, với callback ghi số liệu từng episode ra CSV và lưu checkpoint định kỳ **mỗi 50.000 bước**. Ngân sách mỗi phiên tùy thực nghiệm: **200.000 bước** cho ma trận giai đoạn 1 (preset `thesis` — checkpoint tại 50k/100k/150k/200k) và **300.000 bước** cho mỗi giai đoạn của curriculum end-to-end (checkpoint tới 300k — mục 3.7). Toàn bộ pipeline so sánh thuật toán được điều phối bởi `run_thesis_overnight.sh`, gọi lặp lại chính `rl/train_marl.py` cho từng giai đoạn của PPO và A2C.
+Mỗi phiên huấn luyện (`rl/train_marl.py`) tạo mô hình PPO hoặc A2C **mới từ đầu** (không nạp lại trọng số cũ, trừ chế độ warmstart của curriculum), gắn chính sách `CentralizedCriticPolicy`, với callback ghi số liệu từng episode ra CSV và lưu checkpoint định kỳ để chọn mô hình tốt nhất. Ngân sách mỗi phiên tùy thực nghiệm: **200.000 bước** cho ma trận giai đoạn 1 (preset `thesis`, checkpoint **mỗi 40.000 bước** = 1/5 ngân sách → 40k/80k/120k/160k/200k) và **300.000 bước** cho mỗi giai đoạn của curriculum end-to-end (checkpoint **mỗi 50.000 bước**, tới 300k — mục 3.7). Toàn bộ pipeline so sánh thuật toán được điều phối bởi `run_thesis_overnight.sh`, gọi lặp lại chính `rl/train_marl.py` cho từng giai đoạn của PPO và A2C.
 
 > **Quy ước đơn vị thời gian.** Đơn vị nhỏ nhất là *tick* — một chu kỳ mô phỏng GAMA, trong đó mỗi xe đi một bước và mỗi tác tử ra một quyết định (một *bước môi trường* RL tương ứng đúng một tick). Còn "bước" trong cụm "200.000 bước" là *timestep* mà Stable-Baselines3 đếm khi huấn luyện: do 4 tác tử cùng học song song, mỗi tick sinh 4 transition, nên **timesteps ≈ 4 × số tick**. Như vậy 200k bước huấn luyện ứng với khoảng 50.000 tick môi trường, còn mỗi giai đoạn curriculum 300k bước ứng với ~75.000 tick. Một *episode* (ván) là chuỗi tick liên tiếp từ khi xe xuất hiện đến khi kết thúc — tối đa 300–500 tick ở chế độ kết-thúc-tại-điểm-nhập (300 cho curriculum, 500 cho ma trận giai đoạn 1) và ở chế độ end-to-end là 600 tick khi huấn luyện / 800 tick khi đánh giá. Lưu ý tick là thời gian mô phỏng trừu tượng, không quy ra giây thực; tốc độ được đo bằng đơn vị quãng đường trên mỗi tick (speed_max = 1,0 đơn vị/tick).
 
@@ -881,7 +885,7 @@ Hệ quả: khi đặt mọi chính sách vào cùng điều kiện **không lư
 
 **Theo mật độ.** Vai trò của lưới an toàn tăng theo mật độ: Greedy không khiên còn sống được ở đường thưa (82% — vẫn dễ tìm khe trống), nhưng sụp hoàn toàn ở mật độ vừa và cao. Ngược lại, chính sách học suy giảm nhẹ và có kiểm soát khi mật độ tăng (MAPPO 83,6→68,4%; MAA2C giữ 82,8–89,2% xuyên suốt) — không có hiện tượng sụp đổ.
 
-**Theo hạt giống.** Độ lệch chuẩn giữa 5 hạt giống phản ánh độ tin cậy của thuật toán: MAA2C rất ổn định (1,6–5,2% ở mọi cấu hình); MAPPO dao động hơn (7,1–11,8% khi có khiên) và **bùng lên 17,9–22,8% khi gỡ khiên** — một số hạt giống sập hẳn (có seed chỉ đạt 30%). Quan sát phụ này có ý nghĩa riêng: lưới an toàn không chỉ ảnh hưởng kết quả trung bình mà mà còn giúp **ổn định hóa quá trình huấn luyện** — môi trường có khiên "tha thứ" các pha khám phá nguy hiểm ở đầu huấn luyện, giúp PPO tránh được các quỹ đạo học xấu.
+**Theo hạt giống.** Độ lệch chuẩn giữa 5 hạt giống phản ánh độ tin cậy của thuật toán: MAA2C rất ổn định (1,6–5,2% ở mọi cấu hình); MAPPO dao động hơn (7,1–11,8% khi có khiên) và **bùng lên 17,9–22,8% khi gỡ khiên** — một số hạt giống sập hẳn (có seed chỉ đạt 30%). Quan sát phụ này có ý nghĩa riêng: lưới an toàn không chỉ ảnh hưởng kết quả trung bình mà còn giúp **ổn định hóa quá trình huấn luyện** — môi trường có khiên "tha thứ" các pha khám phá nguy hiểm ở đầu huấn luyện, giúp PPO tránh được các quỹ đạo học xấu.
 
 ## 4.6. Kết quả giai đoạn 2 — bài toán end-to-end
 
