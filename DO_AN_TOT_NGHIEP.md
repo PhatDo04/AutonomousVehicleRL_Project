@@ -498,7 +498,7 @@ Môi trường mô phỏng một đoạn cao tốc 3 làn có nhánh nhập làn
 |---|---|---|
 | `number_of_lanes` | 3 | Số làn cao tốc |
 | `lane_width` | 3,5 m | Bề rộng mỗi làn |
-| `road_length` | 240 m | Chiều dài đoạn đường (kéo dài từ 200 m để đo được sóng lùi và hành trình sau nhập làn ở giai đoạn 2) |
+| `road_length` | 240 m | Chiều dài đoạn đường (đủ dài để đo sóng lùi và hành trình sau nhập làn ở giai đoạn 2) |
 | `ramp_waypoints` | 8 điểm | Đường cong nhánh nhập làn |
 | Vùng tăng tốc | x = 48 m → 162 m | Đoạn ramp song song làn chính để xe lấy đà |
 | Điểm merge | x = 180 m | Vị trí hợp lưu vào làn ngoài cùng |
@@ -522,7 +522,7 @@ Mật độ giao thông được tham số hóa thành ba kịch bản (Bảng 5
 | `medium` | 54 | 5 | Mật độ vừa |
 | `high` | 84 | 3 | Mật độ cao — ùn tắc, bài toán khó nhất (bộ số chính giai đoạn 2) |
 
-Hai kịch bản `low`/`medium` chỉ dùng cho ma trận thực nghiệm giai đoạn 1 (pipeline tự vá tham số vào GAML rồi khôi phục sau khi chạy — mục 3.5.1); toàn bộ huấn luyện curriculum và đánh giá end-to-end ở giai đoạn 2 đều thực hiện ở mật độ `high`. **Lưu ý:** các giá trị trong bảng (24/54/84) là cấu hình hiện hành trên **đường 240 m** (giai đoạn 2); ma trận giai đoạn 1 (Bảng 13–14) chạy trên **đường 200 m** với mật độ tương ứng ~20/45/70 xe (các giá trị này đã được nhân ~1,2 khi kéo dài đường lên 240 m để giữ nguyên mật độ trên mỗi mét).
+Hai kịch bản `low`/`medium` chỉ dùng cho ma trận thực nghiệm giai đoạn 1 (pipeline tự vá tham số vào GAML rồi khôi phục sau khi chạy — mục 3.5.1); toàn bộ huấn luyện curriculum và đánh giá end-to-end ở giai đoạn 2 đều thực hiện ở mật độ `high` (84 xe). Ba mức mật độ (24/54/84 xe) giữ tỷ lệ xe trên mỗi mét tăng dần để khảo sát độ khó từ thưa đến ùn tắc.
 
 Môi trường còn có hệ thống **xe hỏng hai pha** (xe dừng giữa làn rồi dạt vào lề) tạo nút thắt ngẫu nhiên để quan sát hiện tượng ùn tắc lan truyền, và các cơ chế nền: cân bằng mật độ dòng chính (`balance_traffic`), hồi sinh xe nhập làn `merging_0` khi chết (respawn — xe cao tốc thì rời hẳn, không hồi sinh), đo sóng lùi trực tuyến (`sample_shockwave` bằng thuật toán Welford).
 
@@ -832,8 +832,8 @@ Cách tiếp cận "từ dễ đến khó" này là cần thiết: huấn luyệ
 
 Thực nghiệm được tiến hành theo hai giai đoạn bài toán:
 
-- **Giai đoạn 1 — kết thúc tại điểm nhập làn (terminate-at-merge):** đường 200 m; episode kết thúc ngay khi xe nhập làn vào được dòng chính (hoặc thất bại). Đây là giai đoạn khảo sát ma trận đầy đủ: **3 mật độ** (low ~20 xe, medium ~45 xe, high ~70 xe trên đường 200 m) × **2 chế độ lưới an toàn** (khiên ON/OFF) × **các chính sách** (MAA2C, MAPPO, Greedy, Random — Random về sau được lược khỏi bộ so sánh chính theo đề cương vì chỉ đóng vai trò sàn tuyệt đối). Mỗi chính sách học chạy preset `thesis`: **5 hạt giống × 200.000 bước huấn luyện × 50 episode đánh giá** (chế độ lấy mẫu — stochastic).
-- **Giai đoạn 2 — end-to-end (e2e):** đường kéo dài 240 m (vùng sau điểm nhập gấp ba), mật độ cao 84 xe; xe nhập làn phải **tự lái tiếp bằng RL tới cuối đường** sau khi nhập — episode chỉ kết thúc tại cuối đường. Chế độ này bắt được cả tai nạn hậu-nhập-làn lẫn sóng lùi trọn hành trình, là chế độ đánh giá chuẩn của các kết luận chính.
+- **Giai đoạn 1 — kết thúc tại điểm nhập làn (terminate-at-merge):** episode kết thúc ngay khi xe nhập làn vào được dòng chính (hoặc thất bại). Đây là giai đoạn khảo sát ma trận đầy đủ: **3 mật độ** (low 24 xe, medium 54 xe, high 84 xe) × **2 chế độ lưới an toàn** (khiên ON/OFF) × **các chính sách** (MAA2C, MAPPO, Greedy, Random — Random về sau được lược khỏi bộ so sánh chính theo đề cương vì chỉ đóng vai trò sàn tuyệt đối). Mỗi chính sách học chạy preset `thesis`: **5 hạt giống × 200.000 bước huấn luyện × 50 episode đánh giá** (chế độ lấy mẫu — stochastic).
+- **Giai đoạn 2 — end-to-end (e2e):** đường 240 m, mật độ cao 84 xe; xe nhập làn phải **tự lái tiếp bằng RL tới cuối đường** sau khi nhập — episode chỉ kết thúc tại cuối đường. Chế độ này bắt được cả tai nạn hậu-nhập-làn lẫn sóng lùi trọn hành trình, là chế độ đánh giá chuẩn của các kết luận chính.
 
 Giao thông được gieo lại theo hạt giống (mục 3.5.2) nên mỗi episode là một tình huống khác nhau, tái lập được và bắt cặp giữa các chính sách. Mọi biểu đồ và bảng tổng hợp chỉ tính trên các **episode đánh giá và baseline** (không trộn rollout huấn luyện); riêng các chỉ số "tốc độ nhập làn" và "bước nhập làn trung bình" chỉ tính trên episode nhập làn thành công để tránh sai lệch diễn giải. Nhờ vậy biểu đồ luôn khớp bảng số. Mỗi con số trong chương đều truy được về file gốc trong `outputs/logs/`.
 
