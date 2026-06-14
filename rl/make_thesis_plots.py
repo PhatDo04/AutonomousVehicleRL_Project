@@ -288,7 +288,7 @@ def fig_shield_reliance(out: Path) -> None:
     axes[0].grid(axis="y", alpha=0.3)
     # Chú thích chống hiểu nhầm: merge hiếm nhưng merger vẫn nhập thành công (gate 100%).
     axes[0].annotate("PPO vẫn nhập đúng lúc\n→ gate nhập làn 100%",
-                     xy=(2.81, 3), xytext=(1.7, 55), fontsize=8, ha="center", color="#1f77b4",
+                     xy=(3.19, 8), xytext=(4.5, 60), fontsize=8, ha="right", color="#1f77b4",
                      arrowprops=dict(arrowstyle="->", color="#1f77b4", lw=1.2))
     # Panel PHẢI — số lần khiên can thiệp/episode (mức ỷ khiên)
     names = list(SUMMARY)
