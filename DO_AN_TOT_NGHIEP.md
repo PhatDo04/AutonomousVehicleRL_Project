@@ -730,7 +730,7 @@ Cấu hình mạng theo chuẩn MAPPO: hai lớp ẩn 64 nơ-ron mỗi nhánh, k
 
 ## 3.4. Huấn luyện MAPPO và MAA2C
 
-Mỗi phiên huấn luyện (`rl/train_marl.py`) tạo mô hình PPO hoặc A2C **mới từ đầu** (không nạp lại trọng số cũ, trừ chế độ warmstart của curriculum), gắn chính sách `CentralizedCriticPolicy`, chạy 200.000 bước môi trường với callback ghi số liệu từng episode ra CSV và lưu checkpoint định kỳ (40k/80k/…/200k).
+Mỗi phiên huấn luyện (`rl/train_marl.py`) tạo mô hình PPO hoặc A2C **mới từ đầu** (không nạp lại trọng số cũ, trừ chế độ warmstart của curriculum), gắn chính sách `CentralizedCriticPolicy`, chạy 200.000 bước môi trường với callback ghi số liệu từng episode ra CSV và lưu checkpoint định kỳ **mỗi 50.000 bước** (50k/100k/150k/200k).
 
 > **Quy ước đơn vị thời gian.** Đơn vị nhỏ nhất là *tick* — một chu kỳ mô phỏng GAMA, trong đó mỗi xe đi một bước và mỗi tác tử ra một quyết định (một *bước môi trường* RL tương ứng đúng một tick). Còn "bước" trong cụm "200.000 bước" là *timestep* mà Stable-Baselines3 đếm khi huấn luyện: do 4 tác tử cùng học song song, mỗi tick sinh 4 transition, nên **timesteps ≈ 4 × số tick**. Như vậy 200k bước huấn luyện ứng với khoảng 50.000 tick môi trường, còn mỗi giai đoạn curriculum 300k bước ứng với ~75.000 tick. Một *episode* (ván) là chuỗi tick liên tiếp từ khi xe xuất hiện đến khi kết thúc — tối đa 300 tick ở chế độ kết-thúc-tại-điểm-nhập và 800 tick ở chế độ end-to-end. Lưu ý tick là thời gian mô phỏng trừu tượng, không quy ra giây thực; tốc độ được đo bằng đơn vị quãng đường trên mỗi tick (speed_max = 1,0 đơn vị/tick).
 
