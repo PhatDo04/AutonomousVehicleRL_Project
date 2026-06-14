@@ -655,7 +655,7 @@ Hai thành phần in đậm là đóng góp thiết kế quan trọng nhất, đ
 
 ### 2.3.5. Điều kiện kết thúc episode
 
-- `merging_0`: **success** (nhập làn xong — giai đoạn 1; nhập làn xong và đi gần hết đường — giai đoạn 2), **collision**, **failed_merge** (hết ramp/quá điểm merge mà chưa nhập), **timeout** (vượt số bước tối đa).
+- `merging_0`: **success** (ở *chế độ kết-thúc-tại-điểm-nhập*: nhập làn xong là kết thúc; ở *chế độ end-to-end*: nhập làn xong rồi đi gần hết đường mới kết thúc), **collision**, **failed_merge** (hết ramp/quá điểm merge mà chưa nhập), **timeout** (vượt số bước tối đa).
 - `highway_0/1/2`: **exited** (ra khỏi cuối đường an toàn), **collision**, **timeout**.
 
 Khi `merging_0` kết thúc thì toàn bộ episode kết thúc và môi trường reset — đây là quy ước quan trọng cho tính đúng đắn của vòng huấn luyện (mục 3.5).
