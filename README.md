@@ -24,7 +24,7 @@ Kiến trúc học áp dụng **CTDE** (Centralized Training, Decentralized Exec
 - **Bộ chỉ số đầy đủ**: tỷ lệ thành công, va chạm, thông lượng, tốc độ dòng chính, chỉ số sóng lùi (CV), **%nhường-hướng-merger** (đo hợp tác thật, không nhiễu histogram), **số lần khiên can thiệp/episode** (đo mức lệ thuộc lưới an toàn).
 - **Đánh giá end-to-end**: merger lái tiếp sau nhập làn tới cuối đường bằng RL (`--eval-continue --rl-postmerge`) — bắt được tai nạn hậu-merge + đo sóng lùi trọn hành trình.
 - **Ablation khiên** (`--no-shield`): tắt toàn bộ lưới an toàn lúc đánh giá → định lượng mức nội tâm hóa kỹ năng lái của policy.
-- **Reward shaping theo thế năng**: dense progress (potential-based, Ng 1999) + phạt-khiên-tỷ-lệ theo mức cắt ga (thay binary) — hai chìa khóa giúp critic học được (explained_variance 0 → 0.85) và policy bớt ỷ khiên.
+- **Reward shaping theo thế năng**: dense progress (potential-based, Ng 1999) + phạt-khiên-tỷ-lệ theo mức cắt gia tốc (thay binary) — hai chìa khóa giúp critic học được (explained_variance 0 → 0.85) và policy bớt ỷ khiên.
 - **Curriculum 2 giai đoạn tái lập được**: `bash train_curriculum.sh` — train from-scratch (học nhập làn → học e2e + hợp tác) không cần sửa code, xuất full learning curve.
 - **Pipeline so sánh thuật toán qua đêm**: `bash run_thesis_overnight.sh` — một lệnh chạy trọn PPO + A2C (curriculum 3 giai đoạn: nhập làn → e2e → yield-hunt) + Greedy trên cùng môi trường/seed, tự eval ma trận (gate / sweep / ablation / 3 hạt giống) + sinh summary + biểu đồ. Giai đoạn 4 (cai khiên) chạy riêng bằng `run_stage4_propshield.sh`.
 - **Bảng điều khiển Streamlit**: giao diện web điều khiển toàn bộ pipeline (train/eval/experiment/theo dõi/kết quả/demo/biểu đồ thesis) — thay cho gõ lệnh tay.
@@ -129,7 +129,7 @@ Toàn bộ reward được tính trong GAML (`calculate_merging_reward`, `calcul
 | Nhập làn thành công (+50, one-shot) | Thoát cuối đường: terminal `exited` |
 | Va chạm (−100) | Va chạm (−100) |
 | Hết đường chưa merge (−50) | Bám đuôi quá gần (gap < 20m): phạt theo gap |
-| **Phạt khiên tỷ lệ**: −k×(ga RL − ga khiên cho phép) mỗi tick (k=5) — ép nội tâm hóa điều tốc, không ỷ khiên | Như merger + thưởng nhường khi merger gần (+0.4) / phạt phanh-vô-cớ |
+| **Phạt khiên tỷ lệ**: −k×(gia tốc RL − gia tốc khiên cho phép) mỗi tick (k=5) — ép nội tâm hóa điều tốc, không ỷ khiên | Như merger + thưởng nhường khi merger gần (+0.4) / phạt phanh-vô-cớ |
 
 ---
 
