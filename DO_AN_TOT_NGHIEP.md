@@ -83,7 +83,7 @@ PHÁT TRIỂN KỊCH BẢN NHẬP LÀN TRÊN ĐƯỜNG CAO TỐC VÀ ĐÁNH GIÁ
 
 [1] Le Nguyen Tuan Thanh, "Multi-agent reinforcement learning for traffic congestion on one-way multi-lane highways," *Journal of Information and Telecommunication*, vol. 7, no. 3, pp. 255–269, 2023.
 
-[2] C. Yu, A. Velu, E. Vinitsky, J. Gao, Y. Wang, A. Bayen, and Y. Wu, "The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games," in *Proc. NeurIPS*, 2022.
+[2] C. Yu, A. Velu, E. Vinitsky, J. Gao, Y. Wang, A. Bayen, and Y. Wu, "The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games," in *Proc. NeurIPS Datasets and Benchmarks*, 2022.
 
 [3] J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov, "Proximal Policy Optimization Algorithms," arXiv:1707.06347, 2017.
 
@@ -363,7 +363,7 @@ Bảng 1 tổng hợp các hướng nghiên cứu liên quan và vị trí của
 | Hướng nghiên cứu | Đại diện | Kịch bản | Phương pháp | Khoảng trống đồ án khai thác |
 |---|---|---|---|---|
 | Mô phỏng vi mô luật tĩnh | IDM [10], MOBIL [11] | Bám đuôi, chuyển làn | Phương trình luật tay | Không học, không phối hợp chủ động |
-| MARL cho ùn tắc cao tốc | MARL4AV [1] | Đường thẳng nhiều làn | MARL + ABMS (GAMA/NetLogo) | Chưa có kịch bản nhập làn |
+| MARL cho ùn tắc cao tốc | MARL4AV [1] | Đường thẳng nhiều làn | MARL + ABMS (GAMA) | Chưa có kịch bản nhập làn |
 | MARL CTDE tổng quát | MADDPG [8], MAPPO [2] | Benchmark hợp tác | Critic tập trung | Chưa áp vào on-ramp trên GAMA |
 | RL nhập làn xe tự hành | Chen et al. [9] | On-ramp mixed traffic | MARL + safety prioritization | Chưa định lượng mức lệ thuộc lưới an toàn |
 | **Đồ án này** | — | **On-ramp 3 làn + ramp trên GAMA** | **MAPPO/MAA2C (CTDE) vs Greedy** | **Ma trận mật độ × khiên + ablation nội tâm hóa an toàn** |
@@ -522,7 +522,7 @@ Mật độ giao thông được tham số hóa thành ba kịch bản (Bảng 5
 | `medium` | 54 | 5 | Mật độ vừa |
 | `high` | 84 | 3 | Mật độ cao — ùn tắc, bài toán khó nhất (bộ số chính giai đoạn 2) |
 
-Hai kịch bản `low`/`medium` chỉ dùng cho ma trận thực nghiệm giai đoạn 1 (pipeline tự vá tham số vào GAML rồi khôi phục sau khi chạy — mục 3.5.1); toàn bộ huấn luyện curriculum và đánh giá end-to-end ở giai đoạn 2 đều thực hiện ở mật độ `high`. **Lưu ý:** các giá trị trong bảng (24/54/84) là cấu hình hiện hành trên **đường 240 m** (giai đoạn 2); ma trận giai đoạn 1 (Bảng 13–13) chạy trên **đường 200 m** với mật độ tương ứng ~20/45/70 xe (các giá trị này đã được nhân ~1,2 khi kéo dài đường lên 240 m để giữ nguyên mật độ trên mỗi mét).
+Hai kịch bản `low`/`medium` chỉ dùng cho ma trận thực nghiệm giai đoạn 1 (pipeline tự vá tham số vào GAML rồi khôi phục sau khi chạy — mục 3.5.1); toàn bộ huấn luyện curriculum và đánh giá end-to-end ở giai đoạn 2 đều thực hiện ở mật độ `high`. **Lưu ý:** các giá trị trong bảng (24/54/84) là cấu hình hiện hành trên **đường 240 m** (giai đoạn 2); ma trận giai đoạn 1 (Bảng 13–14) chạy trên **đường 200 m** với mật độ tương ứng ~20/45/70 xe (các giá trị này đã được nhân ~1,2 khi kéo dài đường lên 240 m để giữ nguyên mật độ trên mỗi mét).
 
 Môi trường còn có hệ thống **xe hỏng hai pha** (xe dừng giữa làn rồi dạt vào lề) tạo nút thắt ngẫu nhiên để quan sát hiện tượng ùn tắc lan truyền, và các cơ chế nền: cân bằng mật độ dòng chính (`balance_traffic`), hồi sinh xe nhập làn `merging_0` khi chết (respawn — xe cao tốc thì rời hẳn, không hồi sinh), đo sóng lùi trực tuyến (`sample_shockwave` bằng thuật toán Welford).
 
