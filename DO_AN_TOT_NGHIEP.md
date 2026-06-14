@@ -363,7 +363,7 @@ Bảng 1 tổng hợp các hướng nghiên cứu liên quan và vị trí của
 | Hướng nghiên cứu | Đại diện | Kịch bản | Phương pháp | Khoảng trống đồ án khai thác |
 |---|---|---|---|---|
 | Mô phỏng vi mô luật tĩnh | IDM [10], MOBIL [11] | Bám đuôi, chuyển làn | Phương trình luật tay | Không học, không phối hợp chủ động |
-| MARL cho ùn tắc cao tốc | MARL4AV [1] | Đường thẳng nhiều làn | MARL + ABMS (GAMA) | Chưa có kịch bản nhập làn |
+| MARL cho ùn tắc cao tốc | MARL4AV [1] | Đường thẳng nhiều làn | MARL + ABMS (NetLogo) | Chưa có kịch bản nhập làn; đồ án port kiến trúc sang GAMA |
 | MARL CTDE tổng quát | MADDPG [8], MAPPO [2] | Benchmark hợp tác | Critic tập trung | Chưa áp vào on-ramp trên GAMA |
 | RL nhập làn xe tự hành | Chen et al. [9] | On-ramp mixed traffic | MARL + safety prioritization | Chưa định lượng mức lệ thuộc lưới an toàn |
 | **Đồ án này** | — | **On-ramp 3 làn + ramp trên GAMA** | **MAPPO/MAA2C (CTDE) vs Greedy** | **Ma trận mật độ × khiên + ablation nội tâm hóa an toàn** |
