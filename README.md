@@ -50,7 +50,7 @@ Gate nhập làn (giai đoạn 1): PPO argmax **100±0%** (tái lập tuyệt đ
 3. **Khiên an toàn — mức lệ thuộc đo được nhưng cai chưa ổn định**: ablation `--no-shield` cho thấy GĐ2 chỉ còn 14±6% khi lái trần (kỹ năng điều-tốc-tinh ủy thác cho khiên IDM-cap). Phạt can-thiệp tỷ lệ (k=5) nâng được năng lực không-khiên lên **28±17% (đỉnh 50%)** nhưng **variance cao** — reward shaping khả thi nhưng chưa đảm bảo mọi hạt giống (hướng tiếp: phạt mạnh hơn / hành động liên tục).
 4. **PPO vs A2C — deterministic collapse**: A2C *có học* (gate lấy mẫu 77±5%) nhưng argmax = **0±0%** ở cả 3 hạt giống — phân phối không "nhọn" về hành động nhập làn (bài toán *hành-động-hiếm-sống-còn*). PPO vừa học vừa nhọn (argmax 100±0%) nhờ cơ chế update trọn gói (nhiều epoch + clip + norm-advantage). Khuyến nghị phương pháp luận: **so sánh thuật toán MARL phải báo cáo rõ chế độ đánh giá** — thứ hạng đảo ngược giữa lấy mẫu và tất định.
 
-> Số liệu gốc trong `outputs/logs/thesis_night_summary_*.md` (3 đêm, mỗi con số truy được về file nguồn). Biểu đồ báo cáo: `python rl/make_thesis_plots.py` → `outputs/plots/fig1..fig7` (learning curve 2-stage, G1/G2/G3, ablation khiên, mức ỷ-khiên).
+> Số liệu gốc trong `outputs/logs/thesis_night_summary_*.md` (3 đêm, phần lớn con số truy được về file nguồn — trừ vài thí nghiệm chẩn đoán 1 hạt giống). Biểu đồ báo cáo: `python rl/make_thesis_plots.py` → `outputs/plots/fig1..fig7` (learning curve 2-stage, G1/G2/G3, ablation khiên, mức ỷ-khiên).
 
 ---
 
@@ -128,7 +128,7 @@ Toàn bộ reward được tính trong GAML (`calculate_merging_reward`, `calcul
 | **Dense progress** (potential-based, Ng 1999): +k×Δ(x/đích) mỗi tick — chìa khóa giúp critic học được (ev 0→0.85) | Giữ tốc/flow (+ theo speed, thưởng dòng chính sw_mean) |
 | Nhập làn thành công (+50, one-shot) | Thoát cuối đường: terminal `exited` |
 | Va chạm (−100) | Va chạm (−100) |
-| Hết đường chưa merge (−50) | Bám đuôi quá gần (gap < 20m): phạt theo gap |
+| Hết đường chưa merge (−150, chế độ ép action-3) | Bám đuôi quá gần (gap < 20m): phạt theo gap |
 | **Phạt khiên tỷ lệ**: −k×(gia tốc RL − gia tốc khiên cho phép) mỗi tick (k=5) — ép nội tâm hóa điều tốc, không ỷ khiên | Như merger + thưởng nhường khi merger gần (+0.4) / phạt phanh-vô-cớ |
 
 ---
@@ -158,7 +158,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-**Yêu cầu:** Python 3.10+ · GAMA Platform 1.9.x+ (có `gama-headless`) · RAM ≥ 8GB.
+**Yêu cầu:** Python 3.10+ · GAMA Platform 2025.6.x (có `gama-headless`) · RAM ≥ 8GB.
 
 **Windows + tiếng Việt:** nếu gặp `UnicodeEncodeError` khi in log: `$env:PYTHONIOENCODING='utf-8'`.
 
@@ -196,7 +196,7 @@ Tùy chọn: `--scenario low|medium|high` (mật độ) · `--shield on|off` (kh
 |---|---|---|---|---|
 | `smoke` | 400 | 2 | [0] | Sanity pipeline |
 | `short` | 200,000 | 20 | [0] | Kiểm tra nhanh |
-| `thesis` | 200,000 | 50 | [0–4] | Bộ số chính |
+| `thesis` | 200,000 | 50 | [0–2] | Bộ số chính |
 
 | Scenario | nb_cars_max | spawn_interval | Mô tả |
 |---|---|---|---|
