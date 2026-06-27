@@ -1,0 +1,28 @@
+# Buộc LF line endings trên tất cả platform để ngăn git trên Windows hiểu
+# rl/ và rl\ là hai path khác nhau (gây ra duplicate untracked entries).
+# Kết hợp với: git config core.autocrlf false
+
+* text=auto eol=lf
+
+# Source files
+*.py    text eol=lf
+*.gaml  text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.json  text eol=lf
+*.csv   text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.toml  text eol=lf
+*.cfg   text eol=lf
+*.ini   text eol=lf
+
+# Binary — không xử lý line endings
+*.zip   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.docx  binary

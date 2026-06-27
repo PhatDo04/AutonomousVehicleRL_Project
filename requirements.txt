@@ -1,0 +1,27 @@
+# GAMA/PettingZoo bridge
+gama-pettingzoo>=0.1.0
+gama-gymnasium>=0.1.0
+gama-client>=0.1.0
+pettingzoo>=1.24.0
+gymnasium>=0.29.0
+
+# MARL: PettingZoo parallel env -> SB3-compatible VecEnv
+supersuit>=3.9.0
+
+# RL algorithms and experiment tracking
+# stable-baselines3 2.3+ works with torch 2.2+ and numpy 1.26+
+stable-baselines3>=2.3.0
+# torch 2.2.0+ has wheels for Python 3.12 on PyPI
+torch>=2.2.0,<2.5.0
+tensorboard>=2.14.0
+# No upper cap on typing-extensions (avoid conflicts with newer stacks)
+typing-extensions>=4.8.0
+
+# Data processing and plots
+# numpy 1.26+ first supports Python 3.12; 2.x also OK with SB3 2.3+
+numpy>=1.26.0,<2.1.0
+pandas>=2.0.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+scipy>=1.11.0
+pytest>=7.4.0

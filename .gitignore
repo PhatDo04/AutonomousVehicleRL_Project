@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.env
+
+# Test/coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Training outputs (large + regenerable)
+outputs/
+runs/
+checkpoints/
+tensorboard/
+wandb/
+*.log
+
+# Editor / OS
+.vscode/
+.idea/
+.settings/
+Thumbs.db
+.DS_Store
+
+# Caches
+cache/
+tmp/
+
+# Thesis documents (binary, not for source control)
+# *.docx
+# *.pdf
+_docx_text.txt
+
+# Báo cáo (giữ local, không đưa lên repo — README vẫn được track)
+BAO_CAO_DO_AN.md
+BAO_CAO_MA_NGUON_CHI_TIET.md
+GIAI_THICH_CHO_NGUOI_MOI.md
+
+# Project scripts (local)
+scripts/
+
+.venv-ui/
+venv-ui/
+
+# GAML scenario backup (transient, sinh bởi scenario_utils)
+models/*.gaml.bak
+
+# Config controller cục bộ (đường dẫn tuyệt đối theo máy)
+console_config.json
