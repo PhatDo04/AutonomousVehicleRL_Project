@@ -125,48 +125,50 @@ def fig_learning_curve(out: Path) -> None:
     plt.close(fig)
 
 
-# Ma trận giai đoạn 1 (đánh giá lấy mẫu) — nguồn: Bảng 4.1 (success) + Bảng 4.2 (collision), 5 hạt giống.
-# Mỗi ô = (khiên ON, khiên OFF).
+# Ma trận giai đoạn 1 (đánh giá lấy mẫu) — env 240m, cổng-nhập-làn tắt (công bằng), shield bật.
+# Mỗi ô = (mean, std qua 3 HẠT GIỐNG) — std là độ lệch chuẩn tổng thể (pop-std).
+# Nguồn (đã xác minh tái lập):
+#   - MAPPO/MAA2C: 3 seed train trong outputs/plots/thesis/g1_240_{low,medium,high}_on/.
+#   - Greedy: 3 seed eval g1_240_{sc}_on/greedy_baseline_seed{0,1,2}.csv (seed0 từ matrix,
+#     seed1/2 bù bằng greedy_topup_240.sh). VD vừa: per-seed 98/96/94 → 96.0±1.6.
+#     (comparison_table.csv trong dir chỉ có seed0=98% vì sinh trước khi bù seed1/2.)
 G1_SUCC = {
-    "thấp":  {"MAA2C": (86.4, 87.2), "MAPPO": (83.6, 75.2), "Greedy": (96, 82)},
-    "vừa":   {"MAA2C": (89.2, 84.8), "MAPPO": (83.6, 76.8), "Greedy": (96, 2)},
-    "cao":   {"MAA2C": (82.8, 85.2), "MAPPO": (68.4, 69.6), "Greedy": (74, 0)},
+    "thấp":  {"MAPPO": (87.3, 9.0), "MAA2C": (80.7, 6.8), "Greedy": (28.7, 1.9)},
+    "vừa":   {"MAPPO": (74.7, 11.6), "MAA2C": (49.3, 7.7), "Greedy": (96.0, 1.6)},
+    "cao":   {"MAPPO": (74.7, 18.4), "MAA2C": (41.3, 2.5), "Greedy": (64.7, 3.4)},
 }
 G1_COLL = {
-    "thấp":  {"MAA2C": (13.6, 12.8), "MAPPO": (16.0, 21.6), "Greedy": (4, 18)},
-    "vừa":   {"MAA2C": (10.8, 15.2), "MAPPO": (16.0, 22.4), "Greedy": (0, 98)},
-    "cao":   {"MAA2C": (16.4, 14.8), "MAPPO": (31.2, 30.4), "Greedy": (22, 100)},
+    "thấp":  {"MAPPO": (12.7, 9.0), "MAA2C": (19.3, 6.8), "Greedy": (71.3, 1.9)},
+    "vừa":   {"MAPPO": (25.3, 11.6), "MAA2C": (50.7, 7.7), "Greedy": (4.0, 1.6)},
+    "cao":   {"MAPPO": (25.3, 18.4), "MAA2C": (58.7, 2.5), "Greedy": (35.3, 3.4)},
 }
 
 
 def fig_g1_bars(out: Path) -> None:
-    """Hình 4.1: ma trận giai đoạn 1 — success/va chạm theo MẬT ĐỘ × LƯỚI AN TOÀN (ON/OFF)."""
+    """Hình 4.1: giai đoạn 1 — success/va chạm theo MẬT ĐỘ (3 chính sách, no-shield công bằng, 3 hạt giống)."""
     dens = ["thấp", "vừa", "cao"]
-    pols = ["MAA2C", "MAPPO", "Greedy"]
-    pcol = {"MAA2C": "#2e7d32", "MAPPO": "#1565c0", "Greedy": "#c62828"}
+    pols = ["MAPPO", "MAA2C", "Greedy"]
+    pcol = {"MAPPO": "#1565c0", "MAA2C": "#2e7d32", "Greedy": "#c62828"}
     w = 0.25
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
-    for col, (mode, idx) in enumerate([("Khiên ON", 0), ("Khiên OFF", 1)]):
-        for row, (MAT, ylab) in enumerate([(G1_SUCC, "Tỷ lệ thành công (%)"),
-                                           (G1_COLL, "Tỷ lệ va chạm (%)")]):
-            ax = axes[row][col]
-            for k, pol in enumerate(pols):
-                xs = [i + (k - 1) * w for i in range(len(dens))]
-                vals = [MAT[d][pol][idx] for d in dens]
-                ax.bar(xs, vals, w, label=pol, color=pcol[pol])
-                for xx, v in zip(xs, vals):
-                    ax.text(xx, v + 1, f"{v:g}", ha="center", fontsize=8)
-            ax.set_ylim(0, 112)
-            ax.grid(axis="y", alpha=0.3)
-            if col == 0:
-                ax.set_ylabel(ylab)
-            if row == 0:
-                ax.set_title(mode, fontsize=12)
-            if row == 1:
-                ax.set_xticks(range(len(dens)), dens)
-                ax.set_xlabel("Mật độ giao thông")
-    axes[0][0].legend(fontsize=9, loc="lower left")
-    fig.suptitle("Giai đoạn 1 — Ma trận mật độ × lưới an toàn (đánh giá lấy mẫu, 5 hạt giống)", fontsize=13)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
+    for ax, (MAT, ylab) in zip(axes, [(G1_SUCC, "Tỷ lệ thành công (%)"),
+                                      (G1_COLL, "Tỷ lệ va chạm (%)")]):
+        for k, pol in enumerate(pols):
+            xs = [i + (k - 1) * w for i in range(len(dens))]
+            vals = [MAT[d][pol][0] for d in dens]
+            errs = [MAT[d][pol][1] for d in dens]
+            ax.bar(xs, vals, w, yerr=errs, capsize=4, label=pol, color=pcol[pol],
+                   error_kw=dict(ecolor="#333", lw=1.0))
+            for xx, v in zip(xs, vals):
+                ax.text(xx, v + 3, f"{v:.1f}", ha="center", fontsize=8)
+        ax.set_ylim(0, 118)
+        ax.grid(axis="y", alpha=0.3)
+        ax.set_ylabel(ylab)
+        ax.set_xticks(range(len(dens)))
+        ax.set_xticklabels(dens)
+        ax.set_xlabel("Mật độ giao thông")
+    axes[0].legend(fontsize=9, loc="upper right")
+    fig.suptitle("Giai đoạn 1 — Thành công và va chạm theo mật độ (đánh giá lấy mẫu, 3 hạt giống)", fontsize=13)
     fig.tight_layout()
     fig.savefig(out / "fig2_g1_success.png", dpi=300)
     plt.close(fig)

@@ -38,12 +38,12 @@ MARL_ALGORITHMS = ("ppo", "a2c")
 #   - fast  : 1 seed, 60k steps — kiểm TIỀM NĂNG nhanh khi tune reward (~6-7'/thuật toán).
 #             Chưa hội tụ → chỉ xem XU HƯỚNG, không phải số cuối.
 #   - short : 1 seed, 200k steps — smoke test sau khi đổi config.
-#   - thesis: 5 seeds × 200k steps + 50 eval episodes — bộ số chính cho luận văn.
+#   - thesis: 3 seeds × 200k steps + 50 eval episodes — bộ số chính cho luận văn.
 MARL_EXPERIMENT_PRESETS = {
     "smoke":  {"timesteps": 400,     "episodes": 2,  "seeds": [0],             "max_episode_steps": 80},
     "fast":   {"timesteps": 60_000,  "episodes": 10, "seeds": [0],             "max_episode_steps": 500},
     "short":  {"timesteps": 200_000, "episodes": 20, "seeds": [0],             "max_episode_steps": 500},
-    "thesis": {"timesteps": 200_000, "episodes": 50, "seeds": [0, 1, 2, 3, 4], "max_episode_steps": 500},
+    "thesis": {"timesteps": 200_000, "episodes": 50, "seeds": [0, 1, 2], "max_episode_steps": 500},
 }
 
 
@@ -68,8 +68,9 @@ ACTION_MEANINGS_HIGHWAY = {
 # Alias backward-compatible (chỉ dùng để label file CSV/log — không dùng cho logic)
 ACTION_MEANINGS = ACTION_MEANINGS_MERGING
 
-# MARL: 7 agents — 1 xe nhập làn + 6 xe cao tốc (tăng penetration để goal-2: highway nhường CÓ NGHĨA).
-# Trước là 3 highway → quá ít giữa ~40 IDM → highway không phải nút thắt → không học nhường.
+# MARL: 4 agents — 1 xe nhập làn + 3 xe cao tốc (cấu hình chính của luận văn).
+# Đã thử 7 agents (6 highway) để tăng penetration cho goal-2, nhưng VỀ LẠI 4 vì nhường là
+# CỤC BỘ tại điểm merge → 1-2 xe gần nhất là đủ (xem ghi chú TIMING bên dưới).
 MARL_AGENTS: tuple[str, ...] = (
     "merging_0", "highway_0", "highway_1", "highway_2",
 )
