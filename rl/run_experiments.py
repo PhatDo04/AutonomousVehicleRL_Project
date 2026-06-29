@@ -1,6 +1,15 @@
 """Tự động chạy thực nghiệm MARL: baseline Greedy/Random → MARL PPO/A2C.
 
-Sau khi tất cả các thuật toán và seed chạy xong, script gọi plots.py và analysis.py.
+Đây là "nhạc trưởng" điều phối toàn bộ một lần thực nghiệm bằng MỘT lệnh. Luồng:
+    1. Vá mật độ (scenario) + bật/tắt khiên vào file GAML (scenario_utils).
+    2. Chạy baseline Greedy (baselines.py).
+    3. Với mỗi (thuật toán × hạt giống):
+         train (train_marl.py) → [chọn checkpoint tốt nhất] → eval (evaluate_marl.py).
+    4. Sinh biểu đồ (plots.py) + bảng so sánh/LaTeX (analysis.py).
+    5. Khôi phục file GAML về mặc định (try/finally — luôn chạy dù lỗi).
+Mỗi lần chạy tự tạo thư mục riêng theo timestamp (--run-tag) → không đè kết quả cũ.
+
+Mỗi hàm dưới đây = một subprocess gọi script con tương ứng và in tiến trình.
 
 Sử dụng:
     python rl/run_experiments.py --preset thesis --port 1001

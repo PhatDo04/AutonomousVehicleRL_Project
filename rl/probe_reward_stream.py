@@ -33,20 +33,20 @@ async def amain() -> None:
     print(f"[probe] env num_envs={env.num_envs} | model loaded | steps={STEPS}", flush=True)
 
     obs = env.reset()
-    slots = ["merging_0", "highway_0", "highway_1", "highway_2"]
-    all_r = [[] for _ in range(env.num_envs)]
-    spikes = 0
-    ep = 0
+    slots = ["merging_0", "highway_0", "highway_1", "highway_2"]  # 4 slot (đúng thứ tự VecEnv).
+    all_r = [[] for _ in range(env.num_envs)]  # gom reward từng slot để thống kê cuối.
+    spikes = 0   # đếm số reward "đỉnh" (|r|>5 → terminal +50/-100...).
+    ep = 0       # đếm số episode kết thúc.
     for t in range(STEPS):
-        actions, _ = model.predict(obs, deterministic=True)
-        obs, rewards, dones, infos = env.step(actions)
+        actions, _ = model.predict(obs, deterministic=True)  # policy chọn hành động (argmax).
+        obs, rewards, dones, infos = env.step(actions)       # tiến 1 bước, lấy reward THÔ.
         for i in range(env.num_envs):
             r = float(rewards[i])
             all_r[i].append(r)
-            if abs(r) > 5.0:
+            if abs(r) > 5.0:   # reward đỉnh → in ra (kiểm spike terminal có tới SB3 không).
                 spikes += 1
                 print(f"[SPIKE] t={t} slot={slots[i]} r={r:+.1f} done={bool(dones[i])}", flush=True)
-        if bool(np.asarray(dones).all()):
+        if bool(np.asarray(dones).all()):  # cả 4 slot done → 1 episode kết thúc.
             ep += 1
             oc = infos[0].get("outcome") if infos and isinstance(infos[0], dict) else None
             print(f"[EP-END] t={t} ep={ep} outcome={oc} (dones all True)", flush=True)

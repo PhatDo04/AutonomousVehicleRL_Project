@@ -43,22 +43,23 @@ async def smoke_marl() -> bool:
         gama_port=1001,
     )
     try:
-        obs, _ = env.reset(seed=0)
+        obs, _ = env.reset(seed=0)              # reset môi trường, lấy quan sát ban đầu.
         present = list(obs.keys())
         print(f"  Agents available : {present}")
         missing = [a for a in MARL_AGENTS if a not in obs]
-        if missing:
+        if missing:                              # thiếu tác tử → kết nối/GAML có vấn đề.
             print(f"  [FAIL] Thiếu agents: {missing}")
             return False
 
+        # Kiểm mỗi tác tử có quan sát đúng 15 chiều (đúng thiết kế).
         for agent_id in MARL_AGENTS:
             o = obs[agent_id]
             assert getattr(o, "shape", None) == (15,), \
                 f"{agent_id}: mong đợi obs 15D, nhận {getattr(o,'shape',None)}"
 
         merging_info_seen: dict | None = None
-        for t in range(STEPS):
-            actions = {a: int(env.action_space(a).sample()) for a in env.agents}
+        for t in range(STEPS):                   # chạy thử STEPS bước với hành động NGẪU NHIÊN.
+            actions = {a: int(env.action_space(a).sample()) for a in env.agents}  # bốc ngẫu nhiên.
             obs, rewards, term, trunc, infos = env.step(actions)
             if t % 10 == 0:
                 r_str = {a: f"{v:.2f}" for a, v in rewards.items()}

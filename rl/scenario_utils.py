@@ -73,14 +73,15 @@ def set_safety_shield(enabled: bool, *, gaml_path: Path | None = None) -> None:
     ``dashboard_policy="Python/SB3 model"`` nên demo GUI Heuristic luôn giữ khiên dù cờ = false.
     """
     path = gaml_path or MODEL_PATH
-    content = path.read_text(encoding="utf-8")
+    content = path.read_text(encoding="utf-8")          # đọc toàn bộ file GAML.
     value = "true" if enabled else "false"
+    # Thay 'enable_safety_shield <- true/false' bằng giá trị mới; n = số chỗ đã thay.
     new_content, n = re.subn(_SAFETY_SHIELD_REGEX, rf"\g<1>{value}", content)
-    if n == 0:
+    if n == 0:                                           # không khớp → GAML có thể đã đổi cú pháp.
         print("  [WARN] set_safety_shield: không tìm thấy 'enable_safety_shield <- ...' trong GAML.")
         return
     if new_content != content:
-        path.write_text(new_content, encoding="utf-8")
+        path.write_text(new_content, encoding="utf-8")   # ghi lại nếu có thay đổi.
     print(f"  [scenario_utils] enable_safety_shield <- {value}")
 
 

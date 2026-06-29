@@ -111,19 +111,23 @@ def _predict_marl_action(
     đồng thời triệt tiêu brake/keep khi tốc độ quá thấp — giúp argmax không kẹt vào
     hành vi thụ động khi policy có xác suất gần đều giữa nhiều action.
     """
-    model_obs = _to_model_obs(obs_arr)
+    model_obs = _to_model_obs(obs_arr)  # pad 19D → 79D (global = 0) cho model.
+    # Trường hợp thường: predict trực tiếp (lấy mẫu hoặc argmax) — KHÔNG áp mask.
     if not deterministic or agent_id != "merging_0" or not eval_mask:
         action, _ = model.predict(model_obs, deterministic=deterministic)
         return int(action)
 
+    # Trường hợp deterministic + mask cho riêng merging_0: lấy PHÂN PHỐI xác suất hành động
+    # từ policy (thay vì để SB3 tự argmax) để có thể chỉnh tay trước khi chọn argmax.
     obs_tensor = obs_as_tensor(model_obs.reshape(1, -1), model.device)
     with torch.no_grad():
         dist = model.policy.get_distribution(obs_tensor)
         probs = dist.distribution.probs.detach().cpu().numpy()[0].astype(np.float64)
 
-    speed = float(obs_arr[0])
-    in_accel = float(obs_arr[4]) > 0.5
-    gap_safe = float(obs_arr[9]) > 0.5
+    # Đọc vài chiều quan sát quan trọng để quyết định mask.
+    speed = float(obs_arr[0])           # tốc độ hiện tại.
+    in_accel = float(obs_arr[4]) > 0.5  # đang trong vùng tăng tốc?
+    gap_safe = float(obs_arr[9]) > 0.5  # khoảng trống có an toàn để nhập?
     # Option C decode: trong làn tăng tốc + gap an toàn ⇒ LÁCH (action 3). Quyết định merge =
     # "khi RL điều khiển tốc độ đã tạo/đạt gap an toàn thì commit". Bật qua EVAL_FORCE_MERGE=1.
     if os.environ.get("EVAL_FORCE_MERGE", "0") == "1":

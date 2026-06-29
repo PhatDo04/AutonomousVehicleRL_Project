@@ -1,4 +1,10 @@
-"""Generate report-ready plots from training/evaluation CSV files."""
+"""Generate report-ready plots from training/evaluation CSV files.
+
+Đọc các CSV episode (do train/eval/baseline sinh ra) bằng pandas rồi vẽ biểu đồ
+bằng matplotlib/seaborn: đường cong reward, tỷ lệ success/collision, merge_step,
+sóng lùi, thông lượng, radar, boxplot... Mỗi hàm ``plot_*`` lo MỘT loại biểu đồ và
+lưu thành 1 file PNG trong --out-dir. Hàm ``main()`` gọi lần lượt tất cả.
+"""
 
 from __future__ import annotations
 

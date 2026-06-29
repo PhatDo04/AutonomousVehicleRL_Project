@@ -26,13 +26,15 @@ import os
 import sys
 from pathlib import Path
 
+# Thêm thư mục gốc vào sys.path để import rl.* khi chạy script trực tiếp.
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+# Tránh import TensorFlow nặng khi chỉ cần ghi log TensorBoard.
 os.environ.setdefault("TENSORBOARD_NO_TENSORFLOW", "1")
 
-from stable_baselines3 import A2C, PPO
+from stable_baselines3 import A2C, PPO  # 2 thuật toán on-policy dùng trong đồ án.
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, CheckpointCallback
 from stable_baselines3.common.utils import set_random_seed
 
@@ -46,8 +48,8 @@ from rl.config import (
     SCENARIO_CLI_METADATA_ONLY_HINT,
     SCENARIO_PRESETS,
 )
-from rl.marl_env import make_marl_vec_env
-from rl.centralized_policy import CentralizedCriticPolicy
+from rl.marl_env import make_marl_vec_env          # lắp ráp môi trường VecEnv.
+from rl.centralized_policy import CentralizedCriticPolicy  # policy CTDE.
 from rl.metrics import classify_episode, write_episode_metrics, EpisodeMetric
 
 
@@ -75,25 +77,29 @@ class MARLEpisodeCSVCallback(BaseCallback):
         self.algorithm = f"marl_{algorithm}"
         self.seed = seed
         self.output_path = output_path
+        # File CSV phụ cho highway: thay hậu tố tên file.
         self.highway_path = output_path.parent / output_path.name.replace(
             "_episodes.csv", "_highway_episodes.csv"
         )
-        self.merging_rows: list[EpisodeMetric] = []
-        self.highway_rows: list[EpisodeMetric] = []
-        self._ep_rewards: dict[int, float] = {}
-        self._ep_lengths: dict[int, int] = {}
+        self.merging_rows: list[EpisodeMetric] = []  # tích lũy dòng metric của merger.
+        self.highway_rows: list[EpisodeMetric] = []  # tích lũy dòng metric của highway.
+        self._ep_rewards: dict[int, float] = {}      # reward đang cộng dồn theo từng slot.
+        self._ep_lengths: dict[int, int] = {}        # độ dài đang đếm theo từng slot.
         self._hw_ep_count = 0
 
     def _on_step(self) -> bool:
+        # SB3 gọi hàm này MỖI bước; self.locals chứa reward/done/info của step vừa rồi.
         rewards = self.locals["rewards"]
         dones = self.locals["dones"]
         infos = self.locals["infos"]
 
+        # Duyệt từng slot (4 agent = 4 luồng dữ liệu song song).
         for i, (reward, done, info) in enumerate(zip(rewards, dones, infos)):
+            # Cộng dồn reward + đếm độ dài cho slot i.
             self._ep_rewards[i] = self._ep_rewards.get(i, 0.0) + float(reward)
             self._ep_lengths[i] = self._ep_lengths.get(i, 0) + 1
 
-            if done:
+            if done:  # slot i vừa kết thúc 1 episode → chốt số liệu.
                 total_r = self._ep_rewards.pop(i, 0.0)
                 length = self._ep_lengths.pop(i, 0)
                 # Fallback role khi info thiếu ``agent_role`` (dùng index slot, 0=merging, 1–3=highway).
@@ -102,7 +108,7 @@ class MARLEpisodeCSVCallback(BaseCallback):
                 wrapper_trunc = bool(info.get("TimeLimit.truncated", False))
                 is_terminated, is_truncated = classify_episode(outcome, wrapper_trunc)
 
-                if role == "merging":
+                if role == "merging":  # ghi vào CSV chính (xe nhập làn).
                     self.merging_rows.append(EpisodeMetric(
                         algorithm=self.algorithm,
                         seed=self.seed,
@@ -124,7 +130,7 @@ class MARLEpisodeCSVCallback(BaseCallback):
                         shockwave_index=float(info.get("shockwave_index", 0.0)),
                         mainline_mean_speed=float(info.get("mainline_mean_speed", 0.0)),
                     ))
-                elif role == "highway":
+                elif role == "highway":  # ghi vào CSV phụ (xe cao tốc; outcome "exited" = thoát an toàn).
                     self._hw_ep_count += 1
                     self.highway_rows.append(EpisodeMetric(
                         algorithm=f"{self.algorithm}_highway",
@@ -143,9 +149,10 @@ class MARLEpisodeCSVCallback(BaseCallback):
                         min_front_gap=float(info.get("min_front_gap", 999.0)),
                         min_rear_gap=float(info.get("min_rear_gap", 999.0)),
                     ))
-        return True
+        return True  # trả True để SB3 tiếp tục train.
 
     def _on_training_end(self) -> None:
+        # Cuối train: ghi 2 file CSV.
         write_episode_metrics(self.output_path, self.merging_rows)
         if self.highway_rows:
             write_episode_metrics(self.highway_path, self.highway_rows)
@@ -165,16 +172,17 @@ class EntCoefAnnealCallback(BaseCallback):
 
     def __init__(self, ent_start: float, ent_end: float, total_timesteps: int, hold_frac: float = 0.0):
         super().__init__()
-        self.ent_start = ent_start
-        self.ent_end = ent_end
+        self.ent_start = ent_start    # entropy đầu (cao = khám phá nhiều).
+        self.ent_end = ent_end        # entropy cuối (thấp = policy "nhọn").
         self.total = max(1, total_timesteps)
         self.hold_frac = max(0.0, min(0.99, hold_frac))  # giữ entropy cao tới mốc này rồi mới giảm
 
     def _on_step(self) -> bool:
-        frac = min(1.0, self.num_timesteps / self.total)
+        frac = min(1.0, self.num_timesteps / self.total)  # tiến độ train (0→1).
         if frac <= self.hold_frac:
             self.model.ent_coef = self.ent_start          # GIỮ cao (explore, học action-3)
         else:
+            # Sau mốc giữ → giảm tuyến tính từ ent_start về ent_end.
             t = (frac - self.hold_frac) / (1.0 - self.hold_frac)  # giảm trong phần còn lại
             self.model.ent_coef = self.ent_start + (self.ent_end - self.ent_start) * t
         return True
@@ -191,28 +199,28 @@ def build_marl_model(algo: str, env, seed: int, tensorboard_log: str, ent_coef: 
             f"Dùng: {MARL_ALGORITHMS}. DQN bị loại vì off-policy không phù hợp đa tác tử."
         )
 
-    if algo == "ppo":
+    if algo == "ppo":  # === MAPPO ===
         return PPO(
-            CentralizedCriticPolicy,
+            CentralizedCriticPolicy,  # policy CTDE tự cài.
             env,
             learning_rate=(1e-4 if learning_rate is None else learning_rate),   # mặc định 1e-4: train dài ổn định (chống drift/catastrophic forgetting)
-            n_steps=256,
-            batch_size=128,
-            gamma=0.99,
-            gae_lambda=0.95,
-            clip_range=0.2,
-            ent_coef=(0.01 if ent_coef is None else ent_coef),
-            vf_coef=0.5,
+            n_steps=256,        # độ dài rollout trước mỗi lần cập nhật.
+            batch_size=128,     # cỡ minibatch khi tối ưu.
+            gamma=0.99,         # hệ số chiết khấu.
+            gae_lambda=0.95,    # tham số GAE (dung hòa bias–variance).
+            clip_range=0.2,     # biên cắt ngọn của PPO (ε).
+            ent_coef=(0.01 if ent_coef is None else ent_coef),  # hệ số entropy (callback anneal sẽ ghi đè).
+            vf_coef=0.5,        # trọng số loss của critic.
             tensorboard_log=tensorboard_log,
             seed=seed,
             verbose=1,
         )
 
-    if algo == "a2c":
+    if algo == "a2c":  # === MAA2C ===
         return A2C(
             CentralizedCriticPolicy,
             env,
-            learning_rate=(3e-4 if learning_rate is None else learning_rate),
+            learning_rate=(3e-4 if learning_rate is None else learning_rate),  # mặc định code 3e-4 (pipeline thesis dùng 7e-4).
             # 64→256: khớp PPO cùng độ dài rollout (so sánh công bằng). Riêng nó KHÔNG đủ sửa
             # deterministic collapse (v2: argmax vẫn 0%, stochastic 60%).
             n_steps=256,
@@ -228,6 +236,8 @@ def build_marl_model(algo: str, env, seed: int, tensorboard_log: str, ent_coef: 
             seed=seed,
             verbose=1,
         )
+        # Lưu ý: A2C cập nhật 1 lần/rollout (không có n_epochs) → ít bước gradient hơn PPO
+        # gần 2 bậc → lý giải PPO > A2C ở mục 4.6 của báo cáo.
 
     raise ValueError(f"Thuật toán không được hỗ trợ: {algo}")
 
@@ -263,7 +273,7 @@ def parse_args() -> argparse.Namespace:
             "(vd 99999 = tới cuối) + curriculum --resume-from (warmstart nền biết-merge) để chống collapse."
         ),
     )
-    parser.add_argument("--run-name", default=None)
+    parser.add_argument("--run-name", default=None)  # tên thư mục/file output (mặc định theo algo+seed).
     parser.add_argument(
         "--resume-from",
         default=None,
@@ -334,8 +344,9 @@ def parse_args() -> argparse.Namespace:
 
 
 async def async_main(args: argparse.Namespace) -> None:
-    set_random_seed(args.seed)
+    set_random_seed(args.seed)  # cố định seed cho PyTorch/NumPy → tái lập.
 
+    # --- Đặt đường dẫn output theo run_name ---
     run_name = args.run_name or f"marl_{args.algo}_seed{args.seed}"
     model_path = MODEL_DIR / f"{run_name}.zip"
     metric_path = LOG_DIR / f"{run_name}_episodes.csv"
@@ -349,11 +360,13 @@ async def async_main(args: argparse.Namespace) -> None:
     if args.checkpoint_interval > 0:
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
+    # In nhãn kịch bản + cảnh báo metadata.
     scenario = SCENARIO_PRESETS.get(args.scenario)
     if scenario:
         print(f"Scenario: {scenario.name} (nb_cars_max={scenario.nb_cars_max})")
         print(SCENARIO_CLI_METADATA_ONLY_HINT)
 
+    # In tóm tắt cấu hình train.
     ma_name = {"ppo": "MAPPO", "a2c": "MAA2C"}.get(args.algo, args.algo.upper())
     print(f"\n=== MARL Training: {ma_name} (CTDE) | seed={args.seed} | {args.timesteps:,} steps ===")
     print(f"  4 agents: merging_0 + highway_0/1/2")
@@ -361,6 +374,7 @@ async def async_main(args: argparse.Namespace) -> None:
     print(f"  Critic  : 60D global state (15D base × 4 agents) — centralized")
     print(f"  Policy  : Shared params + centralized critic (CTDE)\n")
 
+    # Cấu hình kết nối GAMA.
     config = GamaConnectionConfig(
         host=args.host,
         port=args.port,
@@ -368,6 +382,7 @@ async def async_main(args: argparse.Namespace) -> None:
         simulation_seed=args.seed,
     )
 
+    # Lắp môi trường VecEnv (có thể bật chế độ post-merge / rl-postmerge).
     env = make_marl_vec_env(config, postmerge_window=args.postmerge_window, rl_postmerge=args.rl_postmerge)
     if args.norm_reward:
         # C-FIX value-failure: e2e train có explained_variance≈0 + value_loss≈1e-6 (critic KHÔNG học được
@@ -385,12 +400,13 @@ async def async_main(args: argparse.Namespace) -> None:
               f"THỬ NGHIỆM — khác yt22 unbounded; theo dõi merge success kẻo collapse.")
 
     try:
-        reset_counter = True
+        reset_counter = True  # mặc định: train mới → đếm step từ 0.
+        # --- Tạo model: mới, hoặc nạp lại (continue/warmstart) ---
         if args.resume_from:
             resume_path = Path(args.resume_from)
             if not resume_path.exists():
                 raise FileNotFoundError(f"--resume-from không tồn tại: {resume_path}")
-            if args.resume_mode == "continue":
+            if args.resume_mode == "continue":  # train tiếp liền mạch (giữ optimizer + counter).
                 algo_cls = PPO if args.algo == "ppo" else A2C
                 model = algo_cls.load(str(resume_path), env=env, tensorboard_log=tensorboard_log)
                 reset_counter = False  # train tiếp liền mạch (giữ step counter + optimizer)
@@ -402,11 +418,13 @@ async def async_main(args: argparse.Namespace) -> None:
                 model = build_marl_model(args.algo, env, args.seed, tensorboard_log, ent_coef=args.ent_coef, learning_rate=args.learning_rate)
                 from stable_baselines3.common.save_util import load_from_zip_file
                 _, _wparams, _ = load_from_zip_file(str(resume_path), device="cpu")
-                model.policy.load_state_dict(_wparams["policy"])
+                model.policy.load_state_dict(_wparams["policy"])  # chỉ nạp trọng số mạng.
                 _opt = "RMSprop" if args.algo == "a2c" else "Adam"
                 print(f"  [resume] WARM-START từ {resume_path.name} — CHỈ nạp policy weights (optimizer {_opt} mới). Hỗ trợ cross-algo PPO↔A2C.")
         else:
             model = build_marl_model(args.algo, env, args.seed, tensorboard_log, ent_coef=args.ent_coef, learning_rate=args.learning_rate)
+
+        # --- Gắn các callback (ghi CSV, anneal entropy, lưu checkpoint) ---
         callbacks = [MARLEpisodeCSVCallback(args.algo, args.seed, metric_path)]
         if args.ent_coef_end is not None and not args.no_ent_anneal:
             ent_start = args.ent_coef if args.ent_coef is not None else (0.01 if args.algo == "ppo" else 0.05)
@@ -433,12 +451,14 @@ async def async_main(args: argparse.Namespace) -> None:
                 )
             )
         callback = CallbackList(callbacks)
+        # === HỌC: vòng lặp train chính của SB3 ===
         model.learn(
             total_timesteps=args.timesteps,
             callback=callback,
             tb_log_name=run_name,
             reset_num_timesteps=reset_counter,
         )
+        # Lưu model + in đường dẫn output.
         model.save(model_path)
         print(f"\nĐã lưu model      : {model_path}")
         print(f"Đã lưu metrics    : {metric_path}")
@@ -447,7 +467,7 @@ async def async_main(args: argparse.Namespace) -> None:
             f"{metric_path.parent / metric_path.name.replace('_episodes.csv', '_highway_episodes.csv')}"
         )
     finally:
-        env.close()
+        env.close()  # luôn đóng kết nối GAMA.
 
 
 def main() -> None:

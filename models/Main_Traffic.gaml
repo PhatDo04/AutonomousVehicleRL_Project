@@ -1,26 +1,29 @@
 // MARL-only (repo chinh): 4 RL agents merging_0 + highway_0/1/2, experiment TrafficMARLHeadless.
+// File GAML này là MÔI TRƯỜNG mô phỏng: định nghĩa hình học đường, xe (species car),
+// dòng xe nền IDM/MOBIL, 4 tác tử RL, hàm phần thưởng, lưới an toàn và cầu nối PettingZoo.
 model HorizontalTraffic
 
+// Khối global: chứa toàn bộ biến/tham số dùng chung cho cả mô phỏng + các reflex toàn cục.
 global {
-    int   number_of_lanes <- 3;
-    float lane_width      <- 3.5;
+    int   number_of_lanes <- 3;     // số làn cao tốc.
+    float lane_width      <- 3.5;    // bề rộng mỗi làn (mét).
     // 2026-06: NỚI mainline sau merge (merge_x=180 → exit). 320 quá dài: slow-highway-equilibrium (~0.18,
     // cố ý) + exit_rate highway 0% → gridlock-bò → merger không tới cuối trong step-budget → collapse (yt45
     // success 10-20%). RÚT về 240 (post-merge ~60 đơn-vị tại merge_x = 3× gốc 20) — vẫn "đi tới cuối" KHẢ THI
     // ở tốc-bò trong max-steps hợp lý, KHÔNG đánh nhau với crawl equilibrium. nb_cars_max = 70×240/200 = 84.
-    float road_length     <- 240.0;
+    float road_length     <- 240.0;  // chiều dài đoạn đường (mét).
     // Mainline: clip thap hon nguong die 1 chut de moi tick co the vuot nguong -> die (tranh ket tai bien).
-    float road_mainline_exit_x <- 240.38;
-    float road_mainline_clip_x  <- 240.58;
+    float road_mainline_exit_x <- 240.38;  // x mà xe dòng chính coi như "thoát" đường.
+    float road_mainline_clip_x  <- 240.58; // x mà xe bị xóa hẳn (chết) sau khi thoát.
     float road_move_clip_x     <- 220.0; // chi dung trong nhanh merge_mode=1 (behave)
-    float offset_y        <- 18.0;
+    float offset_y        <- 18.0;   // dịch toàn bộ hình học theo trục y (vị trí làn trên màn hình).
 
-    geometry shape <- rectangle(road_length, 100.0);
+    geometry shape <- rectangle(road_length, 100.0);  // khung thế giới mô phỏng (240 × 100).
 
-    float speed_max            <- 1.0;
-    float speed_min            <- 0.0;
-    float acceleration         <- 0.05;
-    float deceleration         <- 0.1;
+    float speed_max            <- 1.0;   // tốc độ tối đa (đơn vị/tick).
+    float speed_min            <- 0.0;   // tốc độ tối thiểu.
+    float acceleration         <- 0.05;  // mức tăng tốc mỗi hành động.
+    float deceleration         <- 0.1;   // mức giảm tốc mỗi hành động.
     // IDM (Intelligent Driver Model — Treiber 2000) cho xe NPC/HDV. Tham số scaled về đơn vị sim
     // (speed∈[0,1]/cycle, x theo mét), KHÔNG phải giây thật. time_headway theo cycle.
     float idm_time_headway     <- 2.5;   // T VỪA (e2e): khe followable post-merge (RL lái được, khiên hiếm fire → goal-3 của RL) NHƯNG vẫn cần nhường đôi lúc (goal-2). Cực-scarce (1.5) làm post-merge sập 90%. IDM collision-free mọi T>0.
@@ -196,14 +199,14 @@ global {
     bool initial_cars_created <- false;
     // Mirror global cho PettingZoo socket: Python eval biến global thay vì
     // `PzBridgeAgent[0]...`, tránh lỗi GAMA hiểu nhầm species index thành skill.
-    list pz_agents <- [];
-    list pz_possible_agents <- [];
-    map pz_observation_spaces <- [];
-    map pz_action_spaces <- [];
-    map pz_observations <- [];
-    map pz_infos <- [];
-    map pz_actions <- [];
-    map pz_data <- [];
+    list pz_agents <- [];               // danh sách tác tử đang sống (PettingZoo đọc).
+    list pz_possible_agents <- [];       // danh sách 4 tác tử cố định.
+    map pz_observation_spaces <- [];     // không gian quan sát mỗi tác tử (gửi lên Python).
+    map pz_action_spaces <- [];          // không gian hành động mỗi tác tử.
+    map pz_observations <- [];           // quan sát hiện tại của 4 tác tử (Python đọc).
+    map pz_infos <- [];                  // info phụ (outcome, metrics...) mỗi tác tử.
+    map pz_actions <- [];                // hành động Python gửi xuống cho 4 tác tử.
+    map pz_data <- [];                   // gói gộp obs/reward/done/info đẩy 1 lần qua socket.
     int prev_sim_cycle <- 0;
     bool pz_block_merging_respawn <- false;
 
@@ -4278,18 +4281,22 @@ species car {
         // urgency, last_action, patience.
         float speed_denom <- max(0.001, speed_max);
         float obs_denom <- max(1.0, observation_max);
-        float norm_speed <- min(1.0, max(0.0, speed / speed_denom));
-        float accel_len <- max(1.0, accel_end_x - accel_start_x);
-        float norm_progress <- 0.0;
-        float norm_dist_to_merge <- 1.0;
-        float norm_lateral <- 1.0;
-        float norm_in_accel <- 0.0;
-        float norm_urgency <- 0.0;
+        float norm_speed <- min(1.0, max(0.0, speed / speed_denom));        // [0] tốc độ chuẩn hóa [0,1].
+        float accel_len <- max(1.0, accel_end_x - accel_start_x);           // chiều dài vùng tăng tốc (mẫu số chuẩn hóa).
+        float norm_progress <- 0.0;        // [1] tiến độ đã đi trong vùng tăng tốc.
+        float norm_dist_to_merge <- 1.0;   // [2] còn bao xa tới điểm merge.
+        float norm_lateral <- 1.0;         // [3] lệch ngang so với làn đích.
+        float norm_in_accel <- 0.0;        // [4] cờ đang trong vùng tăng tốc.
+        float norm_urgency <- 0.0;         // [12] độ khẩn (càng gần hết vùng càng cao).
         if (location != nil) {
+            // Tiến độ = (x - đầu vùng) / chiều dài vùng → 0 ở đầu, 1 ở cuối vùng tăng tốc.
             norm_progress <- min(1.0, max(0.0, (location.x - accel_start_x) / accel_len));
+            // Khoảng cách tới merge = (merge_x - x) / chiều dài → 1 khi còn xa, 0 khi tới nơi.
             norm_dist_to_merge <- min(1.0, max(0.0, (merge_x - location.x) / accel_len));
+            // Lệch ngang = |y hiện tại - y làn đáy| chuẩn hóa → 0 khi đã vào đúng làn.
             norm_lateral <- min(1.0, max(0.0, abs(location.y - bottom_lane_y) / max(1.0, lane_width * 4.0)));
             if (location.x >= accel_start_x) {
+                // Độ khẩn tăng dần theo vị trí trong vùng (giống tiến độ) → sắp hết vùng = khẩn.
                 norm_urgency <- min(1.0, max(0.0, (location.x - accel_start_x) / accel_len));
             }
         }
@@ -4382,16 +4389,18 @@ species car {
     // IDM (Treiber 2000): gia toc doc theo leader cung lan. Tham so scaled don vi sim
     // (speed in [0,1]/cycle, x theo met). gap_center = khoang cach tam-den-tam toi leader.
     action idm_acc(float v, float gap_center, float lead_v) type: float {
-        float v0 <- max(0.001, speed_max);
-        float a0 <- max(0.001, acceleration);
-        float b0 <- max(0.001, deceleration);
-        float vr <- v / v0;
+        float v0 <- max(0.001, speed_max);   // v₀: tốc độ mong muốn.
+        float a0 <- max(0.001, acceleration); // a_max: gia tốc tối đa.
+        float b0 <- max(0.001, deceleration); // b: giảm tốc êm.
+        float vr <- v / v0;                   // tỉ lệ tốc độ hiện tại / mong muốn.
+        // free_term = 1 − (v/v₀)⁴  (số mũ δ=4, chuẩn Treiber) → ghì tốc độ về v₀.
         float free_term <- 1.0 - vr * vr * vr * vr;
-        float interaction <- 0.0;
-        if (gap_center < observation_max) {
+        float interaction <- 0.0;             // số hạng tương tác với xe trước (tính dưới).
+        if (gap_center < observation_max) {   // có xe trước trong tầm quan sát.
             float s <- gap_center - car_length;          // net bumper gap
-            if (s < 0.1) { s <- 0.1; }
+            if (s < 0.1) { s <- 0.1; }                    // chặn dưới (tránh chia 0).
             float dv <- v - lead_v;                       // approach rate
+            // s* = s₀ + v·T + (v·Δv)/(2·√(a·b)) — khoảng cách an toàn mong muốn (công thức (1-6)).
             float s_star <- idm_min_gap + v * idm_time_headway + (v * dv) / (2.0 * sqrt(a0 * b0));
             if (s_star < idm_min_gap) { s_star <- idm_min_gap; }
             float ratio <- s_star / s;

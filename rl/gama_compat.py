@@ -1,4 +1,13 @@
-"""Compatibility helpers for the current gama-pettingzoo/gama-gymnasium stack."""
+"""Compatibility helpers for the current gama-pettingzoo/gama-gymnasium stack.
+
+Đây là tầng "vá tương thích" giữa thư viện cầu nối (gama-pettingzoo/gama-gymnasium)
+và phiên bản GAMA 2025.6.x. Gọi ``patch_gama_gymnasium()`` MỘT LẦN trước khi dùng
+GamaParallelEnv. Các bản vá chính:
+  - ép UTF-8 cho console Windows (in tiếng Việt không lỗi),
+  - cache observation/action space (tránh gọi GAMA lặp gây lỗi 'already registered'),
+  - bootstrap quan sát sau reset (chờ GAMA sinh đủ xe),
+  - sửa tên species cầu nối (PzBridgeAgent), chống race condition socket khi step.
+"""
 
 from __future__ import annotations
 
@@ -106,9 +115,10 @@ def _bootstrap_pz_observations_after_reset(env: Any) -> tuple[dict[str, Any], di
     client = env.gama_client
     exp = env.experiment_id
     agents = list(env.possible_agents)
-    noop = json.dumps({a: 1 for a in agents})
+    noop = json.dumps({a: 1 for a in agents})  # hành động "giữ tốc" cho mọi agent (JSON).
 
     def _ready(states: Any) -> bool:
+        # "Sẵn sàng" = đã có quan sát (khác None) cho đủ mọi agent.
         return isinstance(states, dict) and all(
             a in states and states[a] is not None for a in agents
         )
@@ -116,17 +126,18 @@ def _bootstrap_pz_observations_after_reset(env: Any) -> tuple[dict[str, Any], di
     states = client.get_observations(exp)
     infos = client.get_infos(exp) or {}
     if _ready(states):
-        return states, infos
+        return states, infos                   # may mắn đã sẵn ngay → trả luôn.
 
+    # Chưa sẵn → bước "giữ tốc" tối đa 25 lần, chờ GAMA chạy bootstrap_initial_cars.
     for _ in range(25):
-        client._execute_expression(exp, f"pz_actions <- from_json('{noop}');")
-        client.client.step(exp, sync=True)
-        time.sleep(0.04)
+        client._execute_expression(exp, f"pz_actions <- from_json('{noop}');")  # gán hành động.
+        client.client.step(exp, sync=True)     # tiến 1 bước mô phỏng (đồng bộ).
+        time.sleep(0.04)                        # chờ GAMA xử lý (chống race socket).
         states = client.get_observations(exp)
         infos = client.get_infos(exp) or infos
         env.agents = client.get_agents(exp)
         if _ready(states):
-            return states, infos
+            return states, infos               # đủ xe → xong.
 
     states = client.get_observations(exp)
     return (states if isinstance(states, dict) else {}), infos

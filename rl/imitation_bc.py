@@ -65,21 +65,23 @@ def collect_demos(env, n_steps: int):
 def behavior_clone(model, X, y, epochs: int, batch: int = 256, lr: float = 1e-3):
     """Huấn luyện có giám sát actor của CTDE policy bắt chước teacher (CE = -log_prob)."""
     device = model.policy.device
-    Xt = torch.as_tensor(X, device=device)
-    yt = torch.as_tensor(y, device=device)
-    opt = torch.optim.Adam(model.policy.parameters(), lr=lr)
+    Xt = torch.as_tensor(X, device=device)   # obs demo → tensor.
+    yt = torch.as_tensor(y, device=device)   # action teacher → tensor (nhãn cần bắt chước).
+    opt = torch.optim.Adam(model.policy.parameters(), lr=lr)  # tối ưu Adam cho actor.
     n = len(Xt)
     for ep in range(epochs):
-        perm = torch.randperm(n, device=device)
+        perm = torch.randperm(n, device=device)  # xáo trộn thứ tự mẫu mỗi epoch.
         tot, correct, nb = 0.0, 0, 0
-        for i in range(0, n, batch):
+        for i in range(0, n, batch):             # duyệt từng minibatch.
             idx = perm[i:i + batch]
             ob, ac = Xt[idx], yt[idx]
+            # Cross-entropy = -log P(action_teacher) → ép policy gán xác suất cao cho hành động teacher.
             _, log_prob, _ = model.policy.evaluate_actions(ob, ac)
             loss = -log_prob.mean()
-            opt.zero_grad(); loss.backward(); opt.step()
+            opt.zero_grad(); loss.backward(); opt.step()  # lan truyền ngược + cập nhật trọng số.
             tot += float(loss) * len(idx); nb += len(idx)
             with torch.no_grad():
+                # Đo độ khớp với teacher (argmax của policy == action teacher).
                 pred = model.policy.get_distribution(ob).distribution.probs.argmax(-1)
                 correct += int((pred == ac).sum())
         print(f"  BC epoch {ep+1}/{epochs}  loss={tot/nb:.3f}  teacher-acc={correct/nb:.1%}")
