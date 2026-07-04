@@ -4948,13 +4948,6 @@ experiment TrafficSimulation type: gui {
                             gap_safe_rgb <- #lime;
                         }
 
-                        // CV sóng lùi là metric TOÀN CỤC mainline (Welford sw_mean/sw_M2 global) — tính
-                        // trực tiếp từ global, KHÔNG đọc tracked.info_shockwave_index (field đó chỉ được
-                        // gán trong nhánh merger của get_episode_info → tracked=highway luôn hiện 0.0).
-                        float gui_cv <- 0.0;
-                        if (sw_n > 1 and sw_mean > 0.001) {
-                            gui_cv <- sqrt(sw_M2 / (sw_n - 1)) / sw_mean;
-                        }
                         draw (tracked_title_prefix + tracked.rl_agent_id)
                             at: {15 #px, 165 #px} color: tracked_title_rgb font: font("Arial", 21, #bold);
                         draw ("Kết cục: " + tracked.terminal_reason + " | Bước: " + tracked.episode_step)
@@ -4963,14 +4956,10 @@ experiment TrafficSimulation type: gui {
                             at: {15 #px, 235 #px} color: reward_line_rgb font: font("Arial", 21, #plain);
                         draw ("Tốc độ: " + (tracked.speed with_precision 2) + " | TB: " + (mean_speed with_precision 2) + " | Tiến độ: " + ((progress * 100.0) with_precision 1) + "%")
                             at: {15 #px, 270 #px} color: #white font: font("Arial", 21, #plain);
-                        draw ("Khe trước/sau: " + (front_gap with_precision 2) + " / " + (rear_gap with_precision 2) + " | An toàn: " + tracked.is_merge_gap_safe())
+                        draw ("Khe trước: " + (front_gap with_precision 2) + " | An toàn: " + tracked.is_merge_gap_safe())
                             at: {15 #px, 305 #px} color: gap_safe_rgb font: font("Arial", 21, #plain);
-                        draw ("Khe nhỏ nhất trước/sau: " + (tracked.min_front_gap with_precision 2) + " / " + (tracked.min_rear_gap with_precision 2))
+                        draw ("Trong làn tăng tốc: " + tracked.in_accel_zone)
                             at: {15 #px, 340 #px} color: #white font: font("Arial", 21, #plain);
-                        draw ("Khe trước (ramp): " + (tracked.get_ramp_front_gap() with_precision 2) + " | Trong làn tăng tốc: " + tracked.in_accel_zone)
-                            at: {15 #px, 375 #px} color: #white font: font("Arial", 21, #plain);
-                        draw ("Tốc độ dòng chính TB: " + (sw_mean with_precision 2) + " (" + (sw_mean < 0.25 ? "KẸT" : "thông") + ") | Sóng lùi (CV): " + (gui_cv with_precision 3))
-                            at: {15 #px, 410 #px} color: (sw_mean < 0.4 ? rgb(255,140,0) : #white) font: font("Arial", 21, #plain);
                         }
                     }
 
@@ -4997,13 +4986,11 @@ experiment TrafficSimulation type: gui {
                         }
                     }
                     draw ("Tác tử: RL=" + rl_count + " | NPC ramp=" + rule_based_merging_count + " | nền cao tốc=" + mainline_count)
-                        at: {15 #px, 460 #px} color: #white font: font("Arial", 21, #plain);
+                        at: {15 #px, 375 #px} color: #white font: font("Arial", 21, #plain);
                     draw ("Giao thông: tổng=" + length(safe_cars) + " | ramp=" + ramp_count + " | xe hỏng=" + damaged_count)
-                        at: {15 #px, 495 #px} color: #white font: font("Arial", 21, #plain);
-                    draw ("Chu kỳ: " + cycle + " | Xem chậm: thanh tốc độ GAMA hoặc Python --step-delay")
-                        at: {15 #px, 530 #px} color: #white font: font("Arial", 21, #plain);
-                    draw "Model SB3 .zip do Python nạp; GUI này chỉ gắn nhãn/quan sát phiên chạy." at: {15 #px, 572 #px} color: #cyan font: font("Arial", 17, #italic);
-                    draw "Chú giải: RL=tác tử học | không nhãn=xe nền | đỏ=xe hỏng (kéo về làn vàng)" at: {15 #px, 607 #px} color: #cyan font: font("Arial", 17, #italic);
+                        at: {15 #px, 410 #px} color: #white font: font("Arial", 21, #plain);
+                    draw ("Xem chậm: thanh tốc độ GAMA hoặc Python --step-delay")
+                        at: {15 #px, 445 #px} color: #white font: font("Arial", 21, #plain);
                 }
             }
         }
