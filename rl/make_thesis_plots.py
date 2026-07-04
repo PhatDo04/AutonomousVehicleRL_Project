@@ -78,19 +78,24 @@ def _rolling(xs: list[float], w: int) -> list[float]:
 
 
 def fig_learning_curve(out: Path) -> None:
-    """Hình 1: learning curve 2-stage (success-rate trượt + reward) theo bước huấn luyện."""
+    """Hình 1: learning curve 2-stage (success-rate trượt + reward) — TRUNG BÌNH các seed ±1σ.
+
+    Gộp tất cả seed overnight (night_<algo>_s{stage}_<TAG>_episodes.csv): làm mượt từng seed,
+    nội suy lên lưới x chung rồi lấy mean ± std → đường trung bình + dải ±1σ (chuẩn báo cáo RL).
+    """
+    import numpy as np
     fig, axes = plt.subplots(2, 2, figsize=(13, 7), sharex="col")
 
-    def _curve_csv(algo: str, stage: int) -> Path | None:
-        # Overnight: night_<algo>_s{stage}_<TAG>_episodes.csv (ưu tiên, mới nhất); fallback curr_<algo>_stage{stage}_*.
+    def _seed_csvs(algo: str, stage: int) -> list[Path]:
+        # Tất cả seed (loại highway + loại bản 'sharp' của A2C).
         for pat in (f"night_{algo}_s{stage}_*_episodes.csv", f"curr_{algo}_stage{stage}_*_episodes.csv"):
-            cands = sorted([p for p in LOGS.glob(pat) if "highway" not in p.name], key=lambda p: p.stat().st_mtime)
+            cands = sorted(p for p in LOGS.glob(pat) if "highway" not in p.name and "sharp" not in p.name)
             if cands:
-                return cands[-1]
-        return None
+                return cands
+        return []
 
-    def _series(path: Path | None):
-        rows = _read_csv(path) if path else []
+    def _series(path: Path):
+        rows = _read_csv(path)
         steps, succ, rew, cum = [], [], [], 0
         for r in rows:
             cum += int(float(r["length"]))
@@ -99,16 +104,40 @@ def fig_learning_curve(out: Path) -> None:
             rew.append(float(r["reward"]))
         return steps, succ, rew
 
+    def _agg(paths: list[Path], metric: str):
+        """(grid, mean, std, n_seed) sau khi làm mượt từng seed + nội suy lên lưới x chung."""
+        curves, xmax = [], []
+        for p in paths:
+            steps, succ, rew = _series(p)
+            if not steps:
+                continue
+            vals = succ if metric == "succ" else rew
+            w = max(8, len(steps) // 14)  # cửa sổ trượt rộng hơn → đường + dải mượt, đỡ "loang"
+            curves.append((steps, _rolling(vals, w)))
+            xmax.append(steps[-1])
+        if not curves:
+            return None
+        grid = np.linspace(0.0, min(xmax), 200)
+        stack = np.vstack([np.interp(grid, s, v) for s, v in curves])
+        return grid, stack.mean(axis=0), stack.std(axis=0), len(curves)
+
     ALGOS = [("ppo", "MAPPO", "#1f77b4"), ("a2c", "MAA2C", "#d62728")]
+    n_seed = 0
     for col, (stage, title) in enumerate([(1, "Giai đoạn 1 — học NHẬP LÀN (from scratch)"),
                                           (2, "Giai đoạn 2 — học E2E + hợp tác (warmstart GĐ1)")]):
         for algo, label, color in ALGOS:
-            steps, succ, rew = _series(_curve_csv(algo, stage))
-            if not steps:
-                continue
-            w = max(5, len(steps) // 20)
-            axes[0][col].plot(steps, [s * 100 for s in _rolling(succ, w)], color=color, lw=1.8, label=label)
-            axes[1][col].plot(steps, _rolling(rew, w), color=color, lw=1.5, label=label)
+            paths = _seed_csvs(algo, stage)
+            a_s = _agg(paths, "succ")
+            a_r = _agg(paths, "rew")
+            if a_s:
+                g, m, s, k = a_s
+                n_seed = max(n_seed, k)
+                axes[0][col].plot(g, m * 100, color=color, lw=1.8, label=label)
+                axes[0][col].fill_between(g, (m - s) * 100, (m + s) * 100, color=color, alpha=0.12, linewidth=0)
+            if a_r:
+                g, m, s, _ = a_r
+                axes[1][col].plot(g, m, color=color, lw=1.5, label=label)
+                axes[1][col].fill_between(g, m - s, m + s, color=color, alpha=0.12, linewidth=0)
         axes[0][col].set_ylabel("Tỷ lệ thành công (%)" if col == 0 else "")
         axes[0][col].set_ylim(-5, 105)
         axes[0][col].set_title(title, fontsize=11)
@@ -119,9 +148,11 @@ def fig_learning_curve(out: Path) -> None:
         axes[1][col].set_xlabel("Tick môi trường tích lũy (nghìn)")
         axes[1][col].grid(alpha=0.3)
         axes[1][col].legend(fontsize=9, loc="lower right")
-    fig.suptitle("Đường cong huấn luyện — curriculum 2 giai đoạn: đối sánh MAPPO vs MAA2C (overnight 3 seed)", fontsize=13)
+    fig.suptitle("Đường cong huấn luyện — curriculum 2 giai đoạn: đối sánh MAPPO vs MAA2C "
+                 f"(trung bình {n_seed} seed, dải ±1σ)", fontsize=13)
     fig.tight_layout()
     fig.savefig(out / "fig1_learning_curve.png", dpi=300)
+    plt.close(fig)
     plt.close(fig)
 
 
